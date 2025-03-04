@@ -69,8 +69,7 @@ func serveWs(chatServer *ChatServer, w http.ResponseWriter, r *http.Request) {
 	go client.read()
 }
 
-func validateOrigin(r *http.Request, allowedOrigins []string) bool {
-	origin := r.Header.Get("Origin")
+func validateOrigin(origin string, allowedOrigins []string) bool {
 	if origin == "" {
 		return true
 	}

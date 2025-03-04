@@ -46,15 +46,23 @@ type LoginRequest struct {
 
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodOptions {
+		origin := r.Header.Get("Origin")
+		if !validateOrigin(origin, []string{"http://localhost:8000"}) {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		requestMethod := r.Header.Get("Access-Control-Request-Method")
+		if r.Method == http.MethodOptions && requestMethod != "" {
+			// preflight
+
 			h := w.Header()
-			h.Set("Access-Control-Allow-Origin", "http://localhost")
+			h.Set("Access-Control-Allow-Origin", origin)
 			h.Set("Access-Control-Allow-Headers", strings.Join([]string{"Origin", "Content-Type", "Accept"}, ","))
 			h.Set("Access-Control-Allow-Methods", strings.Join([]string{
 				http.MethodGet,
 				http.MethodPost,
 				http.MethodPut,
-				http.MethodPatch,
 				http.MethodDelete,
 				http.MethodOptions,
 			}, ","))
@@ -62,12 +70,6 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			w.WriteHeader(http.StatusNoContent)
 
 			return
-		}
-
-		if !validateOrigin(r, []string{
-			"http://localhost:8000",
-		}) {
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		}
 
 		next.ServeHTTP(w, r)
