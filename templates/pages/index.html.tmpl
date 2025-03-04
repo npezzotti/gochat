@@ -1,0 +1,15 @@
+{{ template "base" }}
+{{ define "title" }}Go Chat{{ end }}
+{{ define "content" }}
+<div class="chat-container" id="chatArea">
+  <div class="chat-header">
+    <h2>Room name</h2>
+  </div>
+  <div class="messages" id="messages">
+  </div>
+  <form class="chat-form" id="chat-form">
+    <input type="text" class="chat-input" name="msg" id="msg" placeholder="Type your message..." autofocus>
+    <button type="submit" class="send-btn" value="Submit">Send</button>
+  </form>
+</div>
+{{ end }}
