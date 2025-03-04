@@ -64,7 +64,9 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		if !validateOrigin(r.Header.Get("Origin")) {
+		if !validateOrigin(r, []string{
+			"http://localhost:8000",
+		}) {
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		}
 

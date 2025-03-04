@@ -69,13 +69,10 @@ func serveWs(chatServer *ChatServer, w http.ResponseWriter, r *http.Request) {
 	go client.read()
 }
 
-func validateOrigin(origin string) bool {
+func validateOrigin(r *http.Request, allowedOrigins []string) bool {
+	origin := r.Header.Get("Origin")
 	if origin == "" {
 		return true
-	}
-
-	allowedOrigins := []string{
-		"http://localhost:8000",
 	}
 
 	for _, allowedOrigin := range allowedOrigins {
@@ -139,9 +136,9 @@ func main() {
 		logout(w, r)
 	}))
 
-	mux.HandleFunc("/ws", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/ws", corsMiddleware(authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
 		serveWs(chatServer, w, r)
-	}))
+	})))
 
 	srv := http.Server{
 		Addr:    *addr,
