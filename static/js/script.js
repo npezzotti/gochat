@@ -1,6 +1,6 @@
 var conn
 var formMsg = document.getElementById("msg");
-const messages = document.getElementById('messages');
+const messages = document.getElementById('chat-area');
 
 const Status = {
   MessageTypeJoin: 0,
@@ -17,7 +17,7 @@ function appendMessage(item) {
   }
 }
 
-document.getElementById("chat-form").onsubmit = sendMessage
+document.getElementById("chat-input").onsubmit = sendMessage
 
 function sendMessage (e) {
   if (!conn) {

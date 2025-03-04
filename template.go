@@ -19,7 +19,6 @@ func NewTemplateCache() (map[string]*template.Template, error) {
 		name := filepath.Base(page)
 		patterns := []string{
 			"./templates/base.html.tmpl",
-			"./templates/partials/header.html.tmpl",
 			page,
 		}
 

@@ -1,15 +1,43 @@
 {{ template "base" }}
 {{ define "title" }}Go Chat{{ end }}
 {{ define "content" }}
-<div class="chat-container" id="chatArea">
-  <div class="chat-header">
-    <h2>Room name</h2>
+<body>
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>nathanp</h2>
+      <div class="dropdown">
+        <i class="fa fa-gear" style="font-size:1em;"></i>
+        <div class="dropdown-content">
+          <a id="account" href="/account/edit">Account</a>
+          <a href="/logout">Logout</a>
+        </div>
+      </div>
+    </div>
+    <div class="room">Memes</div>
+    <div class="room">Tech Talk</div>
+    <div class="room">Random</div>
   </div>
-  <div class="messages" id="messages">
+  <div class="chat-container">
+    <div class="chat-header">
+      <h2>Memes</h2>
+      <div class="dropdown">
+        <i class="fa fa-ellipsis-v" style="font-size:1em"></i>
+        <div class="dropdown-content">
+          <a href="#">Room Details</a>
+          <a href="#">Delete Room</a>
+        </div>
+      </div>
+    </div>
+    <div class="chat-area" id="chat-area">
+      <div class="chat-message"><div class="meta">User1 • 10:30 AM</div>Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello! Hello!</div>
+      <div class="chat-message user"><div class="meta">You • 10:32 AM</div>Hello!</div>
+      <div class="chat-message system"><div class="meta">10:32 AM</div>User1 left the chat.</div>
+      <div class="chat-message"><div class="meta">User2 • 10:32 AM</div>Hello!</div>
+    </div>
+    <form class="chat-input" id="chat-input">
+      <input type="text" placeholder="Type a message..." name="" id="msg" autofocus>
+      <button type="submit">Send</button>
+    </form>
   </div>
-  <form class="chat-form" id="chat-form">
-    <input type="text" class="chat-input" name="msg" id="msg" placeholder="Type your message..." autofocus>
-    <button type="submit" class="send-btn" value="Submit">Send</button>
-  </form>
-</div>
+</body>
 {{ end }}
