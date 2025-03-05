@@ -52,23 +52,21 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		h := w.Header()
+		h.Set("Access-Control-Allow-Origin", origin)
+		h.Set("Access-Control-Allow-Headers", strings.Join([]string{"Origin", "Content-Type", "Accept"}, ","))
+		h.Set("Access-Control-Allow-Methods", strings.Join([]string{
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodDelete,
+			http.MethodOptions,
+		}, ","))
+
 		requestMethod := r.Header.Get("Access-Control-Request-Method")
 		if r.Method == http.MethodOptions && requestMethod != "" {
 			// preflight
-
-			h := w.Header()
-			h.Set("Access-Control-Allow-Origin", origin)
-			h.Set("Access-Control-Allow-Headers", strings.Join([]string{"Origin", "Content-Type", "Accept"}, ","))
-			h.Set("Access-Control-Allow-Methods", strings.Join([]string{
-				http.MethodGet,
-				http.MethodPost,
-				http.MethodPut,
-				http.MethodDelete,
-				http.MethodOptions,
-			}, ","))
-
 			w.WriteHeader(http.StatusNoContent)
-
 			return
 		}
 

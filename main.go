@@ -71,7 +71,7 @@ func serveWs(chatServer *ChatServer, w http.ResponseWriter, r *http.Request) {
 
 func validateOrigin(origin string, allowedOrigins []string) bool {
 	if origin == "" {
-		return true
+		return false
 	}
 
 	for _, allowedOrigin := range allowedOrigins {
