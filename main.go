@@ -127,7 +127,11 @@ func main() {
 		editAccount(logger, w, r)
 	}))
 
-	mux.HandleFunc("/login", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /login", func(w http.ResponseWriter, r *http.Request) {
+		login(logger, w, r)
+	})
+
+	mux.HandleFunc("POST /login", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		login(logger, w, r)
 	}))
 
