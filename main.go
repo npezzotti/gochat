@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -127,11 +128,11 @@ func main() {
 		editAccount(logger, w, r)
 	}))
 
-	mux.HandleFunc("GET /login", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(fmt.Sprintf("%s /login", http.MethodGet), func(w http.ResponseWriter, r *http.Request) {
 		login(logger, w, r)
 	})
 
-	mux.HandleFunc("POST /login", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(fmt.Sprintf("%s /login", http.MethodPost), corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		login(logger, w, r)
 	}))
 
