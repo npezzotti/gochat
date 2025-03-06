@@ -251,13 +251,8 @@ func createJwtCookie(tokenString string, exp time.Duration) *http.Cookie {
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet {
-		// instruct browser to delete cookie by overwriting it with an expired token
-		http.SetCookie(w, createJwtCookie("", time.Duration(time.Unix(0, 0).Unix())))
-		http.Redirect(w, r, "/login", http.StatusFound)
-	} else {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-	}
+	// instruct browser to delete cookie by overwriting it with an expired token
+	http.SetCookie(w, createJwtCookie("", time.Duration(time.Unix(0, 0).Unix())))
 }
 
 func hashPassword(passwd string) (string, error) {

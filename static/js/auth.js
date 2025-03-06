@@ -1,4 +1,12 @@
-loginButton = document.getElementById("login-form").onsubmit = login
+var loginForm = document.getElementById("login-form")
+if (loginForm != null) {
+  loginForm.onsubmit = login
+}
+
+var logoutBtn = document.getElementById("logout-btn")
+if (logoutBtn != null) {
+  logoutBtn.onclick = logout
+}
 
 async function login(e) {
   e.preventDefault()
@@ -26,5 +34,21 @@ async function login(e) {
     }
   } catch (error) {
     errorMessage.textContent = error.message;
+  }
+}
+
+async function logout(e) {
+  console.log("Logout clicked");
+  e.preventDefault();
+  try {
+    const response = await fetch("http://localhost:8000/logout")
+    if (!response.ok) {
+      throw new Error("Logout failed")
+    }
+    
+    localStorage.removeItem("username")
+    window.location.replace('http://localhost:8000/login');
+  } catch (error) {
+    console.log(error)
   }
 }
