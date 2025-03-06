@@ -17,7 +17,7 @@ async function login(e) {
   errorMessage.textContent = '';
 
   try {
-    const response = await fetch("http://localhost:8000/login", {
+    const response = await fetch("http://" + document.location.host + "/login", {
       method: 'POST',
       headers: { 'Content-type': 'application/json' },
       body: JSON.stringify({ email, password })
@@ -40,13 +40,13 @@ async function login(e) {
 async function logout(e) {
   e.preventDefault();
   try {
-    const response = await fetch("http://localhost:8000/logout")
+    const response = await fetch("http://" + document.location.host + "/logout")
     if (!response.ok) {
       throw new Error("Logout failed")
     }
-    
+
     localStorage.removeItem("username")
-    window.location.replace('http://localhost:8000/login');
+    window.location.replace("http://" + document.location.host + "/login");
   } catch (error) {
     console.log(error)
   }
