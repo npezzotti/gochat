@@ -13,6 +13,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/websocket"
 	_ "github.com/lib/pq"
 )
@@ -70,20 +71,6 @@ func serveWs(chatServer *ChatServer, w http.ResponseWriter, r *http.Request) {
 	go client.read()
 }
 
-func validateOrigin(origin string, allowedOrigins []string) bool {
-	if origin == "" {
-		return false
-	}
-
-	for _, allowedOrigin := range allowedOrigins {
-		if origin == allowedOrigin {
-			return true
-		}
-	}
-
-	return false
-}
-
 func main() {
 	logger := log.New(os.Stderr, "", 0)
 	flag.Parse()
@@ -124,7 +111,12 @@ func main() {
 		createAccount(logger, w, r)
 	})
 
-	mux.HandleFunc("/account/edit", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/hello",
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("Hello world!"))
+		}))
+
+	mux.Handle("/account/edit", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
 		editAccount(logger, w, r)
 	}))
 
@@ -132,21 +124,29 @@ func main() {
 		login(logger, w, r)
 	})
 
-	mux.HandleFunc(fmt.Sprintf("%s /login", http.MethodPost), corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle(fmt.Sprintf("%s /login", http.MethodPost), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		login(logger, w, r)
 	}))
 
-	mux.HandleFunc("/logout", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/logout", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
 		logout(w, r)
 	}))
 
-	mux.HandleFunc("/ws", corsMiddleware(authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/ws", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
 		serveWs(chatServer, w, r)
-	})))
+	}))
+
+	h := handlers.CORS(
+		handlers.MaxAge(3600),
+		handlers.AllowedOrigins([]string{"http://localhost:8000"}),
+		handlers.AllowedMethods([]string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions}),
+		handlers.AllowedHeaders([]string{"Origin", "Content-Type", "Accept"}),
+		handlers.AllowCredentials(),
+	)(mux)
 
 	srv := http.Server{
 		Addr:    *addr,
-		Handler: mux,
+		Handler: h,
 	}
 
 	errCh := make(chan error, 1)

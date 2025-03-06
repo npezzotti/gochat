@@ -9,7 +9,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -42,36 +41,6 @@ type User struct {
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
-}
-
-func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		origin := r.Header.Get("Origin")
-		if !validateOrigin(origin, []string{"http://localhost:8000"}) {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-
-		h := w.Header()
-		h.Set("Access-Control-Allow-Origin", origin)
-		h.Set("Access-Control-Allow-Headers", strings.Join([]string{"Origin", "Content-Type", "Accept"}, ","))
-		h.Set("Access-Control-Allow-Methods", strings.Join([]string{
-			http.MethodGet,
-			http.MethodPost,
-			http.MethodPut,
-			http.MethodDelete,
-			http.MethodOptions,
-		}, ","))
-
-		requestMethod := r.Header.Get("Access-Control-Request-Method")
-		if r.Method == http.MethodOptions && requestMethod != "" {
-			// preflight
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	}
 }
 
 func authMiddleware(l *log.Logger, next http.HandlerFunc) http.HandlerFunc {
