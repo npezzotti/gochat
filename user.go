@@ -38,6 +38,12 @@ type User struct {
 	PasswordHash string
 }
 
+type UserResponse struct {
+	Id           int    `json:"id"`
+	Username     string `json:"username"`
+	EmailAddress string `json:"email_address"`
+}
+
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
@@ -213,7 +219,21 @@ func login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		}
 
 		http.SetCookie(w, createJwtCookie(token, defaultExp))
-		http.Redirect(w, r, "/", http.StatusFound)
+
+		userResp := UserResponse{
+			Id:           user.Id,
+			Username:     user.Username,
+			EmailAddress: user.EmailAddress,
+		}
+
+		userRespJSON, err := json.Marshal(userResp)
+		if err != nil {
+			l.Println("marshal user:", err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+
+		w.Write(userRespJSON)
 	} else {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 	}
