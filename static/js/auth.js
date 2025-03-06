@@ -38,7 +38,6 @@ async function login(e) {
 }
 
 async function logout(e) {
-  console.log("Logout clicked");
   e.preventDefault();
   try {
     const response = await fetch("http://localhost:8000/logout")
