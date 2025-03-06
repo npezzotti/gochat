@@ -59,6 +59,9 @@ if (window["WebSocket"]) {
           break
         case Status.MessageTypePublish:
           msg.textContent = `${renderedMessage.from}: ${renderedMessage.content}`;
+          if (renderedMessage.from === localStorage.getItem("username")) {
+            msg.classList.add("user")
+          }
       }
 
       msg.classList.add('chat-message');
