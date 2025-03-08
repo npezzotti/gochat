@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -36,6 +38,45 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+}
+
+func createRoom(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	var params CreateRoomParams
+	if err := json.Unmarshal(body, &params); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	userId, ok := r.Context().Value(userIdKey).(int)
+	if !ok {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+
+	params.OwnerId = userId
+
+	newRoom, err := CreateRoom(params)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+
+	resp, err := json.Marshal(newRoom)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(resp)
 }
 
 func serveWs(chatServer *ChatServer, w http.ResponseWriter, r *http.Request) {
@@ -111,22 +152,17 @@ func main() {
 		createAccount(logger, w, r)
 	})
 
-	mux.Handle("/hello",
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("Hello world!"))
-		}))
-
 	mux.Handle("/account/edit", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
 		editAccount(logger, w, r)
+	}))
+
+	mux.Handle("POST /room/new", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
+		createRoom(w, r)
 	}))
 
 	mux.HandleFunc(fmt.Sprintf("%s /login", http.MethodGet), func(w http.ResponseWriter, r *http.Request) {
 		login(logger, w, r)
 	})
-
-	mux.Handle(fmt.Sprintf("%s /login", http.MethodPost), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		login(logger, w, r)
-	}))
 
 	mux.Handle("/logout", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
 		logout(w, r)

@@ -2,6 +2,8 @@ package main
 
 import (
 	"time"
+
+	"github.com/npezzotti/go-chatroom/db"
 )
 
 const (
@@ -13,6 +15,8 @@ const (
 		"WHERE id = $1 LIMIT 1"
 	getAccountByEmailQuery = "SELECT id, username, email, password_hash FROM accounts " +
 		"WHERE email = $1 LIMIT 1"
+	createRoomQuery = "INSERT INTO rooms (name, description, owner_id, created_at) " +
+		"VALUES ($1, $2, $3, $4) RETURNING id, name, description, owner_id"
 )
 
 type CreateAccountParams struct {
@@ -25,6 +29,12 @@ type UpdateAccountParams struct {
 	User         User
 	Username     string
 	PasswordHash string
+}
+
+type CreateRoomParams struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	OwnerId     int    `json:"owner_id"`
 }
 
 func CreateAccount(accountParams CreateAccountParams) (User, error) {
@@ -95,4 +105,41 @@ func GetAccountByEmail(email string) (User, error) {
 	)
 
 	return user, err
+}
+
+func GetRoomByName(name string) (db.Room, error) {
+	row := DB.QueryRow(
+		"SELECT id, name FROM rooms "+
+			"WHERE name = $1 LIMIT 1",
+		name,
+	)
+
+	var room db.Room
+	err := row.Scan(
+		&room.Id,
+		&room.Name,
+	)
+
+	return room, err
+}
+
+func CreateRoom(params CreateRoomParams) (db.Room, error) {
+	res := DB.QueryRow(
+		createRoomQuery,
+		params.Name,
+		params.Description,
+		params.OwnerId,
+		time.Now(),
+	)
+
+	var room db.Room
+	err := res.Scan(
+		&room.Id,
+		&room.Name,
+		&room.Description,
+		&room.Owner,
+		&room.CreatedAt,
+	)
+
+	return room, err
 }
