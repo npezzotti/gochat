@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -160,7 +159,7 @@ func main() {
 		createRoom(w, r)
 	}))
 
-	mux.HandleFunc(fmt.Sprintf("%s /login", http.MethodGet), func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
 		login(logger, w, r)
 	})
 
