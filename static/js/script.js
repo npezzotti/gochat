@@ -19,7 +19,7 @@ function appendMessage(item) {
 
 document.getElementById("chat-input").onsubmit = sendMessage
 
-function sendMessage (e) {
+function sendMessage(e) {
   if (!conn) {
     return false;
   }
@@ -30,6 +30,7 @@ function sendMessage (e) {
 
   var msgObj = {
     type: 2,
+    room_id: 0,
     content: formMsg.value
   };
 
@@ -42,6 +43,17 @@ function sendMessage (e) {
 if (window["WebSocket"]) {
   conn = new WebSocket("ws://" + document.location.host + "/ws");
 
+  conn.onopen = function (event) {
+    console.log("WebSocket connection opened!");
+
+    var msgObj = {
+      type: 0,
+      room_id: 1
+    };
+
+    conn.send(JSON.stringify(msgObj));
+  };
+
   conn.onclose = function (evt) {
     console.log("connection closed")
   };
@@ -50,6 +62,8 @@ if (window["WebSocket"]) {
     var msgs = evt.data.split('\n');
     for (var i = 0; i < msgs.length; i++) {
       var renderedMessage = JSON.parse(msgs[i]);
+      console.log("received:" + renderedMessage)
+
       const msg = document.createElement('div');
 
       switch (renderedMessage.type) {

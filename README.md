@@ -25,13 +25,20 @@ CREATE TABLE accounts(
 
 Create User
 Login
-User requests account information
-User updates account information
+Get account information
+Update account information
 User creates a room
+User deletes a room
 
-## WS event types
+## WS client event types
 
 User subscribes to a room
-User sends a message to a room
+User unsubscribes to a room
 User leaves a room
-User deleted a room
+User publishes a message to a room
+
+## WS server event types
+
+Message published to room user to which user is subscribed
+User modified a room details
+
