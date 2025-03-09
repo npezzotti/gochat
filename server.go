@@ -24,31 +24,65 @@ func (mt MessageType) String() string {
 
 type Message struct {
 	Type    MessageType `json:"type"`
+	RoomId  int         `json:"room_id"`
 	Content string      `json:"content"`
 	From    string      `json:"from"`
+	client  *Client     `json:"-"`
 }
 
 type ChatServer struct {
 	log            *log.Logger
 	clients        map[*Client]struct{}
+	joinChan       chan *Message
 	registerChan   chan *Client
 	deRegisterChan chan *Client
 	broadcastChan  chan Message
+	rooms          map[int]*Room
 }
 
 func NewChatServer(logger *log.Logger) *ChatServer {
 	return &ChatServer{
 		log:            logger,
+		joinChan:       make(chan *Message),
 		clients:        make(map[*Client]struct{}),
 		registerChan:   make(chan *Client),
 		deRegisterChan: make(chan *Client),
 		broadcastChan:  make(chan Message),
+		rooms:          make(map[int]*Room),
 	}
 }
 
 func (cs *ChatServer) run() {
 	for {
 		select {
+		case join := <-cs.joinChan:
+			cs.log.Println("received join request")
+			if room, ok := cs.rooms[join.RoomId]; ok {
+				room.joinChan <- join
+			} else {
+				dbRoom, err := GetRoomById(join.RoomId)
+				if err != nil {
+					cs.log.Println("get room:", err)
+					continue
+				}
+
+				room := &Room{
+					Id:          dbRoom.Id,
+					Name:        dbRoom.Name,
+					Description: dbRoom.Description,
+					joinChan:    make(chan *Message),
+					leaveChan:   make(chan *Message),
+					userMsgChan: make(chan *Message),
+					clients:     make(map[*Client]struct{}),
+					log:         cs.log,
+				}
+
+				cs.rooms[room.Id] = room
+
+				go room.start()
+
+				room.joinChan <- join
+			}
 		case client := <-cs.registerChan:
 			cs.log.Printf("registering connection from %+v", client)
 			cs.broadcast(Message{

@@ -107,17 +107,18 @@ func GetAccountByEmail(email string) (User, error) {
 	return user, err
 }
 
-func GetRoomByName(name string) (db.Room, error) {
+func GetRoomById(id int) (db.Room, error) {
 	row := DB.QueryRow(
-		"SELECT id, name FROM rooms "+
-			"WHERE name = $1 LIMIT 1",
-		name,
+		"SELECT id, name, description FROM rooms "+
+			"WHERE id = $1 LIMIT 1",
+		id,
 	)
 
 	var room db.Room
 	err := row.Scan(
 		&room.Id,
 		&room.Name,
+		&room.Description,
 	)
 
 	return room, err

@@ -21,6 +21,7 @@ type Client struct {
 	log        *log.Logger
 	user       User
 	send       chan []byte
+	room       *Room
 }
 
 func NewClient(user User, conn *websocket.Conn, cs *ChatServer, l *log.Logger) *Client {
@@ -105,8 +106,30 @@ func (c *Client) read() {
 			continue
 		}
 
+		msg.client = c
 		msg.From = c.user.Username
 
-		c.chatServer.broadcastChan <- msg
+		switch msg.Type {
+		case MessageTypeJoin:
+			c.log.Println("read:", "join request")
+			c.joinRoom(&msg)
+		case MessageTypeLeave:
+			c.leaveRoom(&msg)
+		case MessageTypePublish:
+			c.room.userMsgChan <- &msg
+		}
 	}
+}
+
+func (c *Client) joinRoom(msg *Message) {
+	if c.room != nil {
+		c.leaveRoom(msg)
+	}
+
+	c.chatServer.joinChan <- msg
+}
+
+func (c *Client) leaveRoom(msg *Message) {
+	c.room.leaveChan <- msg
+	c.room = nil
 }
