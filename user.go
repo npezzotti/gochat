@@ -198,11 +198,11 @@ func login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			if err == sql.ErrNoRows {
 				http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
-				return
+			} else {
+				l.Println("get account by email:", err)
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			}
 
-			l.Println("get account by email:", err)
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 
