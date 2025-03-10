@@ -58,7 +58,11 @@ func (cs *ChatServer) run() {
 		case join := <-cs.joinChan:
 			cs.log.Println("received join request")
 			if room, ok := cs.rooms[join.RoomId]; ok {
-				room.joinChan <- join
+				select {
+				case room.joinChan <- join:
+				default:
+					cs.log.Printf("join channel full on room %d", room.Id)
+				}
 			} else {
 				dbRoom, err := GetRoomById(join.RoomId)
 				if err != nil {
@@ -70,18 +74,18 @@ func (cs *ChatServer) run() {
 					Id:            dbRoom.Id,
 					Name:          dbRoom.Name,
 					Description:   dbRoom.Description,
-					joinChan:      make(chan *Message),
-					leaveChan:     make(chan *Message),
-					clientMsgChan: make(chan *Message),
+					joinChan:      make(chan *Message, 256),
+					leaveChan:     make(chan *Message, 256),
+					clientMsgChan: make(chan *Message, 256),
 					clients:       make(map[*Client]struct{}),
 					log:           cs.log,
 				}
 
 				cs.rooms[room.Id] = room
+				room.joinChan <- join
 
 				go room.start()
 
-				room.joinChan <- join
 			}
 		case client := <-cs.registerChan:
 			cs.log.Printf("registering connection from %+v", client)

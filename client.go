@@ -128,10 +128,6 @@ func (c *Client) read() {
 }
 
 func (c *Client) joinRoom(msg *Message) {
-	if len(c.rooms) != 0 {
-		c.leaveRoom(msg)
-	}
-
 	c.chatServer.joinChan <- msg
 }
 
