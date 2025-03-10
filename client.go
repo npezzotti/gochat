@@ -122,6 +122,8 @@ func (c *Client) read() {
 			r := c.getRoom(msg.RoomId)
 			if r != nil {
 				r.clientMsgChan <- &msg
+			} else {
+				c.log.Println("user not subscribed to room")
 			}
 		}
 	}
@@ -138,6 +140,18 @@ func (c *Client) leaveRoom(msg *Message) {
 	} else {
 		c.log.Println("didn't find room")
 	}
+}
+
+func (c *Client) delRoom(id int) {
+	if r, ok := c.rooms[id]; ok {
+		delete(c.rooms, r.Id)
+		c.log.Printf("removed room %d from rooms, current rooms: %v", id, c.rooms)
+	}
+}
+
+func (c *Client) addRoom(r *Room) {
+	c.rooms[r.Id] = r
+	c.log.Printf("added client %+v to room %q, client's current rooms: %+v\n", c, r.Name, c.rooms)
 }
 
 func (c *Client) getRoom(id int) *Room {
