@@ -67,14 +67,14 @@ func (cs *ChatServer) run() {
 				}
 
 				room := &Room{
-					Id:          dbRoom.Id,
-					Name:        dbRoom.Name,
-					Description: dbRoom.Description,
-					joinChan:    make(chan *Message),
-					leaveChan:   make(chan *Message),
-					userMsgChan: make(chan *Message),
-					clients:     make(map[*Client]struct{}),
-					log:         cs.log,
+					Id:            dbRoom.Id,
+					Name:          dbRoom.Name,
+					Description:   dbRoom.Description,
+					joinChan:      make(chan *Message),
+					leaveChan:     make(chan *Message),
+					clientMsgChan: make(chan *Message),
+					clients:       make(map[*Client]struct{}),
+					log:           cs.log,
 				}
 
 				cs.rooms[room.Id] = room

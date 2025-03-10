@@ -21,7 +21,7 @@ type Client struct {
 	log        *log.Logger
 	user       User
 	send       chan []byte
-	room       *Room
+	rooms      map[int]*Room
 }
 
 func NewClient(user User, conn *websocket.Conn, cs *ChatServer, l *log.Logger) *Client {
@@ -31,6 +31,7 @@ func NewClient(user User, conn *websocket.Conn, cs *ChatServer, l *log.Logger) *
 		log:        l,
 		user:       user,
 		send:       make(chan []byte, 256),
+		rooms:      make(map[int]*Room),
 	}
 }
 
@@ -111,18 +112,23 @@ func (c *Client) read() {
 
 		switch msg.Type {
 		case MessageTypeJoin:
-			c.log.Println("read:", "join request")
+			c.log.Println("read:", "join message")
 			c.joinRoom(&msg)
 		case MessageTypeLeave:
+			c.log.Println("read:", "leave message")
 			c.leaveRoom(&msg)
 		case MessageTypePublish:
-			c.room.userMsgChan <- &msg
+			c.log.Println("read:", "publish message")
+			r := c.getRoom(msg.RoomId)
+			if r != nil {
+				r.clientMsgChan <- &msg
+			}
 		}
 	}
 }
 
 func (c *Client) joinRoom(msg *Message) {
-	if c.room != nil {
+	if len(c.rooms) != 0 {
 		c.leaveRoom(msg)
 	}
 
@@ -130,6 +136,18 @@ func (c *Client) joinRoom(msg *Message) {
 }
 
 func (c *Client) leaveRoom(msg *Message) {
-	c.room.leaveChan <- msg
-	c.room = nil
+	r := c.getRoom(msg.RoomId)
+	if r != nil {
+		r.leaveChan <- msg
+	} else {
+		c.log.Println("didn't find room")
+	}
+}
+
+func (c *Client) getRoom(id int) *Room {
+	if room, ok := c.rooms[id]; ok {
+		return room
+	}
+
+	return nil
 }

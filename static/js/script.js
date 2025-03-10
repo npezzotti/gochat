@@ -40,18 +40,33 @@ function sendMessage(e) {
   return false
 }
 
+function sleep (time) {
+  return new Promise((resolve) => setTimeout(resolve, time));
+}
+
+
 if (window["WebSocket"]) {
   conn = new WebSocket("ws://" + document.location.host + "/ws");
 
   conn.onopen = function (event) {
     console.log("WebSocket connection opened!");
 
-    var msgObj = {
+    var joinMsgObj = {
       type: 0,
       room_id: 1
     };
 
-    conn.send(JSON.stringify(msgObj));
+    conn.send(JSON.stringify(joinMsgObj));
+
+    sleep(3000).then(() => {
+      var leaveMsgObj = {
+        type: 1,
+        room_id: 1
+      };
+  
+      conn.send(JSON.stringify(leaveMsgObj));
+    })
+
   };
 
   conn.onclose = function (evt) {

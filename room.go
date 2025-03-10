@@ -7,15 +7,15 @@ import (
 )
 
 type Room struct {
-	Id          int
-	Name        string
-	Description string
-	joinChan    chan *Message
-	leaveChan   chan *Message
-	userMsgChan chan *Message
-	clients     map[*Client]struct{}
-	exit        chan struct{}
-	log         *log.Logger
+	Id            int
+	Name          string
+	Description   string
+	joinChan      chan *Message
+	leaveChan     chan *Message
+	clientMsgChan chan *Message
+	clients       map[*Client]struct{}
+	exit          chan struct{}
+	log           *log.Logger
 }
 
 func (r *Room) start() {
@@ -25,11 +25,11 @@ func (r *Room) start() {
 		case msg := <-r.joinChan:
 			r.log.Println("join msg:", msg)
 			r.clients[msg.client] = struct{}{}
-			msg.client.room = r
+			msg.client.rooms[r.Id] = r
 		case msg := <-r.leaveChan:
 			r.log.Println("leave msg:", msg)
 			delete(r.clients, msg.client)
-		case msg := <-r.userMsgChan:
+		case msg := <-r.clientMsgChan:
 			jsonMsg, err := json.Marshal(msg)
 			if err != nil {
 				r.log.Println(":", err)
