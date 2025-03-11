@@ -6,18 +6,21 @@ var currentRoom = null
 const rooms = document.querySelectorAll('div.room')
 rooms.forEach(room => {
   room.onclick = function(event) {
-    if (event.target.id === currentRoom) {
-      return
+    roomId = parseInt(event.target.id)
+    if (roomId === currentRoom) {
+      return false
     }
 
-    event.target.classList.add('active-room')
+    document.querySelectorAll(".active-room").forEach(el => el.classList.remove('active-room')); 
+
+    event.target.classList.add('active-room');
 
     if (currentRoom != null) {
       leaveRoom(currentRoom)
     }
 
     messages.replaceChildren();
-    joinRoom(parseInt(event.target.id))
+    joinRoom(roomId)
   }
 })
 
