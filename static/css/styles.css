@@ -68,7 +68,8 @@ body {
   border-radius: 5px;
 }
 
-.room:hover {
+.room:hover,
+.active-room {
   background-color: #536b84;
 }
 

@@ -2,11 +2,51 @@ var conn
 var formMsg = document.getElementById("msg");
 const messages = document.getElementById('chat-area');
 
+var currentRoom = null
+const rooms = document.querySelectorAll('div.room')
+rooms.forEach(room => {
+  room.onclick = function(event) {
+    if (event.target.id === currentRoom) {
+      return
+    }
+
+    event.target.classList.add('active-room')
+
+    if (currentRoom != null) {
+      leaveRoom(currentRoom)
+    }
+
+    messages.replaceChildren();
+    joinRoom(parseInt(event.target.id))
+  }
+})
+
 const Status = {
   MessageTypeJoin: 0,
   MessageTypeLeave: 1,
   MessageTypePublish: 2
 };
+
+function joinRoom(roomId) {
+  var msgObj = {
+    type: Status.MessageTypeJoin,
+    room_id: roomId,
+  };
+
+  conn.send(JSON.stringify(msgObj))
+  currentRoom = roomId
+}
+
+function leaveRoom(roomId) {
+  if (currentRoom != null) {
+    var msgObj = {
+      type: Status.MessageTypeLeave,
+      room_id: roomId,
+    };
+
+    conn.send(JSON.stringify(msgObj))
+  }
+}
 
 function appendMessage(item) {
   var doScroll = messages.scrollTop > messages.scrollHeight - messages.clientHeight - 1
@@ -29,8 +69,8 @@ function sendMessage(e) {
   }
 
   var msgObj = {
-    type: 2,
-    room_id: 0,
+    type: Status.MessageTypePublish,
+    room_id: currentRoom,
     content: formMsg.value
   };
 
@@ -40,33 +80,11 @@ function sendMessage(e) {
   return false
 }
 
-function sleep (time) {
-  return new Promise((resolve) => setTimeout(resolve, time));
-}
-
-
 if (window["WebSocket"]) {
   conn = new WebSocket("ws://" + document.location.host + "/ws");
 
   conn.onopen = function (event) {
     console.log("WebSocket connection opened!");
-
-    var joinMsgObj = {
-      type: 0,
-      room_id: 1
-    };
-
-    conn.send(JSON.stringify(joinMsgObj));
-
-    sleep(3000).then(() => {
-      var leaveMsgObj = {
-        type: 1,
-        room_id: 1
-      };
-  
-      conn.send(JSON.stringify(leaveMsgObj));
-    })
-
   };
 
   conn.onclose = function (evt) {
@@ -77,8 +95,6 @@ if (window["WebSocket"]) {
     var msgs = evt.data.split('\n');
     for (var i = 0; i < msgs.length; i++) {
       var renderedMessage = JSON.parse(msgs[i]);
-      console.log("received:" + renderedMessage)
-
       const msg = document.createElement('div');
 
       switch (renderedMessage.type) {
