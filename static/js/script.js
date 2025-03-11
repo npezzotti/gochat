@@ -6,7 +6,7 @@ var currentRoom = null
 const rooms = document.querySelectorAll('div.room')
 rooms.forEach(room => {
   room.onclick = function(event) {
-    roomId = parseInt(event.target.id)
+    var roomId = parseInt(event.target.id)
     if (roomId === currentRoom) {
       return false
     }
