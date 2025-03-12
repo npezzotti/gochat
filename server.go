@@ -146,6 +146,10 @@ func (cs *ChatServer) broadcast(msg Message) {
 
 func (cs *ChatServer) shutdown() {
 	cs.log.Println("received shutdown signal")
+	for c := range cs.clients {
+		close(c.stop)
+	}
+
 	close(cs.stop)
 
 	<-cs.done
