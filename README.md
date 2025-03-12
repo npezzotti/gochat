@@ -1,8 +1,6 @@
 # Todo
 
 * Timer on rooms loaded into memory
-* Locks around rooms
-* Shutdown chatserver and       rooms
 * Save messages
 * Design structure of messages (user, other users, server)
 * Confirm password in register form

@@ -78,6 +78,7 @@ func (cs *ChatServer) run() {
 					Id:            dbRoom.Id,
 					Name:          dbRoom.Name,
 					Description:   dbRoom.Description,
+					cs:            cs,
 					joinChan:      make(chan *Message, 256),
 					leaveChan:     make(chan *Message, 256),
 					clientMsgChan: make(chan *Message, 256),
@@ -125,6 +126,15 @@ func (cs *ChatServer) run() {
 			return
 		}
 	}
+}
+
+func (cs *ChatServer) unloadRoom(roomId int) {
+	if r, ok := cs.rooms[roomId]; ok {
+		cs.log.Printf("removing room %q", r.Name)
+		delete(cs.rooms, roomId)
+	}
+
+	cs.log.Printf("current rooms: %+v", cs.rooms)
 }
 
 func (cs *ChatServer) broadcast(msg Message) {
