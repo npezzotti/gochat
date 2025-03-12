@@ -211,6 +211,10 @@ func main() {
 	if err := srv.Shutdown(shutDownCtx); err != nil {
 		logger.Fatalln("shutdown:", err)
 	}
-
 	logger.Println("stopped server")
+
+	logger.Println("shutting down chat server")
+	chatServer.shutdown()
+
+	logger.Println("shutdown complete")
 }

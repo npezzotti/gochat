@@ -38,6 +38,8 @@ type ChatServer struct {
 	deRegisterChan chan *Client
 	broadcastChan  chan Message
 	rooms          map[int]*Room
+	stop           chan struct{}
+	done           chan struct{}
 }
 
 func NewChatServer(logger *log.Logger) *ChatServer {
@@ -49,6 +51,8 @@ func NewChatServer(logger *log.Logger) *ChatServer {
 		deRegisterChan: make(chan *Client),
 		broadcastChan:  make(chan Message),
 		rooms:          make(map[int]*Room),
+		stop:           make(chan struct{}),
+		done:           make(chan struct{}),
 	}
 }
 
@@ -79,6 +83,8 @@ func (cs *ChatServer) run() {
 					clientMsgChan: make(chan *Message, 256),
 					clients:       make(map[*Client]struct{}),
 					log:           cs.log,
+					exit:          make(chan struct{}),
+					done:          make(chan struct{}),
 				}
 
 				cs.rooms[room.Id] = room
@@ -106,6 +112,17 @@ func (cs *ChatServer) run() {
 			}
 		case msg := <-cs.broadcastChan:
 			cs.broadcast(msg)
+		case <-cs.stop:
+			cs.log.Println("shutting down rooms")
+			for _, r := range cs.rooms {
+				cs.log.Println("shutting down room", r.Name)
+				close(r.exit)
+
+				<-r.done
+			}
+
+			close(cs.done)
+			return
 		}
 	}
 }
@@ -125,4 +142,11 @@ func (cs *ChatServer) broadcast(msg Message) {
 			cs.log.Println("default")
 		}
 	}
+}
+
+func (cs *ChatServer) shutdown() {
+	cs.log.Println("received shutdown signal")
+	close(cs.stop)
+
+	<-cs.done
 }

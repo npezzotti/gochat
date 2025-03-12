@@ -1,12 +1,15 @@
 # Todo
 
+* Timer on rooms loaded into memory
+* Locks around rooms
+* Shutdown chatserver and       rooms
+* Save messages
 * Design structure of messages (user, other users, server)
-* Remove header, refactor design to be only chat box with side panel containing list of rooms
 * Confirm password in register form
 * Server and client side Form validation
 
 ## Nice to have
-* Multiple different chatrooms
+
 * Upload files- will require separate API endpoint, local storage, and updating structure of chat message type
 
 ## Postgres init

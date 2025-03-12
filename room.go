@@ -15,10 +15,15 @@ type Room struct {
 	clientMsgChan chan *Message
 	clients       map[*Client]struct{}
 	exit          chan struct{}
+	done          chan struct{}
 	log           *log.Logger
 }
 
 func (r *Room) start() {
+	defer func() {
+		r.log.Println("room exiting")
+	}()
+
 	r.log.Printf("starting room %q", r.Name)
 	for {
 		select {
@@ -33,12 +38,17 @@ func (r *Room) start() {
 		case msg := <-r.clientMsgChan:
 			r.broadcast(msg)
 		case <-r.exit:
-			r.log.Println("exiting")
+			for c := range r.clients {
+				c.delRoom(r.Id)
+			}
+
+			close(r.done)
+			return
 		}
 	}
 }
 
-func (r Room) broadcast(msg *Message) {
+func (r *Room) broadcast(msg *Message) {
 	jsonMsg, err := json.Marshal(msg)
 	if err != nil {
 		r.log.Println(":", err)

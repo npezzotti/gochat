@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -22,6 +23,8 @@ type Client struct {
 	user       User
 	send       chan []byte
 	rooms      map[int]*Room
+	roomsLock  sync.RWMutex
+	stop       chan struct{}
 }
 
 func NewClient(user User, conn *websocket.Conn, cs *ChatServer, l *log.Logger) *Client {
@@ -32,6 +35,7 @@ func NewClient(user User, conn *websocket.Conn, cs *ChatServer, l *log.Logger) *
 		user:       user,
 		send:       make(chan []byte, 256),
 		rooms:      make(map[int]*Room),
+		stop:       make(chan struct{}),
 	}
 }
 
@@ -72,6 +76,9 @@ func (c *Client) write() {
 				c.log.Println("close writer:", err)
 				return
 			}
+		case <-c.stop:
+			c.log.Println("stopping client")
+			return
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
@@ -143,6 +150,9 @@ func (c *Client) leaveRoom(msg *Message) {
 }
 
 func (c *Client) delRoom(id int) {
+	c.roomsLock.Lock()
+	defer c.roomsLock.Unlock()
+
 	if r, ok := c.rooms[id]; ok {
 		delete(c.rooms, r.Id)
 		c.log.Printf("removed room %d from rooms, current rooms: %v", id, c.rooms)
@@ -150,6 +160,9 @@ func (c *Client) delRoom(id int) {
 }
 
 func (c *Client) addRoom(r *Room) {
+	c.roomsLock.Lock()
+	defer c.roomsLock.Unlock()
+
 	c.rooms[r.Id] = r
 	c.log.Printf("added client %+v to room %q, client's current rooms: %+v\n", c, r.Name, c.rooms)
 }
