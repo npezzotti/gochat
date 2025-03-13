@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 )
 
@@ -96,19 +95,11 @@ func (cs *ChatServer) run() {
 			}
 		case client := <-cs.registerChan:
 			cs.log.Printf("registering connection from %+v", client)
-			cs.broadcast(Message{
-				Type:    MessageTypeJoin,
-				Content: fmt.Sprintf("%s has joined the chat.", client.user.Username),
-			})
 			cs.clients[client] = struct{}{}
 		case client := <-cs.deRegisterChan:
 			cs.log.Printf("deregistering connection from %+v", client)
 			if _, ok := cs.clients[client]; ok {
 				delete(cs.clients, client)
-				cs.broadcast(Message{
-					Type:    MessageTypeLeave,
-					Content: fmt.Sprintf("%s has left the chat.", client.user.Username),
-				})
 				close(client.send)
 			}
 		case msg := <-cs.broadcastChan:
