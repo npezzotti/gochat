@@ -91,8 +91,8 @@ func (c *Client) write() {
 
 func (c *Client) read() {
 	defer func() {
-		c.chatServer.deRegisterChan <- c
 		c.conn.Close()
+		c.cleanup()
 	}()
 
 	c.conn.SetReadLimit(maxMessageSize)
@@ -136,6 +136,20 @@ func (c *Client) read() {
 	}
 }
 
+func (c *Client) cleanup() {
+	c.chatServer.deRegisterChan <- c
+	c.leaveAllRooms()
+}
+
+func (c *Client) leaveAllRooms() {
+	c.roomsLock.Lock()
+	defer c.roomsLock.Unlock()
+
+	for _, room := range c.rooms {
+		room.leaveChan <- c
+	}
+}
+
 func (c *Client) joinRoom(msg *Message) {
 	c.chatServer.joinChan <- msg
 }
@@ -143,7 +157,7 @@ func (c *Client) joinRoom(msg *Message) {
 func (c *Client) leaveRoom(msg *Message) {
 	r := c.getRoom(msg.RoomId)
 	if r != nil {
-		r.leaveChan <- msg
+		r.leaveChan <- c
 	} else {
 		c.log.Println("didn't find room")
 	}

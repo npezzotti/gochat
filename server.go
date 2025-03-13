@@ -62,7 +62,7 @@ func (cs *ChatServer) run() {
 			cs.log.Println("received join request")
 			if room, ok := cs.rooms[join.RoomId]; ok {
 				select {
-				case room.joinChan <- join:
+				case room.joinChan <- join.client:
 				default:
 					cs.log.Printf("join channel full on room %d", room.Id)
 				}
@@ -78,8 +78,8 @@ func (cs *ChatServer) run() {
 					Name:          dbRoom.Name,
 					Description:   dbRoom.Description,
 					cs:            cs,
-					joinChan:      make(chan *Message, 256),
-					leaveChan:     make(chan *Message, 256),
+					joinChan:      make(chan *Client, 256),
+					leaveChan:     make(chan *Client, 256),
 					clientMsgChan: make(chan *Message, 256),
 					clients:       make(map[*Client]struct{}),
 					log:           cs.log,
@@ -88,16 +88,16 @@ func (cs *ChatServer) run() {
 				}
 
 				cs.rooms[room.Id] = room
-				room.joinChan <- join
+				room.joinChan <- join.client
 
 				go room.start()
 
 			}
 		case client := <-cs.registerChan:
-			cs.log.Printf("registering connection from %+v", client)
+			cs.log.Printf("registering connection from %q", client.user.Username)
 			cs.clients[client] = struct{}{}
 		case client := <-cs.deRegisterChan:
-			cs.log.Printf("deregistering connection from %+v", client)
+			cs.log.Printf("deregistering connection from %q", client.user.Username)
 			if _, ok := cs.clients[client]; ok {
 				delete(cs.clients, client)
 				close(client.send)
@@ -125,7 +125,7 @@ func (cs *ChatServer) unloadRoom(roomId int) {
 		delete(cs.rooms, roomId)
 	}
 
-	cs.log.Printf("current rooms: %+v", cs.rooms)
+	cs.log.Printf("current rooms: %v", cs.rooms)
 }
 
 func (cs *ChatServer) broadcast(msg Message) {

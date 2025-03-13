@@ -1,6 +1,6 @@
 # Todo
 
-* Timer on rooms loaded into memory
+* Persist subscriptions in database
 * Save messages
 * Design structure of messages (user, other users, server)
 * Confirm password in register form
