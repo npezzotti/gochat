@@ -2,6 +2,11 @@ var conn
 var formMsg = document.getElementById("msg");
 const messages = document.getElementById('chat-area');
 
+document.getElementById('leaveRoomBtn').onclick = function(event) {
+  leaveRoom(currentRoom, true);
+  messages.replaceChildren();
+}
+
 var currentRoom = null
 const rooms = document.querySelectorAll('div.room')
 rooms.forEach(room => {
@@ -16,7 +21,7 @@ rooms.forEach(room => {
     event.target.classList.add('active-room');
 
     if (currentRoom != null) {
-      leaveRoom(currentRoom)
+      leaveRoom(currentRoom, false)
     }
 
     messages.replaceChildren();
@@ -40,11 +45,12 @@ function joinRoom(roomId) {
   currentRoom = roomId
 }
 
-function leaveRoom(roomId) {
+function leaveRoom(roomId, unsub) {
   if (currentRoom != null) {
     var msgObj = {
       type: Status.MessageTypeLeave,
       room_id: roomId,
+      unsub: unsub
     };
 
     conn.send(JSON.stringify(msgObj))

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,13 +11,18 @@ import (
 
 var idleRoomTimeout = time.Second * 5
 
+type leaveReq struct {
+	c     *Client
+	unSub bool
+}
+
 type Room struct {
 	Id            int
 	Name          string
 	Description   string
 	cs            *ChatServer
 	joinChan      chan *Client
-	leaveChan     chan *Client
+	leaveChan     chan leaveReq
 	clientMsgChan chan *Message
 	clients       map[*Client]struct{}
 	clientLock    sync.RWMutex
@@ -39,15 +45,48 @@ func (r *Room) start() {
 	for {
 		select {
 		case c := <-r.joinChan:
+			_, err := GetSubscription(c.user.Id, r.Id)
+			if err != nil {
+				r.log.Println("couldn't find subscription, creating it")
+				if err == sql.ErrNoRows {
+					_, err := CreateSubscription(CreateSubscriptionParams{
+						user: &c.user,
+						room: r,
+					})
+					if err != nil {
+						r.log.Println("CreateSubscription:", err)
+						continue
+					}
+				} else {
+					r.log.Println("GetSubscription:", err)
+					continue
+				}
+			}
+
 			r.addClient(c)
-		case c := <-r.leaveChan:
-			r.removeClient(c)
-			c.delRoom(r.Id)
+		case leave := <-r.leaveChan:
+			if leave.unSub {
+				r.log.Printf("unscribing user %q from room %q", leave.c.user.Username, r.Name)
+				sub, err := GetSubscription(leave.c.user.Id, r.Id)
+				if err != nil {
+					r.log.Println("GetSubscription:", err)
+					continue
+				}
+
+				if err := DeleteSubscription(sub.Id); err != nil {
+					r.log.Println("DeleteSubscription", err)
+					continue
+				}
+			}
+
+			r.removeClient(leave.c)
+			leave.c.delRoom(r.Id)
 
 			if len(r.clients) == 0 {
 				r.log.Printf("no clients in %q, starting kill timer", r.Name)
 				r.killTimer.Reset(idleRoomTimeout)
 			}
+
 		case msg := <-r.clientMsgChan:
 			r.broadcast(msg)
 		case <-r.killTimer.C:

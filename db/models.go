@@ -8,7 +8,7 @@ type Room struct {
 	Name        string
 	Description string
 	CreatedAt   time.Time
-	UpdatedAt    time.Time
+	UpdatedAt   time.Time
 }
 
 type User struct {
@@ -18,4 +18,10 @@ type User struct {
 	PasswordHash string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+}
+
+type Subscription struct {
+	Id        int
+	AccountId int
+	RoomId    int
 }

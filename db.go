@@ -17,6 +17,9 @@ const (
 		"WHERE email = $1 LIMIT 1"
 	createRoomQuery = "INSERT INTO rooms (name, description, owner_id, created_at) " +
 		"VALUES ($1, $2, $3, $4) RETURNING id, name, description, owner_id"
+	createSubQuery = "INSERT INTO subscriptions (account_id, room_id, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING id, account_id, room_id"
+	getSubQuery    = "SELECT id, account_id, room_id FROM subscriptions WHERE account_id = $1 AND room_id = $2"
+	deleteSubQuery = "DELETE FROM subscriptions WHERE id = $1"
 )
 
 type CreateAccountParams struct {
@@ -140,7 +143,53 @@ func CreateRoom(params CreateRoomParams) (db.Room, error) {
 		&room.Description,
 		&room.Owner,
 		&room.CreatedAt,
+		&room.UpdatedAt,
 	)
 
 	return room, err
+}
+
+func CreateSubscription(params CreateSubscriptionParams) (db.Subscription, error) {
+	res := DB.QueryRow(
+		createSubQuery,
+		params.user.Id,
+		params.room.Id,
+		time.Now(),
+		time.Now(),
+	)
+
+	var sub db.Subscription
+	err := res.Scan(
+		&sub.Id,
+		&sub.AccountId,
+		&sub.RoomId,
+	)
+
+	return sub, err
+}
+
+func GetSubscription(account_id, room_id int) (db.Subscription, error) {
+	res := DB.QueryRow(
+		getSubQuery,
+		account_id,
+		room_id,
+	)
+
+	var sub db.Subscription
+	err := res.Scan(
+		&sub.Id,
+		&sub.AccountId,
+		&sub.RoomId,
+	)
+
+	return sub, err
+}
+
+func DeleteSubscription(id int) error {
+	_, err := DB.Exec(
+		deleteSubQuery,
+		id,
+	)
+
+	return err
 }

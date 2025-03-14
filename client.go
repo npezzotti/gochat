@@ -146,7 +146,7 @@ func (c *Client) leaveAllRooms() {
 	defer c.roomsLock.Unlock()
 
 	for _, room := range c.rooms {
-		room.leaveChan <- c
+		room.leaveChan <- leaveReq{c: c}
 	}
 }
 
@@ -157,7 +157,7 @@ func (c *Client) joinRoom(msg *Message) {
 func (c *Client) leaveRoom(msg *Message) {
 	r := c.getRoom(msg.RoomId)
 	if r != nil {
-		r.leaveChan <- c
+		r.leaveChan <- leaveReq{c: c, unSub: msg.Unsub}
 	} else {
 		c.log.Println("didn't find room")
 	}
