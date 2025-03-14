@@ -19,6 +19,7 @@ const (
 		"VALUES ($1, $2, $3, $4) RETURNING id, name, description, owner_id"
 	createSubQuery = "INSERT INTO subscriptions (account_id, room_id, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING id, account_id, room_id"
 	getSubQuery    = "SELECT id, account_id, room_id FROM subscriptions WHERE account_id = $1 AND room_id = $2"
+	listSubQuery   = "SELECT r.id, r.name, r.description FROM subscriptions s JOIN rooms r ON r.id = s.room_id WHERE s.account_id = $1"
 	deleteSubQuery = "DELETE FROM subscriptions WHERE id = $1"
 )
 
@@ -183,6 +184,28 @@ func GetSubscription(account_id, room_id int) (db.Subscription, error) {
 	)
 
 	return sub, err
+}
+
+func ListSubscriptions(account_id int) ([]db.Room, error) {
+	rows, err := DB.Query(
+		listSubQuery,
+		account_id,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var rooms []db.Room
+	for rows.Next() {
+		var room db.Room
+		if err = rows.Scan(&room.Id, &room.Name, &room.Description); err != nil {
+			break
+		}
+
+		rooms = append(rooms, room)
+	}
+	return rooms, err
 }
 
 func DeleteSubscription(id int) error {

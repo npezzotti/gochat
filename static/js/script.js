@@ -8,32 +8,59 @@ document.getElementById('leaveRoomBtn').onclick = function(event) {
 }
 
 var currentRoom = null
-const rooms = document.querySelectorAll('div.room')
-rooms.forEach(room => {
-  room.onclick = function(event) {
-    var roomId = parseInt(event.target.id)
-    if (roomId === currentRoom) {
-      return false
-    }
-
-    document.querySelectorAll(".active-room").forEach(el => el.classList.remove('active-room')); 
-
-    event.target.classList.add('active-room');
-
-    if (currentRoom != null) {
-      leaveRoom(currentRoom, false)
-    }
-
-    messages.replaceChildren();
-    joinRoom(roomId)
-  }
-})
 
 const Status = {
   MessageTypeJoin: 0,
   MessageTypeLeave: 1,
   MessageTypePublish: 2
 };
+
+async function listRooms() {
+  try {
+    const response = await fetch("http://" + document.location.host + "/rooms", {
+      method: 'GET',
+      headers: { 'Content-type': 'application/json' },
+    })
+
+    const res = await response.json()
+    if (response.status !== 200) {
+      throw new Error(res.error || "Login failed")
+    }
+
+    let roomList = document.getElementById('room-list')
+
+    res.forEach(room => {
+      const roomDiv = document.createElement('div');
+      roomDiv.classList.add('room')
+      roomDiv.id = room.id
+      roomDiv.textContent = room.name
+      roomDiv.onclick = activateRoom
+      roomList.appendChild(roomDiv)
+    })
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+function activateRoom(event) {
+  var roomId = parseInt(event.target.id)
+  if (roomId === currentRoom) {
+    return false
+  }
+
+  document.querySelectorAll(".active-room").forEach(el => el.classList.remove('active-room')); 
+
+  event.target.classList.add('active-room');
+
+  if (currentRoom != null) {
+    leaveRoom(currentRoom, false)
+  }
+
+  messages.replaceChildren();
+  joinRoom(roomId)
+}
+
+listRooms()
 
 function joinRoom(roomId) {
   var msgObj = {

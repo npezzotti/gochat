@@ -17,9 +17,9 @@ type leaveReq struct {
 }
 
 type Room struct {
-	Id            int
-	Name          string
-	Description   string
+	Id            int    `json:"id"`
+	Name          string `json:"name"`
+	Description   string `json:"description"`
 	cs            *ChatServer
 	joinChan      chan *Client
 	leaveChan     chan leaveReq

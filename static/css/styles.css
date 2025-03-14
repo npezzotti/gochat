@@ -60,6 +60,10 @@ body {
   display: block;
 }
 
+.room-list {
+  margin: 3px, 0;
+}
+
 .room {
   padding: 1em;
   margin: 5px 0;

@@ -78,6 +78,37 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
+func getSubs(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value(userIdKey).(int)
+	if !ok {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+
+	dbRooms, err := ListSubscriptions(userId)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var rooms []Room
+	for _, dbRoom := range dbRooms {
+		rooms = append(rooms, Room{
+			Id:          dbRoom.Id,
+			Name:        dbRoom.Name,
+			Description: dbRoom.Description,
+		})
+	}
+
+	resp, err := json.Marshal(rooms)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(resp)
+}
+
 func serveWs(chatServer *ChatServer, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -157,6 +188,10 @@ func main() {
 
 	mux.Handle("POST /room/new", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
 		createRoom(w, r)
+	}))
+
+	mux.Handle("GET /rooms", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
+		getSubs(w, r)
 	}))
 
 	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
