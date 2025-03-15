@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"text/template"
 	"time"
@@ -76,6 +77,28 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write(resp)
+}
+
+func deleteRoom(w http.ResponseWriter, r *http.Request) {
+	roomIdStr := r.URL.Query().Get("id")
+	if roomIdStr == "" {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	roomId, err := strconv.Atoi(roomIdStr)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	err = DeleteRoom(roomId)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func getSubs(w http.ResponseWriter, r *http.Request) {
@@ -188,6 +211,10 @@ func main() {
 
 	mux.Handle("POST /room/new", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
 		createRoom(w, r)
+	}))
+
+	mux.Handle("GET /room/delete", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
+		deleteRoom(w, r)
 	}))
 
 	mux.Handle("GET /rooms", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
