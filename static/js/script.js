@@ -28,6 +28,7 @@ async function listRooms() {
     }
 
     let roomList = document.getElementById('room-list')
+    roomList.replaceChildren()
 
     res.forEach(room => {
       const roomDiv = document.createElement('div');
@@ -116,15 +117,72 @@ function sendMessage(e) {
   return false
 }
 
+async function createRoom() {
+  try {
+    const response = await fetch("http://" + document.location.host + "/room/new", {
+      method: 'POST',
+      headers: { 'Content-type': 'application/json' },
+      body: JSON.stringify({ name: "example", description: "example description"})
+    })
+  
+    let res = await response.json()
+    if (response.status !== 201) {
+      throw new Error(res.error)
+    }
+
+    joinRoom(res.id)
+    
+    setTimeout(() => {
+      listRooms()
+
+      setTimeout(() => {
+        leaveRoom(res.id, true)
+
+        setTimeout(() => {
+          deleteRoom(res.id)
+
+          setTimeout(() => {
+            listRooms()
+          }, 2000)
+        }, 2000)
+      },2000)
+    }, 2000)
+  } catch (err) {
+    console.log(err)
+  }
+}
+
+
+async function deleteRoom(id) {
+  try {
+    const response = await fetch("http://" + document.location.host + `/room/delete?id=${id}`, {
+      method: 'GET',
+    })
+  
+    res = await response.json()
+    if (response.status !== 204) {
+      throw new Error(res.error)
+    }
+  } catch (err) {
+    console.log(err)
+  }
+}
+
+
+
 if (window["WebSocket"]) {
   conn = new WebSocket("ws://" + document.location.host + "/ws");
 
   conn.onopen = function (event) {
-    console.log("WebSocket connection opened!");
+    console.log("WebSocket connection opened");
+
+    setTimeout(() => {
+      createRoom()
+    }, 3000)
   };
 
   conn.onclose = function (evt) {
-    console.log("connection closed")
+    console.log("WebSocket connection closed")
   };
 
   conn.onmessage = function (evt) {

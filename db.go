@@ -15,8 +15,8 @@ const (
 		"WHERE id = $1 LIMIT 1"
 	getAccountByEmailQuery = "SELECT id, username, email, password_hash FROM accounts " +
 		"WHERE email = $1 LIMIT 1"
-	createRoomQuery = "INSERT INTO rooms (name, description, owner_id, created_at) " +
-		"VALUES ($1, $2, $3, $4) RETURNING id, name, description, owner_id"
+	createRoomQuery = "INSERT INTO rooms (name, description, owner_id, created_at, updated_at) " +
+		"VALUES ($1, $2, $3, $4, $5) RETURNING id, name, description, owner_id, created_at, updated_at"
 	deleteRoomQuery = "DELETE FROM rooms WHERE id = $1"
 	createSubQuery  = "INSERT INTO subscriptions (account_id, room_id, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING id, account_id, room_id"
 	getSubQuery     = "SELECT id, account_id, room_id FROM subscriptions WHERE account_id = $1 AND room_id = $2"
@@ -39,7 +39,7 @@ type UpdateAccountParams struct {
 type CreateRoomParams struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	OwnerId     int    `json:"owner_id"`
+	OwnerId     int    `json:"-"`
 }
 
 func CreateAccount(accountParams CreateAccountParams) (User, error) {
@@ -136,6 +136,7 @@ func CreateRoom(params CreateRoomParams) (db.Room, error) {
 		params.Description,
 		params.OwnerId,
 		time.Now(),
+		time.Now(),
 	)
 
 	var room db.Room
@@ -143,7 +144,7 @@ func CreateRoom(params CreateRoomParams) (db.Room, error) {
 		&room.Id,
 		&room.Name,
 		&room.Description,
-		&room.Owner,
+		&room.OwnerId,
 		&room.CreatedAt,
 		&room.UpdatedAt,
 	)

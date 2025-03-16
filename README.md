@@ -1,11 +1,5 @@
 # Todo
 
-* Persist subscriptions in database
-* * Add table for subscriptions
-* * * Create sub, delete sub, get subs
-* * Add API to list rooms and room subscriptions
-* * Implement usage of API in front end
-* * Implement leave room functionality in websocket messages
 * Save messages
 * Design structure of messages (user, other users, server)
 * Confirm password in register form

@@ -4,7 +4,7 @@ import "time"
 
 type Room struct {
 	Id          int
-	Owner       User
+	OwnerId     int
 	Name        string
 	Description string
 	CreatedAt   time.Time

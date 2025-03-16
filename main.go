@@ -43,14 +43,14 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 func createRoom(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "read: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
 
 	var params CreateRoomParams
 	if err := json.Unmarshal(body, &params); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "unmarshal json: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -64,15 +64,21 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 
 	newRoom, err := CreateRoom(params)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "CreateRoom"+err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	room := &Room{
+		Id:          newRoom.Id,
+		Name:        newRoom.Name,
+		Description: newRoom.Description,
 	}
 
 	w.WriteHeader(http.StatusCreated)
 
-	resp, err := json.Marshal(newRoom)
+	resp, err := json.Marshal(room)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "marshal json: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
