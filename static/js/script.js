@@ -2,9 +2,14 @@ var conn
 var formMsg = document.getElementById("msg");
 const messages = document.getElementById('chat-area');
 
-document.getElementById('leaveRoomBtn').onclick = function(event) {
+document.getElementById('leaveRoomBtn').onclick = function (event) {
   leaveRoom(currentRoom, true);
   messages.replaceChildren();
+}
+
+document.getElementById('deleteRoomBtn').onclick = function (event) {
+  deleteRoom(currentRoom)
+  removeRoom(currentRoom)
 }
 
 var currentRoom = null
@@ -12,7 +17,8 @@ var currentRoom = null
 const Status = {
   MessageTypeJoin: 0,
   MessageTypeLeave: 1,
-  MessageTypePublish: 2
+  MessageTypePublish: 2,
+  MessageTypeRoomDeleted: 3
 };
 
 async function listRooms() {
@@ -31,12 +37,7 @@ async function listRooms() {
     roomList.replaceChildren()
 
     res.forEach(room => {
-      const roomDiv = document.createElement('div');
-      roomDiv.classList.add('room')
-      roomDiv.id = room.id
-      roomDiv.textContent = room.name
-      roomDiv.onclick = activateRoom
-      roomList.appendChild(roomDiv)
+      addRoom(room)
     })
   } catch (error) {
     console.log(error)
@@ -44,20 +45,28 @@ async function listRooms() {
 }
 
 function activateRoom(event) {
-  var roomId = parseInt(event.target.id)
+  var roomId = parseInt(event.target.id.replace("room-", ""))
   if (roomId === currentRoom) {
     return false
   }
 
-  document.querySelectorAll(".active-room").forEach(el => el.classList.remove('active-room')); 
+  switchRoom(roomId)
+  renderNewRoom(roomId)
+}
 
-  event.target.classList.add('active-room');
+function renderNewRoom(roomId) {
+  document.querySelectorAll(".active-room").forEach(el => el.classList.remove('active-room'));
+  let roomList = document.getElementById('room-list')
+  let roomDiv = roomList.querySelector(`#room-${roomId}`)
+  roomDiv.classList.add('active-room');
+  messages.replaceChildren();
+}
 
+function switchRoom(roomId) {
   if (currentRoom != null) {
     leaveRoom(currentRoom, false)
   }
 
-  messages.replaceChildren();
   joinRoom(roomId)
 }
 
@@ -122,44 +131,43 @@ async function createRoom() {
     const response = await fetch("http://" + document.location.host + "/room/new", {
       method: 'POST',
       headers: { 'Content-type': 'application/json' },
-      body: JSON.stringify({ name: "example", description: "example description"})
+      body: JSON.stringify({ name: "example", description: "example description" })
     })
-  
-    let res = await response.json()
+
+    let room = await response.json()
     if (response.status !== 201) {
-      throw new Error(res.error)
+      throw new Error(room.error)
     }
 
-    joinRoom(res.id)
-    
-    setTimeout(() => {
-      listRooms()
-
-      setTimeout(() => {
-        leaveRoom(res.id, true)
-
-        setTimeout(() => {
-          deleteRoom(res.id)
-
-          setTimeout(() => {
-            listRooms()
-          }, 2000)
-        }, 2000)
-      },2000)
-    }, 2000)
+    addRoom(room)
+    switchRoom(room.id)
+    renderNewRoom(room.id)
   } catch (err) {
     console.log(err)
   }
 }
 
+function removeRoom(roomId) {
+  let roomList = document.getElementById('room-list')
+  roomList.querySelector(`#room-${roomId}`).remove()
+}
+
+function addRoom(room) {
+  let roomList = document.getElementById('room-list')
+  const roomDiv = document.createElement('div');
+  roomDiv.classList.add('room')
+  roomDiv.id = `room-${room.id}`
+  roomDiv.textContent = room.name
+  roomDiv.onclick = activateRoom
+  roomList.appendChild(roomDiv)
+}
 
 async function deleteRoom(id) {
   try {
     const response = await fetch("http://" + document.location.host + `/room/delete?id=${id}`, {
       method: 'GET',
     })
-  
-    res = await response.json()
+
     if (response.status !== 204) {
       throw new Error(res.error)
     }
@@ -201,6 +209,8 @@ if (window["WebSocket"]) {
           if (renderedMessage.from === localStorage.getItem("username")) {
             msg.classList.add("user")
           }
+        case Status.MessageTypeRoomDeleted:
+
       }
 
       msg.classList.add('chat-message');

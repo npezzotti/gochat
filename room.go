@@ -16,6 +16,10 @@ type leaveReq struct {
 	unSub bool
 }
 
+type exitReq struct {
+	deleted bool
+}
+
 type Room struct {
 	Id            int    `json:"id"`
 	Name          string `json:"name"`
@@ -26,7 +30,7 @@ type Room struct {
 	clientMsgChan chan *Message
 	clients       map[*Client]struct{}
 	clientLock    sync.RWMutex
-	exit          chan struct{}
+	exit          chan exitReq
 	done          chan struct{}
 	log           *log.Logger
 	killTimer     *time.Timer
@@ -92,7 +96,11 @@ func (r *Room) start() {
 		case <-r.killTimer.C:
 			r.log.Printf("room %q timed out", r.Name)
 			r.cs.unloadRoom(r.Id)
-		case <-r.exit:
+		case e := <-r.exit:
+			if e.deleted {
+				r.notifyDeleted()
+			}
+
 			for c := range r.clients {
 				c.delRoom(r.Id)
 			}
@@ -138,4 +146,13 @@ func (r *Room) broadcast(msg *Message) {
 			r.log.Println("default")
 		}
 	}
+}
+
+func (r *Room) notifyDeleted() {
+	msg := &Message{
+		Type:   MessageTypeRoomDeleted,
+		RoomId: r.Id,
+	}
+
+	r.broadcast(msg)
 }

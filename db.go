@@ -153,9 +153,27 @@ func CreateRoom(params CreateRoomParams) (db.Room, error) {
 }
 
 func DeleteRoom(id int) error {
-	_, err := DB.Exec(deleteRoomQuery, id)
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
 
-	return err
+	_, err = tx.Exec("DELETE FROM subscriptions WHERE room_id = $1", id)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(deleteRoomQuery, id)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func CreateSubscription(params CreateSubscriptionParams) (db.Subscription, error) {

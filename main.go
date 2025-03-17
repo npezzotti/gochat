@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -64,7 +65,7 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 
 	newRoom, err := CreateRoom(params)
 	if err != nil {
-		http.Error(w, "CreateRoom"+err.Error(), http.StatusBadRequest)
+		http.Error(w, "CreateRoom: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -85,7 +86,7 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
-func deleteRoom(w http.ResponseWriter, r *http.Request) {
+func deleteRoom(cs *ChatServer, w http.ResponseWriter, r *http.Request) {
 	roomIdStr := r.URL.Query().Get("id")
 	if roomIdStr == "" {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -103,6 +104,11 @@ func deleteRoom(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	fmt.Println("deleted the room")
+	cs.rmRoom <- roomId
+
+	fmt.Println("done")
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -220,7 +226,7 @@ func main() {
 	}))
 
 	mux.Handle("GET /room/delete", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
-		deleteRoom(w, r)
+		deleteRoom(chatServer, w, r)
 	}))
 
 	mux.Handle("GET /rooms", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {

@@ -11,6 +11,7 @@ const (
 	MessageTypeJoin MessageType = iota
 	MessageTypeLeave
 	MessageTypePublish
+	MessageTypeRoomDeleted
 )
 
 func (mt MessageType) String() string {
@@ -37,6 +38,7 @@ type ChatServer struct {
 	registerChan   chan *Client
 	deRegisterChan chan *Client
 	broadcastChan  chan Message
+	rmRoom         chan int
 	rooms          map[int]*Room
 	stop           chan struct{}
 	done           chan struct{}
@@ -50,6 +52,7 @@ func NewChatServer(logger *log.Logger) *ChatServer {
 		registerChan:   make(chan *Client),
 		deRegisterChan: make(chan *Client),
 		broadcastChan:  make(chan Message),
+		rmRoom:         make(chan int),
 		rooms:          make(map[int]*Room),
 		stop:           make(chan struct{}),
 		done:           make(chan struct{}),
@@ -84,7 +87,7 @@ func (cs *ChatServer) run() {
 					clientMsgChan: make(chan *Message, 256),
 					clients:       make(map[*Client]struct{}),
 					log:           cs.log,
-					exit:          make(chan struct{}),
+					exit:          make(chan exitReq),
 					done:          make(chan struct{}),
 				}
 
@@ -105,6 +108,21 @@ func (cs *ChatServer) run() {
 			}
 		case msg := <-cs.broadcastChan:
 			cs.broadcast(msg)
+		case id := <-cs.rmRoom:
+			r, ok := cs.rooms[id]
+			if !ok {
+				cs.log.Printf("room %d not found", r.Id)
+				continue
+			}
+
+			if err := DeleteRoom(r.Id); err != nil {
+				cs.log.Println("DeleteRoom:", err)
+				continue
+			}
+
+			cs.unloadRoom(r.Id)
+			r.exit <- exitReq{deleted: true}
+			<-r.done
 		case <-cs.stop:
 			cs.log.Println("shutting down rooms")
 			for _, r := range cs.rooms {
