@@ -2,7 +2,7 @@ var conn
 var formMsg = document.getElementById("msg");
 const messages = document.getElementById('chat-area');
 const roomList = document.getElementById('room-list')
-var currentRoom = null
+var currentRoom
 
 document.getElementById('leaveRoomBtn').onclick = function (event) {
   leaveRoom(currentRoom, true);
@@ -146,7 +146,10 @@ async function createRoom() {
 }
 
 function removeRoom(roomId) {
-  roomList.querySelector(`#room-${roomId}`).remove()
+  let roomDiv = roomList.querySelector(`#room-${roomId}`)
+  if (roomDiv) {
+    roomDiv.remove()
+  }
 }
 
 function addRoom(room) {
@@ -175,7 +178,7 @@ async function deleteRoom(id) {
   }
 }
 
-
+refreshRooms()
 
 if (window["WebSocket"]) {
   conn = new WebSocket("ws://" + document.location.host + "/ws");
@@ -196,6 +199,7 @@ if (window["WebSocket"]) {
     var msgs = evt.data.split('\n');
     for (var i = 0; i < msgs.length; i++) {
       var renderedMessage = JSON.parse(msgs[i]);
+      console.log(renderedMessage)
       const msg = document.createElement('div');
 
       switch (renderedMessage.type) {
@@ -208,6 +212,7 @@ if (window["WebSocket"]) {
           if (renderedMessage.from === localStorage.getItem("username")) {
             msg.classList.add("user")
           }
+          break
         case Status.MessageTypeRoomDeleted:
           removeRoom(renderedMessage.room_id)
 
@@ -215,6 +220,7 @@ if (window["WebSocket"]) {
             messages.innerHTML = "";
             currentRoom = null
           }
+        default:
       }
 
       msg.classList.add('chat-message');
@@ -226,5 +232,3 @@ if (window["WebSocket"]) {
   item.innerHTML = "<b>Your browser does not support WebSockets.</b>";
   appendMessage(item);
 }
-
-refreshRooms()

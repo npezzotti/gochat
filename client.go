@@ -117,6 +117,7 @@ func (c *Client) read() {
 		msg.client = c
 		msg.From = c.user.Username
 
+		c.log.Println("read:", msg)
 		switch msg.Type {
 		case MessageTypeJoin:
 			c.log.Println("read:", "join message")
