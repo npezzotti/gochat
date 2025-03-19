@@ -60,9 +60,7 @@ function toggleRoomActive(roomId) {
 }
 
 function renderNewRoom(roomId) {
-  document.querySelectorAll(".active-room").forEach(el => el.classList.remove('active-room'));
-  let roomDiv = roomList.querySelector(`#room-${roomId}`)
-  roomDiv.classList.add('active-room');
+  toggleRoomActive(roomId)
   messages.innerHTML = "";
 }
 
