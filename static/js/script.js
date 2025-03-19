@@ -7,7 +7,7 @@ var currentRoom
 document.getElementById('leaveRoomBtn').onclick = function (event) {
   leaveRoom(currentRoom, true);
   removeRoom(currentRoom)
-  messages.innerHTML = "";
+  clearRoomView()
 }
 
 document.getElementById('deleteRoomBtn').onclick = function (event) {
@@ -61,7 +61,7 @@ function toggleRoomActive(roomId) {
 
 function renderNewRoom(roomId) {
   toggleRoomActive(roomId)
-  messages.innerHTML = "";
+  clearRoomView()
 }
 
 function switchRoom(roomId) {
@@ -172,10 +172,14 @@ async function deleteRoom(id) {
     }
 
     removeRoom(currentRoom)
-    messages.innerHTML = "";
+    clearRoomView()
   } catch (err) {
     console.log(err)
   }
+}
+
+function clearRoomView() {
+  messages.innerHTML = "";
 }
 
 refreshRooms()
@@ -217,7 +221,7 @@ if (window["WebSocket"]) {
           removeRoom(renderedMessage.room_id)
 
           if (currentRoom === renderedMessage.room_id) {
-            messages.innerHTML = "";
+            clearRoomView()
             currentRoom = null
           }
         default:
