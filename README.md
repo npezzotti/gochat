@@ -2,6 +2,7 @@
 
 * Save messages
 * Design structure of messages (user, other users, server)
+* Delete user
 * Confirm password in register form
 * Server and client side Form validation
 
