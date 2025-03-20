@@ -26,10 +26,14 @@ body {
   margin-bottom: 1em;
 }
 
+.menu-icons i {
+  margin: .5em;
+  cursor: pointer;
+}
+
 .dropdown {
   position: relative;
   display: inline-block;
-  cursor: pointer;
 }
 
 .dropdown-content {

@@ -241,3 +241,66 @@ if (window["WebSocket"]) {
   item.innerHTML = "<b>Your browser does not support WebSockets.</b>";
   appendMessage(item);
 }
+
+// Side panels
+
+document.getElementById('addRoomBtn').onclick = renderAddRoom
+
+function renderAddRoom (event) {
+  const sideBar = document.querySelector('.sidebar')
+  sideBar.innerHTML = ""
+
+  let header = document.createElement('div.sidebar-header')
+
+  let backBtn = document.createElement('i')
+  backBtn.classList.add("fa", "fa-arrow-left")
+  backBtn.onclick = renderRoomsList
+
+  let headerTitle = document.createElement('h2')
+  headerTitle.innerText = "Add Chat Room"
+  
+  header.appendChild(backBtn)
+  header.appendChild(headerTitle)
+
+  sideBar.appendChild(header)
+}
+
+function renderRoomsList() {
+  const sideBar = document.querySelector('.sidebar')
+  sideBar.innerHTML = ""
+
+  let header = document.createElement('div')
+  header.className = 'sidebar-header'
+
+  let headerTitle = document.createElement('h2')
+  headerTitle.textContent = localStorage.getItem("username")
+
+  let menuIcons = document.createElement('div')
+  menuIcons.className = 'menu-icons'
+
+  let addRoomBtn = document.createElement('i')
+  addRoomBtn.id = "addRoomBtn"
+  addRoomBtn.classList.add("fa", "fa-plus")
+  addRoomBtn.onclick = renderAddRoom
+
+  let dropdown = document.createElement('div')
+  dropdown.className = ('dropdown')
+  dropdown.innerHTML =  `
+  <i class="fa fa-gear"></i>
+  <div class="dropdown-content">
+    <a id="account" href="/account/edit">Account</a>
+    <a id="logout-btn">Logout</a>
+  </div>
+  `
+
+  menuIcons.appendChild(addRoomBtn)
+  menuIcons.appendChild(dropdown)
+  
+  header.appendChild(headerTitle)
+  header.appendChild(menuIcons)
+
+  sideBar.appendChild(header)
+  sideBar.appendChild(roomList)
+  
+  refreshRooms()
+}
