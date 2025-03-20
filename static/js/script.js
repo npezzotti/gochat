@@ -1,6 +1,7 @@
 var conn
 var formMsg = document.getElementById("msg");
 const messages = document.getElementById('chat-area');
+const chatContainer = document.getElementById('chat-container');
 const roomList = document.getElementById('room-list')
 var currentRoom
 
@@ -11,7 +12,11 @@ document.getElementById('leaveRoomBtn').onclick = function (event) {
 }
 
 document.getElementById('deleteRoomBtn').onclick = function (event) {
-  deleteRoom(currentRoom)
+  let result = confirm("Are you sure you want to delete this room?");
+
+  if (result) {
+    deleteRoom(currentRoom)
+  }
 }
 
 const Status = {
