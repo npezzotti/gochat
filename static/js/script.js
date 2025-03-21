@@ -129,22 +129,21 @@ function sendMessage(e) {
   return false
 }
 
-async function createRoom() {
+async function createRoom(name, description) {
   try {
     const response = await fetch("http://" + document.location.host + "/room/new", {
       method: 'POST',
       headers: { 'Content-type': 'application/json' },
-      body: JSON.stringify({ name: "example", description: "example description" })
+      body: JSON.stringify({ name: name, description: description })
     })
 
-    let room = await response.json()
+    const room = await response.json()
+
     if (response.status !== 201) {
       throw new Error(room.error)
     }
 
-    addRoom(room)
-    switchRoom(room.id)
-    renderNewRoom(room.id)
+    return room
   } catch (err) {
     console.log(err)
   }
@@ -194,10 +193,6 @@ if (window["WebSocket"]) {
 
   conn.onopen = function (event) {
     console.log("WebSocket connection opened");
-
-    setTimeout(() => {
-      createRoom()
-    }, 3000)
   };
 
   conn.onclose = function (evt) {
@@ -246,10 +241,11 @@ if (window["WebSocket"]) {
 
 document.getElementById('addRoomBtn').onclick = renderAddRoom
 
-function renderAddRoom (event) {
+function renderAddRoom(event) {
   const sideBar = document.querySelector('.sidebar')
   sideBar.innerHTML = ""
 
+  const headerEl = document.createDocumentFragment()
   let header = document.createElement('div')
   header.className = 'sidebar-header'
 
@@ -259,11 +255,58 @@ function renderAddRoom (event) {
 
   let headerTitle = document.createElement('h2')
   headerTitle.innerText = "Add Chat Room"
-  
+
   header.appendChild(backBtn)
   header.appendChild(headerTitle)
+  headerEl.appendChild(header)
+
+  const formEl = document.createDocumentFragment();
+  const form = document.createElement('form')
+  form.onsubmit = event => {
+    event.preventDefault()
+    const formData = new FormData(event.target)
+    const name = formData.get('name');
+    const description = formData.get('description');
+
+    createRoom(name, description).then(room => {
+      renderRoomsList().then(() => {
+        switchRoom(room.id)
+        renderNewRoom(room.id)
+      })
+    })
+  }
+
+  const nameLabel = document.createElement('label');
+  nameLabel.setAttribute('for', 'name');
+  nameLabel.textContent = 'Name:';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.id = 'name';
+  nameInput.name = 'name';
+  nameInput.required = true;
+
+  const descLabel = document.createElement('label');
+  descLabel.setAttribute('for', 'description');
+  descLabel.textContent = 'Description:';
+  const descInput = document.createElement('input');
+  descInput.type = 'text';
+  descInput.id = 'description';
+  descInput.name = 'description';
+  descInput.required = true;
+
+  const submitBtn = document.createElement('input')
+  submitBtn.type = 'submit'
+  submitBtn.value = 'Submit'
+
+  form.appendChild(nameLabel)
+  form.appendChild(nameInput)
+  form.appendChild(descLabel)
+  form.appendChild(descInput)
+  form.appendChild(submitBtn)
+  formEl.appendChild(form)
 
   sideBar.appendChild(header)
+  sideBar.appendChild(formEl)
 }
 
 function renderRoomsList() {
@@ -286,7 +329,7 @@ function renderRoomsList() {
 
   let dropdown = document.createElement('div')
   dropdown.className = ('dropdown')
-  dropdown.innerHTML =  `
+  dropdown.innerHTML = `
   <i class="fa fa-gear"></i>
   <div class="dropdown-content">
     <a id="account" href="/account/edit">Account</a>
@@ -296,14 +339,14 @@ function renderRoomsList() {
 
   menuIcons.appendChild(addRoomBtn)
   menuIcons.appendChild(dropdown)
-  
+
   header.appendChild(headerTitle)
   header.appendChild(menuIcons)
 
   sideBar.appendChild(header)
   sideBar.appendChild(roomList)
-  
-  refreshRooms()
+
+  return refreshRooms()
 }
 
 renderRoomsList()
