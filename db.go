@@ -130,7 +130,16 @@ func GetRoomById(id int) (db.Room, error) {
 }
 
 func CreateRoom(params CreateRoomParams) (db.Room, error) {
-	res := DB.QueryRow(
+	tx, err := DB.Begin()
+	if err != nil {
+		return db.Room{}, err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+	res := tx.QueryRow(
 		createRoomQuery,
 		params.Name,
 		params.Description,
@@ -140,7 +149,7 @@ func CreateRoom(params CreateRoomParams) (db.Room, error) {
 	)
 
 	var room db.Room
-	err := res.Scan(
+	err = res.Scan(
 		&room.Id,
 		&room.Name,
 		&room.Description,
@@ -148,6 +157,21 @@ func CreateRoom(params CreateRoomParams) (db.Room, error) {
 		&room.CreatedAt,
 		&room.UpdatedAt,
 	)
+
+	_, err = tx.Exec(
+		createSubQuery,
+		params.OwnerId,
+		room.Id,
+		time.Now(),
+		time.Now(),
+	)
+	if err != nil {
+		return db.Room{}, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return db.Room{}, err
+	}
 
 	return room, err
 }
