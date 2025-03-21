@@ -250,7 +250,8 @@ function renderAddRoom (event) {
   const sideBar = document.querySelector('.sidebar')
   sideBar.innerHTML = ""
 
-  let header = document.createElement('div.sidebar-header')
+  let header = document.createElement('div')
+  header.className = 'sidebar-header'
 
   let backBtn = document.createElement('i')
   backBtn.classList.add("fa", "fa-arrow-left")
@@ -304,3 +305,5 @@ function renderRoomsList() {
   
   refreshRooms()
 }
+
+renderRoomsList()
