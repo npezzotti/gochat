@@ -86,6 +86,40 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
+func getRoom(w http.ResponseWriter, r *http.Request) {
+	roomIdStr := r.URL.Query().Get("id")
+	if roomIdStr == "" {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	roomId, err := strconv.Atoi(roomIdStr)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	dbRoom, err := GetRoomById(roomId)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	room := &Room{
+		Id:          dbRoom.Id,
+		Name:        dbRoom.Name,
+		Description: dbRoom.Description,
+	}
+
+	roomResp, err := json.Marshal(room)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(roomResp)
+}
+
 func deleteRoom(cs *ChatServer, w http.ResponseWriter, r *http.Request) {
 	roomIdStr := r.URL.Query().Get("id")
 	if roomIdStr == "" {
@@ -233,6 +267,7 @@ func main() {
 		getSubs(w, r)
 	}))
 
+	mux.Handle("GET /room", authMiddleware(logger, http.HandlerFunc(getRoom)))
 	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
 		login(logger, w, r)
 	})
