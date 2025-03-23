@@ -86,11 +86,10 @@ function renderNewRoom(roomId) {
   toggleRoomActive(roomId)
   clearRoomView()
   populateMessages(roomId).then(messages => {
-    messages.forEach(message => {
-      console.log(message)
-      msg = createMsg(message)
+    for (let i = messages.length - 1; i > 0; i--) {
+      msg = createMsg(messages[i])
       appendMessage(msg)
-    })
+    }
   })
 }
 
