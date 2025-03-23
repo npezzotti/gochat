@@ -114,7 +114,7 @@ func GetAccountByEmail(email string) (User, error) {
 
 func GetRoomById(id int) (db.Room, error) {
 	row := DB.QueryRow(
-		"SELECT id, name, description FROM rooms "+
+		"SELECT id, name, description, seq_id FROM rooms "+
 			"WHERE id = $1 LIMIT 1",
 		id,
 	)
@@ -124,6 +124,7 @@ func GetRoomById(id int) (db.Room, error) {
 		&room.Id,
 		&room.Name,
 		&room.Description,
+		&room.SeqId,
 	)
 
 	return room, err
@@ -265,4 +266,54 @@ func DeleteSubscription(id int) error {
 	)
 
 	return err
+}
+
+func MessageCreate(msg db.UserMessage) error {
+	err := RoomUpdateOnMessage(msg)
+	if err != nil {
+		return err
+	}
+
+	_, err = DB.Exec(
+		"INSERT INTO messages (seq_id, room_id, user_id, content, created_at, updated_at) "+
+			"VALUES ($1, $2, $3, $4, $5, $6)",
+		msg.SeqId,
+		msg.RoomId,
+		msg.UserId,
+		msg.Content,
+		time.Now(),
+		time.Now(),
+	)
+
+	return err
+}
+
+func RoomUpdateOnMessage(msg db.UserMessage) error {
+	_, err := DB.Exec("UPDATE rooms SET seq_id = $1 WHERE id = $2", msg.SeqId, msg.RoomId)
+
+	return err
+}
+
+func MessageGetAll(roomId, limit int) ([]db.UserMessage, error) {
+	rows, err := DB.Query(
+		"SELECT id, seq_id, room_id, user_id, content FROM messages "+
+			"WHERE room_id = $1 ORDER BY seq_id DESC LIMIT $2",
+		roomId,
+		limit,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var messages = make([]db.UserMessage, 0, limit)
+	for rows.Next() {
+		var msg db.UserMessage
+		if err = rows.Scan(&msg.Id, &msg.SeqId, &msg.RoomId, &msg.UserId, &msg.Content); err != nil {
+			break
+		}
+
+		messages = append(messages, msg)
+	}
+	return messages, err
 }

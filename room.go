@@ -7,6 +7,8 @@ import (
 	"log"
 	"sync"
 	"time"
+
+	"github.com/npezzotti/go-chatroom/db"
 )
 
 var idleRoomTimeout = time.Second * 5
@@ -28,12 +30,21 @@ type Room struct {
 	joinChan      chan *Client
 	leaveChan     chan leaveReq
 	clientMsgChan chan *Message
+	seq_id        int
 	clients       map[*Client]struct{}
 	clientLock    sync.RWMutex
 	exit          chan exitReq
 	done          chan struct{}
 	log           *log.Logger
 	killTimer     *time.Timer
+}
+
+type UserMessage struct {
+	Id      int    `json:"id"`
+	SeqId   int    `json:"seq_id"`
+	RoomId  int    `json:"room_id"`
+	UserId  int    `json:"user_id"`
+	Content string `json:"content"`
 }
 
 func (r *Room) start() {
@@ -138,6 +149,16 @@ func (r *Room) broadcast(msg *Message) {
 	}
 
 	fmt.Printf("received message to room %d: %s\n", r.Id, string(jsonMsg))
+	if err := MessageCreate(db.UserMessage{
+		SeqId:   r.seq_id + 1,
+		RoomId:  r.Id,
+		UserId:  msg.client.user.Id,
+		Content: msg.Content,
+	}); err != nil {
+		r.log.Println("error saving message:", err)
+	}
+
+	r.seq_id++
 	for client := range r.clients {
 		select {
 		case client.send <- jsonMsg:

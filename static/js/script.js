@@ -48,6 +48,24 @@ async function refreshRooms() {
   }
 }
 
+async function getRoom(roomId) {
+  try {
+    const response = await fetch("http://" + document.location.host + `/room?id=${roomId}`, {
+      method: 'GET',
+      headers: { 'Content-type': 'application/json' },
+    })
+
+    if (!response.ok) {
+      throw new Error(res.error)
+    }
+
+    const data = await response.json();
+    return data
+  } catch (error) {
+    console.log(error)
+  }
+}
+
 function activateRoom(event) {
   var roomId = parseInt(event.target.id.replace("room-", ""))
   if (roomId === currentRoom) {
@@ -67,6 +85,29 @@ function toggleRoomActive(roomId) {
 function renderNewRoom(roomId) {
   toggleRoomActive(roomId)
   clearRoomView()
+  populateMessages(roomId).then(messages => {
+    messages.forEach(message => {
+      console.log(message)
+      msg = createMsg(message)
+      appendMessage(msg)
+    })
+  })
+}
+
+async function populateMessages(roomId) {
+  try {
+    const response = await fetch("http://" + document.location.host + `/messages?room_id=${roomId}`, {
+      method: 'GET',
+    })
+
+    if (!response.ok) {
+      throw new Error(res.error)
+    }
+
+    return await response.json()
+  } catch (err) {
+    console.log(err)
+  }
 }
 
 function switchRoom(roomId) {
@@ -204,18 +245,14 @@ if (window["WebSocket"]) {
     for (var i = 0; i < msgs.length; i++) {
       var renderedMessage = JSON.parse(msgs[i]);
       console.log(renderedMessage)
-      const msg = document.createElement('div');
+      var msg
 
       switch (renderedMessage.type) {
         case Status.MessageTypeJoin:
         case Status.MessageTypeLeave:
-          msg.textContent = renderedMessage.content;
           break
         case Status.MessageTypePublish:
-          msg.textContent = `${renderedMessage.from}: ${renderedMessage.content}`;
-          if (renderedMessage.from === localStorage.getItem("username")) {
-            msg.classList.add("user")
-          }
+          msg = createMsg(renderedMessage)
           break
         case Status.MessageTypeRoomDeleted:
           removeRoom(renderedMessage.room_id)
@@ -226,8 +263,6 @@ if (window["WebSocket"]) {
           }
         default:
       }
-
-      msg.classList.add('chat-message');
       appendMessage(msg);
     }
   };
@@ -235,6 +270,17 @@ if (window["WebSocket"]) {
   var item = document.createElement('div');
   item.innerHTML = "<b>Your browser does not support WebSockets.</b>";
   appendMessage(item);
+}
+
+function createMsg(rawMsg) {
+  const msg = document.createElement('div');
+  msg.textContent = `${rawMsg.from}: ${rawMsg.content}`;
+  if (rawMsg.from === localStorage.getItem("username")) {
+    msg.classList.add("user")
+  }
+  msg.classList.add('chat-message');
+
+  return msg
 }
 
 // Side panels
@@ -337,6 +383,33 @@ function renderRoomsList() {
   </div>
   `
 
+  let joinForm = document.createElement('form')
+  joinForm.onsubmit = event => {
+    event.preventDefault()
+    const formData = new FormData(event.target)
+
+    getRoom(parseInt(formData.get('id'))).then(room => {
+      addRoom(room)
+      switchRoom(room.id)
+      renderNewRoom(room.id)
+    }).catch(err => {
+      console.log(err)
+    })
+  }
+
+  const roomNameInput = document.createElement('input');
+  roomNameInput.type = 'text';
+  roomNameInput.id = 'id';
+  roomNameInput.name = 'id';
+  roomNameInput.required = true;
+
+  const joinFormSubmit = document.createElement('input')
+  joinFormSubmit.type = 'submit';
+  joinFormSubmit.value = 'Join';
+
+  joinForm.appendChild(roomNameInput)
+  joinForm.appendChild(joinFormSubmit)
+
   menuIcons.appendChild(addRoomBtn)
   menuIcons.appendChild(dropdown)
 
@@ -344,6 +417,7 @@ function renderRoomsList() {
   header.appendChild(menuIcons)
 
   sideBar.appendChild(header)
+  sideBar.appendChild(joinForm)
   sideBar.appendChild(roomList)
 
   return refreshRooms()

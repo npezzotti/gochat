@@ -178,6 +178,47 @@ func getSubs(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
+func getMessages(w http.ResponseWriter, r *http.Request) {
+	roomIdStr := r.URL.Query().Get("room_id")
+	if roomIdStr == "" {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	roomId, err := strconv.Atoi(roomIdStr)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	messages, err := MessageGetAll(roomId, 10)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	var userMessages []UserMessage
+
+	for _, msg := range messages {
+		msg := UserMessage{
+			Id:      msg.Id,
+			SeqId:   msg.SeqId,
+			UserId:  msg.UserId,
+			Content: msg.Content,
+		}
+
+		userMessages = append(userMessages, msg)
+	}
+
+	messagesResp, err := json.Marshal(userMessages)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(messagesResp)
+}
+
 func serveWs(chatServer *ChatServer, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -268,6 +309,7 @@ func main() {
 	}))
 
 	mux.Handle("GET /room", authMiddleware(logger, http.HandlerFunc(getRoom)))
+	mux.Handle("GET /messages", authMiddleware(logger, http.HandlerFunc(getMessages)))
 	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
 		login(logger, w, r)
 	})

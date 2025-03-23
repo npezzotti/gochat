@@ -20,12 +20,12 @@ CREATE UNIQUE INDEX subscriptions_room_user_id ON subscriptions(account_id, room
 
 CREATE TABLE messages(
   id        SERIAL PRIMARY KEY,
-  created_at TIMESTAMP(3) NOT NULL,
-  updated_at TIMESTAMP(3) NOT NULL,
   seq_id     INT NOT NULL,
   room_id     INT NOT NULL,
   from    INT NOT NULL,
   content   VARCHAR(100),
+  created_at TIMESTAMP(3) NOT NULL,
+  updated_at TIMESTAMP(3) NOT NULL,
   FOREIGN KEY(room_id) REFERENCES rooms(id)
   FOREIGN KEY(from) REFERENCES accounts(id)
 );

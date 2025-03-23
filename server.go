@@ -85,6 +85,7 @@ func (cs *ChatServer) run() {
 					joinChan:      make(chan *Client, 256),
 					leaveChan:     make(chan leaveReq, 256),
 					clientMsgChan: make(chan *Message, 256),
+					seq_id:        dbRoom.SeqId,
 					clients:       make(map[*Client]struct{}),
 					log:           cs.log,
 					exit:          make(chan exitReq),
