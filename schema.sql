@@ -7,12 +7,23 @@ CREATE TABLE accounts(
   updated_at TIMESTAMP
 );
 
+CREATE TABLE rooms (
+    id SERIAL PRIMARY KEY,
+    owner_id integer,
+    name character varying(50) NOT NULL,
+    description character varying(100) NOT NULL,
+    seq_id integer DEFAULT 0 NOT NULL
+    created_at timestamp without time zone,
+    updated_at timestamp without time zone,
+    FOREIGN KEY (owner_id) REFERENCES accounts(id);
+);
+
 CREATE TABLE IF NOT EXISTS subscriptions(
   id         SERIAL PRIMARY KEY,
-  created_at TIMESTAMP(3) NOT NULL,
-  updated_at TIMESTAMP(3) NOT NULL,
   account_id INT NOT NULL,
   room_id    INT NOT NULL,
+  created_at TIMESTAMP(3) NOT NULL,
+  updated_at TIMESTAMP(3) NOT NULL,
   FOREIGN KEY(account_id) REFERENCES accounts(id),
   FOREIGN KEY(room_id) REFERENCES rooms(id)
 );
@@ -22,7 +33,7 @@ CREATE TABLE messages(
   id        SERIAL PRIMARY KEY,
   seq_id     INT NOT NULL,
   room_id     INT NOT NULL,
-  from    INT NOT NULL,
+  user_id integer NOT NULL,
   content   VARCHAR(100),
   created_at TIMESTAMP(3) NOT NULL,
   updated_at TIMESTAMP(3) NOT NULL,
