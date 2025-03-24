@@ -294,11 +294,28 @@ func RoomUpdateOnMessage(msg db.UserMessage) error {
 	return err
 }
 
-func MessageGetAll(roomId, limit int) ([]db.UserMessage, error) {
+type MessageOpts struct {
+	Since int
+	Until int
+	Limit int
+}
+
+func MessageGetAll(roomId, since, before, limit int) ([]db.UserMessage, error) {
+	var upper, lower int
+	if before == 0 {
+		upper = 1<<31 - 1
+	}
+
+	if limit <= 0 {
+		limit = 20
+	}
+
 	rows, err := DB.Query(
 		"SELECT id, seq_id, room_id, user_id, content FROM messages "+
-			"WHERE room_id = $1 ORDER BY seq_id DESC LIMIT $2",
+			"WHERE room_id = $1 AND seq_id BETWEEN $2 AND $3 ORDER BY seq_id DESC LIMIT $4",
 		roomId,
+		lower,
+		upper,
 		limit,
 	)
 

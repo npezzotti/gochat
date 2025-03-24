@@ -191,7 +191,27 @@ func getMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messages, err := MessageGetAll(roomId, 10)
+	var before, after int
+
+	beforeStr := r.URL.Query().Get("before")
+	if beforeStr != "" {
+		before, err = strconv.Atoi(beforeStr)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	afterStr := r.URL.Query().Get("after")
+	if afterStr != "" {
+		after, err = strconv.Atoi(afterStr)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	messages, err := MessageGetAll(roomId, before, after, 10)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
