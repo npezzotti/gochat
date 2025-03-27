@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -26,6 +25,7 @@ type Room struct {
 	Id            int    `json:"id"`
 	Name          string `json:"name"`
 	Description   string `json:"description"`
+	Subscribers   []User `json:"subscribers"`
 	cs            *ChatServer
 	joinChan      chan *Client
 	leaveChan     chan leaveReq
@@ -60,20 +60,12 @@ func (r *Room) start() {
 	for {
 		select {
 		case c := <-r.joinChan:
-			_, err := GetSubscription(c.user.Id, r.Id)
-			if err != nil {
+			if !SubscriptionExists(c.user.Id, r.Id) {
 				r.log.Println("couldn't find subscription, creating it")
-				if err == sql.ErrNoRows {
-					_, err := CreateSubscription(CreateSubscriptionParams{
-						user: &c.user,
-						room: r,
-					})
-					if err != nil {
-						r.log.Println("CreateSubscription:", err)
-						continue
-					}
-				} else {
-					r.log.Println("GetSubscription:", err)
+
+				_, err := CreateSubscription(c.user.Id, r.Id)
+				if err != nil {
+					r.log.Println("CreateSubscription:", err)
 					continue
 				}
 			}
@@ -82,13 +74,12 @@ func (r *Room) start() {
 		case leave := <-r.leaveChan:
 			if leave.unSub {
 				r.log.Printf("unscribing user %q from room %q", leave.c.user.Username, r.Name)
-				sub, err := GetSubscription(leave.c.user.Id, r.Id)
-				if err != nil {
-					r.log.Println("GetSubscription:", err)
+				if !SubscriptionExists(leave.c.user.Id, r.Id) {
+					r.log.Println("subscription doesn't exist")
 					continue
 				}
 
-				if err := DeleteSubscription(sub.Id); err != nil {
+				if err := DeleteSubscription(leave.c.user.Id, r.Id); err != nil {
 					r.log.Println("DeleteSubscription", err)
 					continue
 				}

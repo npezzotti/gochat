@@ -7,7 +7,7 @@ type Room struct {
 	OwnerId     int
 	Name        string
 	Description string
-	SeqId      int
+	SeqId       int
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }

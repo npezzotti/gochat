@@ -3,18 +3,18 @@ CREATE TABLE accounts(
   username VARCHAR(50) UNIQUE NOT NULL,
   email VARCHAR(50) UNIQUE NOT NULL,
   password_hash VARCHAR(100) NOT NULL,
-  created_at TIMESTAMP,
-  updated_at TIMESTAMP
+  created_at TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP TIMESTAMP NOT NULL
 );
 
 CREATE TABLE rooms (
     id SERIAL PRIMARY KEY,
     owner_id integer,
-    name character varying(50) NOT NULL,
-    description character varying(100) NOT NULL,
-    seq_id integer DEFAULT 0 NOT NULL
-    created_at timestamp without time zone,
-    updated_at timestamp without time zone,
+    name VARCHAR(50) NOT NULL,
+    description VARCHAR(100) NOT NULL,
+    seq_id INT DEFAULT 0 NOT NULL
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
     FOREIGN KEY (owner_id) REFERENCES accounts(id);
 );
 
@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS subscriptions(
   id         SERIAL PRIMARY KEY,
   account_id INT NOT NULL,
   room_id    INT NOT NULL,
-  created_at TIMESTAMP(3) NOT NULL,
-  updated_at TIMESTAMP(3) NOT NULL,
+  created_at TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP NOT NULL,
   FOREIGN KEY(account_id) REFERENCES accounts(id),
   FOREIGN KEY(room_id) REFERENCES rooms(id)
 );

@@ -29,6 +29,12 @@ var (
 	addr = flag.String("addr", "localhost:8000", "server address")
 )
 
+func UserId(ctx context.Context) (int, bool) {
+	userId, ok := ctx.Value(userIdKey).(int)
+
+	return userId, ok
+}
+
 func serveHome(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
@@ -55,7 +61,7 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userId, ok := r.Context().Value(userIdKey).(int)
+	userId, ok := UserId(r.Context())
 	if !ok {
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
@@ -105,10 +111,21 @@ func getRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dbSubs, err := GetSubscribersForRoom(roomId)
+	var subscribers []User
+	for _, dbSub := range dbSubs {
+		var u User
+		u.Id = dbSub.Id
+		u.Username = dbSub.Username
+
+		subscribers = append(subscribers, u)
+	}
+
 	room := &Room{
 		Id:          dbRoom.Id,
 		Name:        dbRoom.Name,
 		Description: dbRoom.Description,
+		Subscribers: subscribers,
 	}
 
 	roomResp, err := json.Marshal(room)
@@ -147,8 +164,8 @@ func deleteRoom(cs *ChatServer, w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func getSubs(w http.ResponseWriter, r *http.Request) {
-	userId, ok := r.Context().Value(userIdKey).(int)
+func getUsersRooms(w http.ResponseWriter, r *http.Request) {
+	userId, ok := UserId(r.Context())
 	if !ok {
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
@@ -176,6 +193,91 @@ func getSubs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write(resp)
+}
+
+func subscribeRoom(w http.ResponseWriter, r *http.Request) {
+	roomIdStr := r.URL.Query().Get("room_id")
+	if roomIdStr == "" {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	roomId, err := strconv.Atoi(roomIdStr)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	userId, ok := UserId(r.Context())
+	if !ok {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+
+	user, err := GetAccount(userId)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+
+	dbRoom, err := GetRoomById(roomId)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	dbSub, err := CreateSubscription(user.Id, dbRoom.Id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	sub := Subscription{
+		Id:   dbSub.Id,
+		User: user,
+		Room: &Room{
+			Id:          dbRoom.Id,
+			Name:        dbRoom.Name,
+			Description: dbRoom.Description,
+		},
+	}
+
+	resp, err := json.Marshal(sub)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	w.Write(resp)
+}
+
+func (cs *ChatServer) unsubscribeRoom(w http.ResponseWriter, r *http.Request) {
+	roomIdStr := r.URL.Query().Get("room_id")
+	if roomIdStr == "" {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	roomId, err := strconv.Atoi(roomIdStr)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	userId, ok := UserId(r.Context())
+	if !ok {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+
+	err = DeleteSubscription(userId, roomId)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func getMessages(w http.ResponseWriter, r *http.Request) {
@@ -245,7 +347,7 @@ func serveWs(chatServer *ChatServer, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username, ok := r.Context().Value(userIdKey).(int)
+	username, ok := UserId(r.Context())
 	if !ok {
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
@@ -324,11 +426,13 @@ func main() {
 		deleteRoom(chatServer, w, r)
 	}))
 
-	mux.Handle("GET /rooms", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
-		getSubs(w, r)
+	mux.Handle("GET /room", authMiddleware(logger, http.HandlerFunc(getRoom)))
+	mux.Handle("GET /subscriptions", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
+		getUsersRooms(w, r)
 	}))
 
-	mux.Handle("GET /room", authMiddleware(logger, http.HandlerFunc(getRoom)))
+	mux.Handle("POST /subscriptions", authMiddleware(logger, http.HandlerFunc(subscribeRoom)))
+	mux.Handle("DELETE /subscriptions", authMiddleware(logger, http.HandlerFunc(chatServer.unsubscribeRoom)))
 	mux.Handle("GET /messages", authMiddleware(logger, http.HandlerFunc(getMessages)))
 	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
 		login(logger, w, r)

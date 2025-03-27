@@ -19,9 +19,9 @@ const (
 		"VALUES ($1, $2, $3, $4, $5) RETURNING id, name, description, owner_id, created_at, updated_at"
 	deleteRoomQuery = "DELETE FROM rooms WHERE id = $1"
 	createSubQuery  = "INSERT INTO subscriptions (account_id, room_id, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING id, account_id, room_id"
-	getSubQuery     = "SELECT id, account_id, room_id FROM subscriptions WHERE account_id = $1 AND room_id = $2"
+	getSubQuery     = "SELECT id FROM subscriptions WHERE account_id = $1 AND room_id = $2 LIMIT 1"
 	listSubQuery    = "SELECT r.id, r.name, r.description FROM subscriptions s JOIN rooms r ON r.id = s.room_id WHERE s.account_id = $1"
-	deleteSubQuery  = "DELETE FROM subscriptions WHERE id = $1"
+	deleteSubQuery  = "DELETE FROM subscriptions WHERE account_id = $1 AND room_id = $2"
 )
 
 type CreateAccountParams struct {
@@ -201,11 +201,11 @@ func DeleteRoom(id int) error {
 	return tx.Commit()
 }
 
-func CreateSubscription(params CreateSubscriptionParams) (db.Subscription, error) {
+func CreateSubscription(userId, roomId int) (db.Subscription, error) {
 	res := DB.QueryRow(
 		createSubQuery,
-		params.user.Id,
-		params.room.Id,
+		userId,
+		roomId,
 		time.Now(),
 		time.Now(),
 	)
@@ -220,7 +220,7 @@ func CreateSubscription(params CreateSubscriptionParams) (db.Subscription, error
 	return sub, err
 }
 
-func GetSubscription(account_id, room_id int) (db.Subscription, error) {
+func SubscriptionExists(account_id, room_id int) bool {
 	res := DB.QueryRow(
 		getSubQuery,
 		account_id,
@@ -230,11 +230,9 @@ func GetSubscription(account_id, room_id int) (db.Subscription, error) {
 	var sub db.Subscription
 	err := res.Scan(
 		&sub.Id,
-		&sub.AccountId,
-		&sub.RoomId,
 	)
 
-	return sub, err
+	return err == nil
 }
 
 func ListSubscriptions(account_id int) ([]db.Room, error) {
@@ -259,10 +257,11 @@ func ListSubscriptions(account_id int) ([]db.Room, error) {
 	return rooms, err
 }
 
-func DeleteSubscription(id int) error {
+func DeleteSubscription(accountId, roomId int) error {
 	_, err := DB.Exec(
 		deleteSubQuery,
-		id,
+		accountId,
+		roomId,
 	)
 
 	return err
@@ -294,10 +293,20 @@ func RoomUpdateOnMessage(msg db.UserMessage) error {
 	return err
 }
 
-type MessageOpts struct {
-	Since int
-	Until int
-	Limit int
+func GetSubscribersForRoom(roomId int) ([]db.User, error) {
+	rows, err := DB.Query("SELECT a.id, a.username FROM subscriptions AS s JOIN accounts AS a ON s.account_id = a.id WHERE s.room_id = $1", roomId)
+
+	var subs = make([]db.User, 0)
+	for rows.Next() {
+		var sub db.User
+		if err = rows.Scan(&sub.Id, &sub.Username); err != nil {
+			break
+		}
+
+		subs = append(subs, sub)
+	}
+
+	return subs, err
 }
 
 func MessageGetAll(roomId, since, before, limit int) ([]db.UserMessage, error) {

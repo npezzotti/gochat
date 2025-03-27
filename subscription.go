@@ -1,11 +1,7 @@
 package main
 
-type CreateSubscriptionParams struct {
-	user *User
-	room *Room
-}
-
 type Subscription struct {
-	user *User
-	room *Room
+	Id   int   `json:"id"`
+	User User  `json:"user"`
+	Room *Room `json:"room"`
 }

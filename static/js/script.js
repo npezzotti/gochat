@@ -28,7 +28,7 @@ const Status = {
 
 async function refreshRooms() {
   try {
-    const response = await fetch("http://" + document.location.host + "/rooms", {
+    const response = await fetch("http://" + document.location.host + "/subscriptions", {
       method: 'GET',
       headers: { 'Content-type': 'application/json' },
     })
@@ -60,6 +60,7 @@ async function getRoom(roomId) {
     }
 
     const data = await response.json();
+    console.log(data)
     return data
   } catch (error) {
     console.log(error)
@@ -184,6 +185,25 @@ async function createRoom(name, description) {
     }
 
     return room
+  } catch (err) {
+    console.log(err)
+  }
+}
+
+async function subscribeRoom(roomId) {
+  try {
+    const response = await fetch("http://" + document.location.host + `/subscriptions?room_id=${roomId}`, {
+      method: 'POST',
+      headers: { 'Content-type': 'application/json' },
+    })
+
+    const sub = await response.json()
+
+    if (response.status !== 201) {
+      throw new Error(room.error)
+    }
+
+    return sub
   } catch (err) {
     console.log(err)
   }
@@ -387,11 +407,11 @@ function renderRoomsList() {
     event.preventDefault()
     const formData = new FormData(event.target)
 
-    getRoom(parseInt(formData.get('id'))).then(room => {
-      addRoom(room)
-      switchRoom(room.id)
-      renderNewRoom(room.id)
-    }).catch(err => {
+    subscribeRoom(parseInt(formData.get('id'))).then(sub => {
+        addRoom(sub.room)
+        switchRoom(sub.room.id)
+        renderNewRoom(sub.room.id)
+      }).catch(err => {
       console.log(err)
     })
   }

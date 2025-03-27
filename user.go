@@ -32,16 +32,10 @@ type contextKey string
 const userIdKey contextKey = "user-id"
 
 type User struct {
-	Id           int
-	Username     string
-	EmailAddress string
-	PasswordHash string
-}
-
-type UserResponse struct {
 	Id           int    `json:"id"`
 	Username     string `json:"username"`
-	EmailAddress string `json:"email_address"`
+	EmailAddress string `json:"email_address,omitempty"`
+	PasswordHash string `json:"password_hash,omitempty"`
 }
 
 type LoginRequest struct {
@@ -220,7 +214,7 @@ func login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 
 		http.SetCookie(w, createJwtCookie(token, defaultExp))
 
-		userResp := UserResponse{
+		userResp := User{
 			Id:           user.Id,
 			Username:     user.Username,
 			EmailAddress: user.EmailAddress,
