@@ -193,6 +193,11 @@ func DeleteRoom(id int) error {
 		return err
 	}
 
+	_, err = tx.Exec("DELETE FROM messages WHERE room_id = $1", id)
+	if err != nil {
+		return err
+	}
+
 	_, err = tx.Exec(deleteRoomQuery, id)
 	if err != nil {
 		return err

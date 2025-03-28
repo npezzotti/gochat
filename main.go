@@ -232,6 +232,16 @@ func subscribeRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dbSubs, err := GetSubscribersForRoom(roomId)
+	var subscribers []User
+	for _, dbSub := range dbSubs {
+		var u User
+		u.Id = dbSub.Id
+		u.Username = dbSub.Username
+
+		subscribers = append(subscribers, u)
+	}
+
 	sub := Subscription{
 		Id:   dbSub.Id,
 		User: user,
@@ -239,6 +249,7 @@ func subscribeRoom(w http.ResponseWriter, r *http.Request) {
 			Id:          dbRoom.Id,
 			Name:        dbRoom.Name,
 			Description: dbRoom.Description,
+			Subscribers: subscribers,
 		},
 	}
 

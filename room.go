@@ -94,7 +94,7 @@ func (r *Room) start() {
 			}
 
 		case msg := <-r.clientMsgChan:
-			r.broadcast(msg)
+			r.saveAndBroadcast(msg)
 		case <-r.killTimer.C:
 			r.log.Printf("room %q timed out", r.Name)
 			r.cs.unloadRoom(r.Id)
@@ -132,14 +132,7 @@ func (r *Room) removeClient(c *Client) {
 	r.log.Printf("removed client %q from room %q, current clients %v", c.user.Username, r.Name, r.clients)
 }
 
-func (r *Room) broadcast(msg *Message) {
-	jsonMsg, err := json.Marshal(msg)
-	if err != nil {
-		r.log.Println(":", err)
-		return
-	}
-
-	fmt.Printf("received message to room %d: %s\n", r.Id, string(jsonMsg))
+func (r *Room) saveAndBroadcast(msg *Message) {
 	if err := MessageCreate(db.UserMessage{
 		SeqId:   r.seq_id + 1,
 		RoomId:  r.Id,
@@ -150,6 +143,17 @@ func (r *Room) broadcast(msg *Message) {
 	}
 
 	r.seq_id++
+	r.broadcast(msg)
+}
+
+func (r *Room) broadcast(msg *Message) {
+	jsonMsg, err := json.Marshal(msg)
+	if err != nil {
+		r.log.Println(":", err)
+		return
+	}
+
+	fmt.Printf("received message to room %d: %s\n", r.Id, string(jsonMsg))
 	for client := range r.clients {
 		select {
 		case client.send <- jsonMsg:

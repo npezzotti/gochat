@@ -1,13 +1,19 @@
+// Page loads - get all subscriptions and populate the list
+// Render the list of rooms
+
+
 var conn
 var formMsg = document.getElementById("msg");
 const messages = document.getElementById('chat-area');
 const chatContainer = document.getElementById('chat-container');
 const roomList = document.getElementById('room-list')
 var currentRoom
+subscriptions = []
 
 document.getElementById('leaveRoomBtn').onclick = function (event) {
-  leaveRoom(currentRoom, true);
-  removeRoom(currentRoom)
+  leaveRoom(currentRoom.id, true);
+  removeRoom(currentRoom.id)
+  updateRoomList()
   clearRoomView()
 }
 
@@ -15,7 +21,11 @@ document.getElementById('deleteRoomBtn').onclick = function (event) {
   let result = confirm("Are you sure you want to delete this room?");
 
   if (result) {
-    deleteRoom(currentRoom)
+    deleteRoom(currentRoom.id).then(roomId => {
+      removeRoom(roomId)
+      updateRoomList()
+      clearRoomView()
+    })
   }
 }
 
@@ -25,6 +35,20 @@ const Status = {
   MessageTypePublish: 2,
   MessageTypeRoomDeleted: 3
 };
+
+function setCurrentRoom(room) {
+  console.log("Setting current room: " + JSON.stringify(room))
+  currentRoom = room
+}
+
+function updateRoomList() {
+  roomList.innerHTML = "";
+  if (subscriptions && subscriptions.length > 0) {
+    subscriptions.forEach(room => {
+      addRoom(room);
+    });
+  };
+}
 
 async function refreshRooms() {
   try {
@@ -38,11 +62,10 @@ async function refreshRooms() {
       throw new Error(res.error || "Login failed")
     }
 
-    roomList.innerHTML = ""
-
     res.forEach(room => {
-      addRoom(room)
+      subscriptions.push(room)
     })
+    updateRoomList(); // Refresh the UI
   } catch (error) {
     console.log(error)
   }
@@ -60,7 +83,6 @@ async function getRoom(roomId) {
     }
 
     const data = await response.json();
-    console.log(data)
     return data
   } catch (error) {
     console.log(error)
@@ -68,13 +90,16 @@ async function getRoom(roomId) {
 }
 
 function activateRoom(event) {
-  var roomId = parseInt(event.target.id.replace("room-", ""))
-  if (roomId === currentRoom) {
+  var roomId = event.target.id.replace("room-", "")
+  if (currentRoom != null && roomId === currentRoom.id) {
     return false
   }
 
-  switchRoom(roomId)
-  renderNewRoom(roomId)
+  getRoom(roomId).then(room => {
+    switchRoom(room.id)
+    setCurrentRoom(room)
+    renderNewRoom(room.id)
+  });
 }
 
 function toggleRoomActive(roomId) {
@@ -87,6 +112,9 @@ function renderNewRoom(roomId) {
   toggleRoomActive(roomId)
   clearRoomView()
   populateMessages(roomId).then(messages => {
+    if (!messages || messages.length === 0) {
+      return;
+    }
     for (let i = messages.length - 1; i >= 0; i--) {
       msg = createMsg(messages[i])
       appendMessage(msg)
@@ -111,8 +139,8 @@ async function populateMessages(roomId) {
 }
 
 function switchRoom(roomId) {
-  if (currentRoom != null) {
-    leaveRoom(currentRoom, false)
+  if (currentRoom) {
+    leaveRoom(currentRoom.id, false)
   }
 
   joinRoom(roomId)
@@ -125,7 +153,6 @@ function joinRoom(roomId) {
   };
 
   conn.send(JSON.stringify(msgObj))
-  currentRoom = roomId
 }
 
 function leaveRoom(roomId, unsub) {
@@ -160,7 +187,7 @@ function sendMessage(e) {
 
   var msgObj = {
     type: Status.MessageTypePublish,
-    room_id: currentRoom,
+    room_id: currentRoom.id,
     content: formMsg.value
   };
 
@@ -200,20 +227,19 @@ async function subscribeRoom(roomId) {
     const sub = await response.json()
 
     if (response.status !== 201) {
-      throw new Error(room.error)
+      throw new Error(sub.error)
     }
 
-    return sub
+    subscriptions.push(sub.room); // Add the new subscription to the list
+    updateRoomList(); // Refresh the UI
+    return sub;
   } catch (err) {
     console.log(err)
   }
 }
 
 function removeRoom(roomId) {
-  let roomDiv = roomList.querySelector(`#room-${roomId}`)
-  if (roomDiv) {
-    roomDiv.remove()
-  }
+  subscriptions = subscriptions.filter(room => room.id !== roomId)
 }
 
 function addRoom(room) {
@@ -225,9 +251,9 @@ function addRoom(room) {
   roomList.appendChild(roomDiv)
 }
 
-async function deleteRoom(id) {
+async function deleteRoom(roomId) {
   try {
-    const response = await fetch("http://" + document.location.host + `/room/delete?id=${id}`, {
+    const response = await fetch("http://" + document.location.host + `/room/delete?id=${roomId}`, {
       method: 'GET',
     })
 
@@ -235,8 +261,7 @@ async function deleteRoom(id) {
       throw new Error(res.error)
     }
 
-    removeRoom(currentRoom)
-    clearRoomView()
+    return roomId
   } catch (err) {
     console.log(err)
   }
@@ -245,8 +270,6 @@ async function deleteRoom(id) {
 function clearRoomView() {
   messages.innerHTML = "";
 }
-
-refreshRooms()
 
 if (window["WebSocket"]) {
   conn = new WebSocket("ws://" + document.location.host + "/ws");
@@ -272,17 +295,14 @@ if (window["WebSocket"]) {
           break
         case Status.MessageTypePublish:
           msg = createMsg(renderedMessage)
+          appendMessage(msg);
           break
         case Status.MessageTypeRoomDeleted:
           removeRoom(renderedMessage.room_id)
-
-          if (currentRoom === renderedMessage.room_id) {
-            clearRoomView()
-            currentRoom = null
-          }
+          clearRoomView()
+          currentRoom = null
         default:
       }
-      appendMessage(msg);
     }
   };
 } else {
@@ -335,6 +355,7 @@ function renderAddRoom(event) {
 
     createRoom(name, description).then(room => {
       renderRoomsList().then(() => {
+        setCurrentRoom(room)
         switchRoom(room.id)
         renderNewRoom(room.id)
       })
@@ -407,11 +428,10 @@ function renderRoomsList() {
     event.preventDefault()
     const formData = new FormData(event.target)
 
-    subscribeRoom(parseInt(formData.get('id'))).then(sub => {
-        addRoom(sub.room)
-        switchRoom(sub.room.id)
-        renderNewRoom(sub.room.id)
-      }).catch(err => {
+    subscribeRoom(formData.get('id')).then(sub => {
+      switchRoom(sub.room.id)
+      renderNewRoom(sub.room.id)
+    }).catch(err => {
       console.log(err)
     })
   }

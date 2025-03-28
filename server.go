@@ -111,19 +111,11 @@ func (cs *ChatServer) run() {
 			cs.broadcast(msg)
 		case id := <-cs.rmRoom:
 			r, ok := cs.rooms[id]
-			if !ok {
-				cs.log.Printf("room %d not found", r.Id)
-				continue
+			if ok {
+				cs.unloadRoom(r.Id)
+				r.exit <- exitReq{deleted: true}
+				<-r.done
 			}
-
-			if err := DeleteRoom(r.Id); err != nil {
-				cs.log.Println("DeleteRoom:", err)
-				continue
-			}
-
-			cs.unloadRoom(r.Id)
-			r.exit <- exitReq{deleted: true}
-			<-r.done
 		case <-cs.stop:
 			cs.log.Println("shutting down rooms")
 			for _, r := range cs.rooms {
