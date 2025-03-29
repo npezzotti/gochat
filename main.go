@@ -75,10 +75,25 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	subs, err := GetSubscribersForRoom(newRoom.Id)
+	if err != nil {
+		http.Error(w, "GetSubscribersForRoom: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var subscribers []User
+	for _, dbSub := range subs {
+		var u User
+		u.Id = dbSub.Id
+		u.Username = dbSub.Username
+		subscribers = append(subscribers, u)
+	}
+
 	room := &Room{
 		Id:          newRoom.Id,
 		Name:        newRoom.Name,
 		Description: newRoom.Description,
+		Subscribers: subscribers,
 	}
 
 	w.WriteHeader(http.StatusCreated)
@@ -334,11 +349,12 @@ func getMessages(w http.ResponseWriter, r *http.Request) {
 
 	for _, msg := range messages {
 		msg := Message{
-			Id:      msg.Id,
-			SeqId:   msg.SeqId,
-			UserId:  msg.UserId,
-			RoomId:  msg.RoomId,
-			Content: msg.Content,
+			Id:        msg.Id,
+			SeqId:     msg.SeqId,
+			UserId:    msg.UserId,
+			RoomId:    msg.RoomId,
+			Content:   msg.Content,
+			Timestamp: msg.CreatedAt,
 		}
 
 		userMessages = append(userMessages, msg)

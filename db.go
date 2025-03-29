@@ -48,7 +48,7 @@ func CreateAccount(accountParams CreateAccountParams) (User, error) {
 		accountParams.Username,
 		accountParams.EmailAddress,
 		accountParams.PasswordHash,
-		time.Now(),
+		time.Now().UTC(),
 	)
 
 	var u User
@@ -67,7 +67,7 @@ func UpdateAccount(accountParams UpdateAccountParams) (User, error) {
 		accountParams.User.Id,
 		accountParams.Username,
 		accountParams.PasswordHash,
-		time.Now(),
+		time.Now().UTC(),
 	)
 
 	var u User
@@ -145,8 +145,8 @@ func CreateRoom(params CreateRoomParams) (db.Room, error) {
 		params.Name,
 		params.Description,
 		params.OwnerId,
-		time.Now(),
-		time.Now(),
+		time.Now().UTC(),
+		time.Now().UTC(),
 	)
 
 	var room db.Room
@@ -163,8 +163,8 @@ func CreateRoom(params CreateRoomParams) (db.Room, error) {
 		createSubQuery,
 		params.OwnerId,
 		room.Id,
-		time.Now(),
-		time.Now(),
+		time.Now().UTC(),
+		time.Now().UTC(),
 	)
 	if err != nil {
 		return db.Room{}, err
@@ -211,8 +211,8 @@ func CreateSubscription(userId, roomId int) (db.Subscription, error) {
 		createSubQuery,
 		userId,
 		roomId,
-		time.Now(),
-		time.Now(),
+		time.Now().UTC(),
+		time.Now().UTC(),
 	)
 
 	var sub db.Subscription
@@ -285,8 +285,8 @@ func MessageCreate(msg db.UserMessage) error {
 		msg.RoomId,
 		msg.UserId,
 		msg.Content,
-		time.Now(),
-		time.Now(),
+		msg.CreatedAt,
+		msg.CreatedAt,
 	)
 
 	return err
@@ -325,7 +325,7 @@ func MessageGetAll(roomId, since, before, limit int) ([]db.UserMessage, error) {
 	}
 
 	rows, err := DB.Query(
-		"SELECT id, seq_id, room_id, user_id, content FROM messages "+
+		"SELECT id, seq_id, room_id, user_id, content, created_at FROM messages "+
 			"WHERE room_id = $1 AND seq_id BETWEEN $2 AND $3 ORDER BY seq_id DESC LIMIT $4",
 		roomId,
 		lower,
@@ -340,7 +340,7 @@ func MessageGetAll(roomId, since, before, limit int) ([]db.UserMessage, error) {
 	var messages = make([]db.UserMessage, 0, limit)
 	for rows.Next() {
 		var msg db.UserMessage
-		if err = rows.Scan(&msg.Id, &msg.SeqId, &msg.RoomId, &msg.UserId, &msg.Content); err != nil {
+		if err = rows.Scan(&msg.Id, &msg.SeqId, &msg.RoomId, &msg.UserId, &msg.Content, &msg.CreatedAt); err != nil {
 			break
 		}
 

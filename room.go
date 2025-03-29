@@ -126,10 +126,11 @@ func (r *Room) removeClient(c *Client) {
 
 func (r *Room) saveAndBroadcast(msg *Message) {
 	if err := MessageCreate(db.UserMessage{
-		SeqId:   r.seq_id + 1,
-		RoomId:  r.Id,
-		UserId:  msg.client.user.Id,
-		Content: msg.Content,
+		SeqId:     r.seq_id + 1,
+		RoomId:    r.Id,
+		UserId:    msg.client.user.Id,
+		Content:   msg.Content,
+		CreatedAt: msg.Timestamp,
 	}); err != nil {
 		r.log.Println("error saving message:", err)
 	}

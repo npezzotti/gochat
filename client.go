@@ -108,6 +108,7 @@ func (c *Client) read() {
 			break
 		}
 
+		c.log.Println("Received message:", string(raw))
 		var msg Message
 		if err := json.Unmarshal(raw, &msg); err != nil {
 			c.log.Println("error parsing message:", err)
@@ -116,8 +117,8 @@ func (c *Client) read() {
 
 		msg.client = c
 		msg.UserId = c.user.Id
+		msg.Timestamp = time.Now().UTC()
 
-		c.log.Println("read:", msg)
 		switch msg.Type {
 		case MessageTypeJoin:
 			c.log.Println("read:", "join message")

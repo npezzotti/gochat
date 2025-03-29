@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"time"
 )
 
 type MessageType int
@@ -23,14 +24,15 @@ func (mt MessageType) String() string {
 }
 
 type Message struct {
-	Id      int         `json:"id"`
-	Type    MessageType `json:"type,omitempty"`
-	SeqId   int         `json:"seq_id,omitempty"`
-	RoomId  int         `json:"room_id"`
-	Content string      `json:"content"`
-	UserId  int         `json:"user_id,omitempty"`
-	Unsub   bool        `json:"unsub,omitempty"`
-	client  *Client     `json:"-"`
+	Id        int         `json:"id"`
+	Type      MessageType `json:"type,omitempty"`
+	SeqId     int         `json:"seq_id,omitempty"`
+	RoomId    int         `json:"room_id"`
+	Content   string      `json:"content"`
+	UserId    int         `json:"user_id,omitempty"`
+	Unsub     bool        `json:"unsub,omitempty"`
+	Timestamp time.Time   `json:"timestamp"`
+	client    *Client     `json:"-"`
 }
 
 type ChatServer struct {

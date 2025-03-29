@@ -173,6 +173,8 @@ function appendMessage(item) {
 document.getElementById("chat-input").onsubmit = sendMessage
 
 function sendMessage(e) {
+  e.preventDefault()
+
   if (!conn) {
     return false;
   }
@@ -187,7 +189,9 @@ function sendMessage(e) {
     content: formMsg.value
   };
 
-  conn.send(JSON.stringify(msgObj))
+  msg = JSON.stringify(msgObj)
+  console.log("Sending message: " + msg)
+  conn.send(msg)
   formMsg.value = ""
 
   return false
@@ -285,8 +289,8 @@ if (window["WebSocket"]) {
   conn.onmessage = function (evt) {
     var msgs = evt.data.split('\n');
     for (var i = 0; i < msgs.length; i++) {
+      console.log("Received message: " + msgs[i])
       var renderedMessage = JSON.parse(msgs[i]);
-      console.log(renderedMessage)
       var msg
 
       switch (renderedMessage.type) {
@@ -312,19 +316,28 @@ if (window["WebSocket"]) {
 }
 
 function createMsg(rawMsg) {
-  const msg = document.createElement('div');
-  console.log(rawMsg)
+  const msgEl = document.createElement('div');
+  msgEl.classList.add('chat-message');
+
+  const metaEl = document.createElement('div');
+  metaEl.classList.add('meta');
+
   // Map user ID to username
-  const user = currentRoom.subscribers.find(sub => sub.id === rawMsg.user_id)
+  const user = currentRoom.subscribers.find(sub => sub.id === rawMsg.user_id);
   const username = user ? user.username : "Unknown";
 
-  msg.textContent = `${username}: ${rawMsg.content}`;
-  if (username === localStorage.getItem("username")) {
-    msg.classList.add("user")
-  }
-  msg.classList.add('chat-message');
+  metaEl.textContent = `${username} • ${new Date(rawMsg.timestamp).toLocaleTimeString()}`;
 
-  return msg;
+  const contentText = document.createTextNode(rawMsg.content);
+
+  msgEl.appendChild(metaEl);
+  msgEl.appendChild(contentText);
+
+  if (username === localStorage.getItem("username")) {
+    msgEl.classList.add("user");
+  }
+
+  return msgEl;
 }
 
 // Side panels
@@ -359,6 +372,7 @@ function renderAddRoom(event) {
     const description = formData.get('description');
 
     createRoom(name, description).then(room => {
+      console.log(room)
       addRoom(room);
       renderRoomsList();
       setCurrentRoom(room)

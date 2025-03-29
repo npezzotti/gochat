@@ -28,9 +28,11 @@ type Subscription struct {
 }
 
 type UserMessage struct {
-	Id      int
-	SeqId   int
-	RoomId  int
-	UserId  int
-	Content string
+	Id        int
+	SeqId     int
+	RoomId    int
+	UserId    int
+	Content   string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
