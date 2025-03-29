@@ -337,6 +337,7 @@ func getMessages(w http.ResponseWriter, r *http.Request) {
 			Id:      msg.Id,
 			SeqId:   msg.SeqId,
 			UserId:  msg.UserId,
+			RoomId:  msg.RoomId,
 			Content: msg.Content,
 		}
 

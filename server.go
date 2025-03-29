@@ -24,12 +24,12 @@ func (mt MessageType) String() string {
 
 type Message struct {
 	Id      int         `json:"id"`
-	SeqId   int         `json:"seq_id"`
-	Type    MessageType `json:"type"`
+	Type    MessageType `json:"type,omitempty"`
+	SeqId   int         `json:"seq_id,omitempty"`
 	RoomId  int         `json:"room_id"`
 	Content string      `json:"content"`
-	UserId  int         `json:"user_id"`
-	Unsub   bool        `json:"unsub"`
+	UserId  int         `json:"user_id,omitempty"`
+	Unsub   bool        `json:"unsub,omitempty"`
 	client  *Client     `json:"-"`
 }
 
