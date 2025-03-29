@@ -115,7 +115,7 @@ func (c *Client) read() {
 		}
 
 		msg.client = c
-		msg.From = c.user.Username
+		msg.UserId = c.user.Id
 
 		c.log.Println("read:", msg)
 		switch msg.Type {

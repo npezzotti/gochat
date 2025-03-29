@@ -1,14 +1,11 @@
-// Page loads - get all subscriptions and populate the list
-// Render the list of rooms
-
-
 var conn
+var currentRoom
+var subscriptions = []
+
 var formMsg = document.getElementById("msg");
 const messages = document.getElementById('chat-area');
 const chatContainer = document.getElementById('chat-container');
 const roomList = document.getElementById('room-list')
-var currentRoom
-subscriptions = []
 
 document.getElementById('leaveRoomBtn').onclick = function (event) {
   leaveRoom(currentRoom.id, true);
@@ -45,7 +42,7 @@ function updateRoomList() {
   roomList.innerHTML = "";
   if (subscriptions && subscriptions.length > 0) {
     subscriptions.forEach(room => {
-      addRoom(room);
+      createRoomElement(room);
     });
   };
 }
@@ -63,9 +60,8 @@ async function refreshRooms() {
     }
 
     res.forEach(room => {
-      subscriptions.push(room)
+      addRoom(room)
     })
-    updateRoomList(); // Refresh the UI
   } catch (error) {
     console.log(error)
   }
@@ -230,7 +226,7 @@ async function subscribeRoom(roomId) {
       throw new Error(sub.error)
     }
 
-    subscriptions.push(sub.room); // Add the new subscription to the list
+    addRoom(sub.room); // Add the new subscription to the list
     updateRoomList(); // Refresh the UI
     return sub;
   } catch (err) {
@@ -238,11 +234,15 @@ async function subscribeRoom(roomId) {
   }
 }
 
+function addRoom(room) {
+  subscriptions.push(room)
+}
+
 function removeRoom(roomId) {
   subscriptions = subscriptions.filter(room => room.id !== roomId)
 }
 
-function addRoom(room) {
+function createRoomElement(room) {
   const roomDiv = document.createElement('div');
   roomDiv.classList.add('room')
   roomDiv.id = `room-${room.id}`
@@ -313,13 +313,18 @@ if (window["WebSocket"]) {
 
 function createMsg(rawMsg) {
   const msg = document.createElement('div');
-  msg.textContent = `${rawMsg.from}: ${rawMsg.content}`;
-  if (rawMsg.from === localStorage.getItem("username")) {
+  console.log(rawMsg)
+  // Map user ID to username
+  const user = currentRoom.subscribers.find(sub => sub.id === rawMsg.user_id)
+  const username = user ? user.username : "Unknown";
+
+  msg.textContent = `${username}: ${rawMsg.content}`;
+  if (username === localStorage.getItem("username")) {
     msg.classList.add("user")
   }
   msg.classList.add('chat-message');
 
-  return msg
+  return msg;
 }
 
 // Side panels
@@ -354,11 +359,11 @@ function renderAddRoom(event) {
     const description = formData.get('description');
 
     createRoom(name, description).then(room => {
-      renderRoomsList().then(() => {
-        setCurrentRoom(room)
-        switchRoom(room.id)
-        renderNewRoom(room.id)
-      })
+      addRoom(room);
+      renderRoomsList();
+      setCurrentRoom(room)
+      switchRoom(room.id)
+      renderNewRoom(room.id)
     })
   }
 
@@ -459,7 +464,10 @@ function renderRoomsList() {
   sideBar.appendChild(joinForm)
   sideBar.appendChild(roomList)
 
-  return refreshRooms()
+  updateRoomList()
 }
 
-renderRoomsList()
+refreshRooms().then(() => {
+  updateRoomList()
+  renderRoomsList()
+})

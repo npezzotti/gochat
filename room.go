@@ -39,14 +39,6 @@ type Room struct {
 	killTimer     *time.Timer
 }
 
-type UserMessage struct {
-	Id      int    `json:"id"`
-	SeqId   int    `json:"seq_id"`
-	RoomId  int    `json:"room_id"`
-	UserId  int    `json:"user_id"`
-	Content string `json:"content"`
-}
-
 func (r *Room) start() {
 	defer func() {
 		r.log.Println("room exiting")

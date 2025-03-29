@@ -330,10 +330,10 @@ func getMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var userMessages []UserMessage
+	var userMessages []Message
 
 	for _, msg := range messages {
-		msg := UserMessage{
+		msg := Message{
 			Id:      msg.Id,
 			SeqId:   msg.SeqId,
 			UserId:  msg.UserId,
