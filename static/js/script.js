@@ -120,7 +120,7 @@ function renderNewRoom(roomId) {
 
 async function populateMessages(roomId) {
   try {
-    const response = await fetch("http://" + document.location.host + `/messages?room_id=${roomId}`, {
+    const response = await fetch("http://" + document.location.host + `/messages?room_id=${roomId}&before=`, {
       method: 'GET',
     })
 
@@ -326,7 +326,7 @@ function createMsg(rawMsg) {
   const user = currentRoom.subscribers.find(sub => sub.id === rawMsg.user_id);
   const username = user ? user.username : "Unknown";
 
-  metaEl.textContent = `${username} • ${new Date(rawMsg.timestamp).toLocaleTimeString()}`;
+  metaEl.textContent = `${username} • ${formatTimestamp(rawMsg.timestamp)}`;
 
   const contentText = document.createTextNode(rawMsg.content);
 
@@ -338,6 +338,10 @@ function createMsg(rawMsg) {
   }
 
   return msgEl;
+}
+
+function formatTimestamp(timestamp) {
+  new Date(timestamp).toLocaleTimeString()
 }
 
 // Side panels
