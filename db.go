@@ -290,7 +290,11 @@ func RoomUpdateOnMessage(msg db.UserMessage) error {
 }
 
 func GetSubscribersForRoom(roomId int) ([]db.User, error) {
-	rows, err := DB.Query("SELECT a.id, a.username FROM subscriptions AS s JOIN accounts AS a ON s.account_id = a.id WHERE s.room_id = $1", roomId)
+	rows, err := DB.Query(
+		"SELECT a.id, a.username FROM subscriptions AS s "+
+			"JOIN accounts AS a ON s.account_id = a.id WHERE s.room_id = $1",
+		roomId,
+	)
 
 	var subs = make([]db.User, 0)
 	for rows.Next() {
