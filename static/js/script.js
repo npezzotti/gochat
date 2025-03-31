@@ -53,6 +53,58 @@ document.getElementById('deleteRoomBtn').onclick = function (event) {
   }
 }
 
+document.getElementById('roomDetailsBtn').onclick = function (event) {
+  console.log("fired")
+  const sideBar = document.createElement('div')
+  sideBar.className = 'sidebar'
+
+  const closeHeader = document.createElement('div')
+  closeHeader.className = 'close-header'
+
+  const closeBtn = document.createElement('button')
+  closeBtn.className = 'close-btn'
+  closeBtn.innerText = 'X'
+  closeBtn.onclick = function () {
+    sideBar.remove()
+  }
+  closeHeader.appendChild(closeBtn)
+  sideBar.appendChild(closeHeader)
+
+  roomInfo = document.createElement('div')
+  roomInfo.className = 'room-info'
+  const roomNameHeader = document.createElement('h3')
+  roomNameHeader.innerText = "Name"
+  roomInfo.appendChild(roomNameHeader)
+  const roomNameBody = document.createElement('p')
+  roomNameBody.innerText = currentRoom.name
+  roomInfo.appendChild(roomNameBody)
+  const roomDescHeader = document.createElement('h3')
+  roomDescHeader.innerText = "Description"
+  roomInfo.appendChild(roomDescHeader)
+  const roomDescBody = document.createElement('p')
+  roomDescBody.innerText = currentRoom.description
+  roomInfo.appendChild(roomDescBody)
+  sideBar.appendChild(roomInfo)
+
+  subscribersContainer = document.createElement('div')
+  subscribersContainer.className = 'subscribers'
+  const subscribersHeader = document.createElement('h3')
+  subscribersHeader.innerText = "Subscribers"
+  subscribersContainer.appendChild(subscribersHeader)
+
+  const subscribersList = document.createElement('ul')
+  subscribersList.className = 'subscribers-list'
+  currentRoom.subscribers.forEach(sub => {
+    const li = document.createElement('li')
+    li.innerText = sub.username
+    subscribersList.appendChild(li)
+  })
+  subscribersContainer.appendChild(subscribersList)
+  sideBar.appendChild(subscribersContainer)
+
+  document.body.appendChild(sideBar)
+}
+
 const Status = {
   MessageTypeJoin: 0,
   MessageTypeLeave: 1,
@@ -121,7 +173,7 @@ function activateRoom(event) {
   getRoom(roomId).then(room => {
     switchRoom(room.id)
     setCurrentRoom(room)
-    renderNewRoom(room.id)
+    renderNewRoom(room)
   });
 }
 
@@ -131,10 +183,11 @@ function toggleRoomActive(roomId) {
   roomDiv.classList.add('active-room');
 }
 
-function renderNewRoom(roomId) {
-  toggleRoomActive(roomId)
+function renderNewRoom(room) {
+  toggleRoomActive(room.id)
   clearRoomView()
-  populateMessages(roomId).then(messages => {
+  updateTitle(room)
+  populateMessages(room.id).then(messages => {
     if (!messages || messages.length === 0) {
       return;
     }
@@ -143,6 +196,10 @@ function renderNewRoom(roomId) {
       appendMessage(msg)
     }
   })
+}
+
+function updateTitle(room) {
+  document.querySelector('.chat-title').innerText = room.name
 }
 
 async function populateMessages(roomId) {
@@ -410,7 +467,7 @@ function renderAddRoom(event) {
       renderRoomsList();
       setCurrentRoom(room)
       switchRoom(room.id)
-      renderNewRoom(room.id)
+      renderNewRoom(room)
     })
   }
 
