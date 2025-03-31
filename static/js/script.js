@@ -2,10 +2,37 @@ var conn
 var currentRoom
 var subscriptions = []
 
+const MESSAGES_PAGE_LIMIT = 10
+
 var formMsg = document.getElementById("msg");
 const messages = document.getElementById('chat-area');
-const chatContainer = document.getElementById('chat-container');
 const roomList = document.getElementById('room-list')
+
+messages.addEventListener('scroll', handleScroll);
+function handleScroll() {
+  console.log(messages.scrollTop);
+  if (messages.scrollTop === 0) {
+    console.log("Fetching more messages");
+    const roomId = currentRoom.id;
+    var firstMessage = messages.firstChild;
+    if (firstMessage) {
+      const firstMessageSeqId = firstMessage.getAttribute('data-message-seq-id');
+      if (firstMessageSeqId > 1) {
+        const previousScrollHeight = messages.scrollHeight; // Save current scroll height
+        fetch(`http://${document.location.host}/messages?room_id=${roomId}&before=${firstMessageSeqId}&limit=${MESSAGES_PAGE_LIMIT}`)
+          .then(response => response.json())
+          .then(newMessages => {
+            for (let i = newMessages.length - 1; i >= 0; i--) {
+              msg = createMsg(newMessages[i])
+              messages.insertBefore(msg, firstMessage);
+            }
+            messages.scrollTop += messages.scrollHeight - previousScrollHeight; // Adjust scroll position
+          })
+          .catch(error => console.error('Error fetching messages:', error));
+      }
+    }
+  }
+}
 
 document.getElementById('leaveRoomBtn').onclick = function (event) {
   leaveRoom(currentRoom.id, true);
@@ -120,7 +147,7 @@ function renderNewRoom(roomId) {
 
 async function populateMessages(roomId) {
   try {
-    const response = await fetch("http://" + document.location.host + `/messages?room_id=${roomId}&before=`, {
+    const response = await fetch("http://" + document.location.host + `/messages?room_id=${roomId}&limit=${MESSAGES_PAGE_LIMIT}`, {
       method: 'GET',
     })
 
@@ -318,6 +345,8 @@ if (window["WebSocket"]) {
 function createMsg(rawMsg) {
   const msgEl = document.createElement('div');
   msgEl.classList.add('chat-message');
+  msgEl.setAttribute('data-message-id', rawMsg.id);
+  msgEl.setAttribute('data-message-seq-id', rawMsg.seq_id);
 
   const metaEl = document.createElement('div');
   metaEl.classList.add('meta');
@@ -341,7 +370,7 @@ function createMsg(rawMsg) {
 }
 
 function formatTimestamp(timestamp) {
-  new Date(timestamp).toLocaleTimeString()
+  return new Date(timestamp).toLocaleTimeString()
 }
 
 // Side panels

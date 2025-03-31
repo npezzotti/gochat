@@ -319,7 +319,7 @@ func getMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var before, after int
+	var before, after, limit int
 
 	beforeStr := r.URL.Query().Get("before")
 	if beforeStr != "" {
@@ -339,7 +339,16 @@ func getMessages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	messages, err := MessageGetAll(roomId, before, after, 10)
+	limitStr := r.URL.Query().Get("limit")
+	if limitStr != "" {
+		limit, err = strconv.Atoi(limitStr)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	messages, err := MessageGetAll(roomId, after, before, limit)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return

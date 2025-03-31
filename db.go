@@ -315,9 +315,13 @@ func GetSubscribersForRoom(roomId int) ([]db.User, error) {
 }
 
 func MessageGetAll(roomId, since, before, limit int) ([]db.UserMessage, error) {
-	var upper, lower int
-	if before == 0 {
-		upper = 1<<31 - 1
+	var upper, lower int = 1<<31 - 1, 0
+	if before > 0 {
+		upper = before - 1
+	}
+
+	if since > 0 {
+		lower = since
 	}
 
 	if limit <= 0 {
