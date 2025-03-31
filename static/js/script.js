@@ -6,7 +6,6 @@ const MESSAGES_PAGE_LIMIT = 10
 
 var formMsg = document.getElementById("msg");
 const messages = document.getElementById('chat-area');
-const roomList = document.getElementById('room-list')
 
 messages.addEventListener('scroll', handleScroll);
 function handleScroll() {
@@ -118,7 +117,7 @@ function setCurrentRoom(room) {
 }
 
 function updateRoomList() {
-  roomList.innerHTML = "";
+  document.getElementById('room-list').innerHTML = "";
   if (subscriptions && subscriptions.length > 0) {
     subscriptions.forEach(room => {
       createRoomElement(room);
@@ -178,6 +177,7 @@ function activateRoom(event) {
 }
 
 function toggleRoomActive(roomId) {
+  const roomList = document.getElementById('room-list')
   document.querySelectorAll(".active-room").forEach(el => el.classList.remove('active-room'));
   let roomDiv = roomList.querySelector(`#room-${roomId}`)
   roomDiv.classList.add('active-room');
@@ -336,7 +336,7 @@ function createRoomElement(room) {
   roomDiv.id = `room-${room.id}`
   roomDiv.textContent = room.name
   roomDiv.onclick = activateRoom
-  roomList.appendChild(roomDiv)
+  document.getElementById('room-list').appendChild(roomDiv)
 }
 
 async function deleteRoom(roomId) {
@@ -465,8 +465,8 @@ function renderAddRoom(event) {
       console.log(room)
       addRoom(room);
       renderRoomsList();
-      setCurrentRoom(room)
       switchRoom(room.id)
+      setCurrentRoom(room)
       renderNewRoom(room)
     })
   }
@@ -554,6 +554,10 @@ function renderRoomsList() {
   const joinFormSubmit = document.createElement('input')
   joinFormSubmit.type = 'submit';
   joinFormSubmit.value = 'Join';
+
+  const roomList = document.createElement('div')
+  roomList.id = 'room-list'
+  roomList.className = 'room-list'
 
   joinForm.appendChild(roomNameInput)
   joinForm.appendChild(joinFormSubmit)
