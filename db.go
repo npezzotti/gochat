@@ -7,21 +7,7 @@ import (
 )
 
 const (
-	createAccountQuery = "INSERT INTO accounts (username, email, password_hash, created_at) " +
-		"VALUES ($1, $2, $3, $4) RETURNING id, username, email"
-	updateAccountQuery = "UPDATE accounts SET username = $2, password_hash = $3, updated_at = $4 " +
-		"WHERE id = $1 RETURNING id, username, email"
-	getAccountByIdQuery = "SELECT id, username, email FROM accounts " +
-		"WHERE id = $1 LIMIT 1"
-	getAccountByEmailQuery = "SELECT id, username, email, password_hash FROM accounts " +
-		"WHERE email = $1 LIMIT 1"
-	createRoomQuery = "INSERT INTO rooms (name, description, owner_id, created_at, updated_at) " +
-		"VALUES ($1, $2, $3, $4, $5) RETURNING id, name, description, owner_id, created_at, updated_at"
-	deleteRoomQuery = "DELETE FROM rooms WHERE id = $1"
-	createSubQuery  = "INSERT INTO subscriptions (account_id, room_id, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING id, account_id, room_id"
-	getSubQuery     = "SELECT id FROM subscriptions WHERE account_id = $1 AND room_id = $2 LIMIT 1"
-	listSubQuery    = "SELECT r.id, r.name, r.description FROM subscriptions s JOIN rooms r ON r.id = s.room_id WHERE s.account_id = $1"
-	deleteSubQuery  = "DELETE FROM subscriptions WHERE account_id = $1 AND room_id = $2"
+	createSubQuery = "INSERT INTO subscriptions (account_id, room_id, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING id, account_id, room_id"
 )
 
 type CreateAccountParams struct {
@@ -44,7 +30,8 @@ type CreateRoomParams struct {
 
 func CreateAccount(accountParams CreateAccountParams) (User, error) {
 	res := DB.QueryRow(
-		createAccountQuery,
+		"INSERT INTO accounts (username, email, password_hash, created_at) "+
+			"VALUES ($1, $2, $3, $4) RETURNING id, username, email",
 		accountParams.Username,
 		accountParams.EmailAddress,
 		accountParams.PasswordHash,
@@ -63,7 +50,8 @@ func CreateAccount(accountParams CreateAccountParams) (User, error) {
 
 func UpdateAccount(accountParams UpdateAccountParams) (User, error) {
 	res := DB.QueryRow(
-		updateAccountQuery,
+		"UPDATE accounts SET username = $2, password_hash = $3, updated_at = $4 "+
+			"WHERE id = $1 RETURNING id, username, email",
 		accountParams.User.Id,
 		accountParams.Username,
 		accountParams.PasswordHash,
@@ -82,7 +70,8 @@ func UpdateAccount(accountParams UpdateAccountParams) (User, error) {
 
 func GetAccount(id int) (User, error) {
 	row := DB.QueryRow(
-		getAccountByIdQuery,
+		"SELECT id, username, email FROM accounts "+
+			"WHERE id = $1 LIMIT 1",
 		id,
 	)
 
@@ -98,7 +87,8 @@ func GetAccount(id int) (User, error) {
 
 func GetAccountByEmail(email string) (User, error) {
 	row := DB.QueryRow(
-		getAccountByEmailQuery,
+		"SELECT id, username, email, password_hash FROM accounts "+
+			"WHERE email = $1 LIMIT 1",
 		email,
 	)
 	var user User
@@ -141,7 +131,8 @@ func CreateRoom(params CreateRoomParams) (db.Room, error) {
 		}
 	}()
 	res := tx.QueryRow(
-		createRoomQuery,
+		"INSERT INTO rooms (name, description, owner_id, created_at, updated_at) "+
+			"VALUES ($1, $2, $3, $4, $5) RETURNING id, name, description, owner_id, created_at, updated_at",
 		params.Name,
 		params.Description,
 		params.OwnerId,
@@ -198,7 +189,7 @@ func DeleteRoom(id int) error {
 		return err
 	}
 
-	_, err = tx.Exec(deleteRoomQuery, id)
+	_, err = tx.Exec("DELETE FROM rooms WHERE id = $1", id)
 	if err != nil {
 		return err
 	}
@@ -227,7 +218,7 @@ func CreateSubscription(userId, roomId int) (db.Subscription, error) {
 
 func SubscriptionExists(account_id, room_id int) bool {
 	res := DB.QueryRow(
-		getSubQuery,
+		"SELECT id FROM subscriptions WHERE account_id = $1 AND room_id = $2 LIMIT 1",
 		account_id,
 		room_id,
 	)
@@ -242,7 +233,7 @@ func SubscriptionExists(account_id, room_id int) bool {
 
 func ListSubscriptions(account_id int) ([]db.Room, error) {
 	rows, err := DB.Query(
-		listSubQuery,
+		"SELECT r.id, r.name, r.description FROM subscriptions s JOIN rooms r ON r.id = s.room_id WHERE s.account_id = $1",
 		account_id,
 	)
 
@@ -264,7 +255,7 @@ func ListSubscriptions(account_id int) ([]db.Room, error) {
 
 func DeleteSubscription(accountId, roomId int) error {
 	_, err := DB.Exec(
-		deleteSubQuery,
+		"DELETE FROM subscriptions WHERE account_id = $1 AND room_id = $2",
 		accountId,
 		roomId,
 	)
