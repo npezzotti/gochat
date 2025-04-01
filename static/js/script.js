@@ -150,11 +150,11 @@ async function getRoom(roomId) {
       headers: { 'Content-type': 'application/json' },
     })
 
-    if (!response.ok) {
-      throw new Error(res.error)
-    }
-
     const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error)
+    }
+    
     return data
   } catch (error) {
     console.log(error)
