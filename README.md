@@ -5,6 +5,8 @@
 * * HTTP request removes subscription
 * * Websocket server removes users sessions
 * * Websocket server event sent for unsub
+* When user subscribes to a room
+* * Websocket event notifies subs and they update their cache
 * Frontend for Room details view
 * Frontend for edit account
 * Implement logout in frontend
@@ -24,6 +26,7 @@ User publishes a message to a room
 
 ## WS server event types
 
-Message published to room user to which user is subscribed
-User modified a room details
+Message published to a room a user is actively subscribed to
+Message published to room user to which user is subscribed to, but not active in
+User subscribed to a room a user is subscribed to and active in
 

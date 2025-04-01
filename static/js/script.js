@@ -576,6 +576,5 @@ function renderRoomsList() {
 }
 
 refreshRooms().then(() => {
-  updateRoomList()
   renderRoomsList()
 })
