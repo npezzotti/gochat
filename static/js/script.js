@@ -9,9 +9,7 @@ const messages = document.getElementById('chat-area');
 
 messages.addEventListener('scroll', handleScroll);
 function handleScroll() {
-  console.log(messages.scrollTop);
   if (messages.scrollTop === 0) {
-    console.log("Fetching more messages");
     const roomId = currentRoom.id;
     var firstMessage = messages.firstChild;
     if (firstMessage) {
@@ -61,7 +59,7 @@ document.getElementById('roomDetailsBtn').onclick = function (event) {
   closeHeader.className = 'close-header'
 
   const closeBtn = document.createElement('button')
-  closeBtn.className = 'close-btn'
+  closeBtn.className = 'icon-button'
   closeBtn.innerText = 'X'
   closeBtn.onclick = function () {
     sideBar.remove()
@@ -443,8 +441,11 @@ function renderAddRoom(event) {
   header.className = 'sidebar-header'
 
   let backBtn = document.createElement('i')
+  backBtn.className = 'icon-button'
   backBtn.classList.add("fa", "fa-arrow-left")
-  backBtn.onclick = renderRoomsList
+  backBtn.onclick = event => {
+    renderRoomsList()
+  }
 
   let headerTitle = document.createElement('h2')
   headerTitle.innerText = "Add Chat Room"
@@ -504,75 +505,104 @@ function renderAddRoom(event) {
   sideBar.appendChild(formEl)
 }
 
-function renderRoomsList() {
-  const sideBar = document.querySelector('.sidebar')
-  sideBar.innerHTML = ""
-
-  let header = document.createElement('div')
-  header.className = 'sidebar-header'
-
-  let headerTitle = document.createElement('h2')
-  headerTitle.textContent = localStorage.getItem("username")
-
-  let menuIcons = document.createElement('div')
-  menuIcons.className = 'menu-icons'
-
-  let addRoomBtn = document.createElement('i')
-  addRoomBtn.id = "addRoomBtn"
-  addRoomBtn.classList.add("fa", "fa-plus")
-  addRoomBtn.onclick = renderAddRoom
-
-  let dropdown = document.createElement('div')
-  dropdown.className = ('dropdown')
-  dropdown.innerHTML = `
-  <i class="fa fa-gear"></i>
-  <div class="dropdown-content">
-    <a id="account" href="/account/edit">Account</a>
-    <a id="logout-btn">Logout</a>
-  </div>
-  `
-
-  let joinForm = document.createElement('form')
-  joinForm.onsubmit = event => {
-    event.preventDefault()
-    const formData = new FormData(event.target)
-
-    subscribeRoom(formData.get('id')).then(sub => {
-      switchRoom(sub.room.id)
-      renderNewRoom(sub.room.id)
-    }).catch(err => {
-      console.log(err)
-    })
+function renderRoomsList(component = '.sidebar') {
+  const container = document.querySelector(component)
+  if (!container) {
+    console.log(`Container ${component} not found`)
+    return
   }
 
-  const roomNameInput = document.createElement('input');
-  roomNameInput.type = 'text';
-  roomNameInput.id = 'id';
-  roomNameInput.name = 'id';
-  roomNameInput.required = true;
+  container.innerHTML = ""
 
-  const joinFormSubmit = document.createElement('input')
-  joinFormSubmit.type = 'submit';
-  joinFormSubmit.value = 'Join';
+  const username = localStorage.getItem("username")
+  container.innerHTML = `
+    <div class="sidebar-header">
+      <h2>${username}</h2>
+      <div class="menu-icons">
+        <button id="addRoomBtn" class="icon-button" aria-label="Add Room">
+          <i class="fa fa-plus"></i>
+        </button>
+        <div class="dropdown">
+          <button class="icon-button" aria-label="Settings">
+            <i class="fa fa-gear"></i>
+          </button>
+          <div class="dropdown-content">
+            <a id="account" href="/account/edit">Account</a>
+            <a id="logoutBtn">Logout</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <form id="joinRoomForm" class="join-room-form">
+      <label for="roomId">Room ID</label>
+      <input 
+        type="text" 
+        id="roomId" 
+        name="id" 
+        placeholder="Enter room ID" 
+        required 
+        aria-label="Room ID"
+      >
+      <button type="submit">Join</button>
+    </form>
+    
+    <div id="room-list" class="room-list">
+      <p class="loading-text">Loading rooms...</p>
+    </div>
+  `;
 
-  const roomList = document.createElement('div')
-  roomList.id = 'room-list'
-  roomList.className = 'room-list'
-
-  joinForm.appendChild(roomNameInput)
-  joinForm.appendChild(joinFormSubmit)
-
-  menuIcons.appendChild(addRoomBtn)
-  menuIcons.appendChild(dropdown)
-
-  header.appendChild(headerTitle)
-  header.appendChild(menuIcons)
-
-  sideBar.appendChild(header)
-  sideBar.appendChild(joinForm)
-  sideBar.appendChild(roomList)
-
+  addEventListeners()
   updateRoomList()
+}
+
+function handleJoinRoom(event) {
+  event.preventDefault()
+  const formData = new FormData(event.target)
+
+  subscribeRoom(formData.get('id')).then(sub => {
+    switchRoom(sub.room.id)
+    renderNewRoom(sub.room.id)
+  }).catch(err => {
+    console.log(err)
+  })
+  event.target.reset()
+}
+
+function addEventListeners() {
+  const addRoomBtn = document.getElementById('addRoomBtn')
+  if (addRoomBtn) {
+    addRoomBtn.onclick = renderAddRoom
+  }
+
+  const joinRoomForm = document.getElementById('joinRoomForm')
+  if (joinRoomForm) {
+    joinRoomForm.onsubmit = handleJoinRoom
+  }
+
+  const logoutBtn = document.getElementById('logoutBtn')
+  if (logoutBtn) {
+    logoutBtn.onclick = handleLogout
+  }
+}
+
+handleLogout = function (event) {
+  event.preventDefault()
+  fetch("http://" + document.location.host + "/logout", {
+    method: 'GET',
+  }).then(res => {
+    if (!res.ok) {
+      throw new Error(res.error)
+    }
+
+    conn.close()
+    subscriptions = []
+    currentRoom = null
+    localStorage.removeItem("username")
+    window.location.href = "/login"
+  }).catch(err => {
+    console.log(err)
+  })
 }
 
 refreshRooms().then(() => {

@@ -31,6 +31,20 @@ body {
   cursor: pointer;
 }
 
+.icon-button {
+  background: none;
+  border: none;
+  font-size: 1em;
+  color: white;
+  cursor: pointer;
+  padding: 5px 10px;
+  transition: background-color 0.2s;
+}
+
+.icon-button:hover {
+  background-color: #34495e;
+}
+
 .dropdown {
   position: relative;
   display: inline-block;
@@ -180,20 +194,6 @@ body {
   justify-content: flex-end;
   padding: 1rem;
   border-bottom: 1px solid #536b84;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 1em;
-  color: white;
-  cursor: pointer;
-  padding: 5px 10px;
-  transition: background-color 0.2s;
-}
-
-.close-btn:hover {
-  background-color: #34495e;
 }
 
 .sidebar h3 {
