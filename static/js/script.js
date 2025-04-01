@@ -16,8 +16,7 @@ function handleScroll() {
       const firstMessageSeqId = firstMessage.getAttribute('data-message-seq-id');
       if (firstMessageSeqId > 1) {
         const previousScrollHeight = messages.scrollHeight; // Save current scroll height
-        fetch(`http://${document.location.host}/messages?room_id=${roomId}&before=${firstMessageSeqId}&limit=${MESSAGES_PAGE_LIMIT}`)
-          .then(response => response.json())
+        getMessages(roomId, firstMessageSeqId)
           .then(newMessages => {
             for (let i = newMessages.length - 1; i >= 0; i--) {
               msg = createMsg(newMessages[i])
@@ -185,7 +184,7 @@ function renderNewRoom(room) {
   toggleRoomActive(room.id)
   clearRoomView()
   updateTitle(room)
-  populateMessages(room.id).then(messages => {
+  getMessages(room.id).then(messages => {
     if (!messages || messages.length === 0) {
       return;
     }
@@ -200,12 +199,14 @@ function updateTitle(room) {
   document.querySelector('.chat-title').innerText = room.name
 }
 
-async function populateMessages(roomId) {
-  try {
-    const response = await fetch("http://" + document.location.host + `/messages?room_id=${roomId}&limit=${MESSAGES_PAGE_LIMIT}`, {
-      method: 'GET',
-    })
+async function getMessages(roomId, before = 0) {
+  let url = "http://" + document.location.host + `/messages?room_id=${roomId}&limit=${MESSAGES_PAGE_LIMIT}`
+  if (before > 0) {
+    url += `&before=${before}`
+  }
 
+  try {
+    const response = await fetch(url, { method: 'GET' })
     if (!response.ok) {
       throw new Error(res.error)
     }
