@@ -50,7 +50,6 @@ document.getElementById('deleteRoomBtn').onclick = function (event) {
 }
 
 document.getElementById('roomDetailsBtn').onclick = function (event) {
-  console.log("fired")
   const sideBar = document.createElement('div')
   sideBar.className = 'sidebar'
 
@@ -114,15 +113,19 @@ function setCurrentRoom(room) {
 }
 
 function updateRoomList() {
-  document.getElementById('room-list').innerHTML = "";
+  const roomList = document.getElementById('room-list')
+  roomList.innerHTML = "";
+
   if (subscriptions && subscriptions.length > 0) {
     subscriptions.forEach(room => {
-      createRoomElement(room);
+      roomList.appendChild(createRoomElement(room));
     });
-  };
+  } else {
+    roomList.innerHTML = "No rooms available";
+  }
 }
 
-async function refreshRooms() {
+async function listSubscriptions() {
   try {
     const response = await fetch("http://" + document.location.host + "/subscriptions", {
       method: 'GET',
@@ -130,13 +133,11 @@ async function refreshRooms() {
     })
 
     const res = await response.json()
-    if (response.status !== 200) {
-      throw new Error(res.error || "Login failed")
+    if (!response.ok) {
+      throw new Error(res.error || "Couldn't fetch rooms")
     }
 
-    res.forEach(room => {
-      addRoom(room)
-    })
+    return res
   } catch (error) {
     console.log(error)
   }
@@ -313,7 +314,7 @@ async function subscribeRoom(roomId) {
       throw new Error(sub.error)
     }
 
-    addRoom(sub.room); // Add the new subscription to the list
+    addSub(sub.room); // Add the new subscription to the list
     updateRoomList(); // Refresh the UI
     return sub;
   } catch (err) {
@@ -321,7 +322,7 @@ async function subscribeRoom(roomId) {
   }
 }
 
-function addRoom(room) {
+function addSub(room) {
   subscriptions.push(room)
 }
 
@@ -335,7 +336,8 @@ function createRoomElement(room) {
   roomDiv.id = `room-${room.id}`
   roomDiv.textContent = room.name
   roomDiv.onclick = activateRoom
-  document.getElementById('room-list').appendChild(roomDiv)
+  
+  return roomDiv
 }
 
 async function deleteRoom(roomId) {
@@ -465,7 +467,7 @@ function renderAddRoom(event) {
 
     createRoom(name, description).then(room => {
       console.log(room)
-      addRoom(room);
+      addSub(room);
       renderRoomsList();
       switchRoom(room.id)
       setCurrentRoom(room)
@@ -606,6 +608,10 @@ handleLogout = function (event) {
   })
 }
 
-refreshRooms().then(() => {
+listSubscriptions().then(subs => {
+  subs.forEach(sub => {
+    addSub(sub)
+  })
+
   renderRoomsList()
 })
