@@ -557,7 +557,7 @@ function renderRoomsList(component = '.sidebar') {
     </div>
   `;
 
-  addEventListeners()
+  addRoomListEvtListeners()
   updateRoomList()
 }
 
@@ -575,7 +575,7 @@ function handleJoinRoom(event) {
   event.target.reset()
 }
 
-function addEventListeners() {
+function addRoomListEvtListeners() {
   const addRoomBtn = document.getElementById('addRoomBtn')
   if (addRoomBtn) {
     addRoomBtn.onclick = renderAddRoom
