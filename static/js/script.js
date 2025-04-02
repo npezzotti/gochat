@@ -1,6 +1,5 @@
 var conn
 var currentRoom
-var subscriptions = []
 
 const MESSAGES_PAGE_LIMIT = 10
 
@@ -8,6 +7,17 @@ var formMsg = document.getElementById("msg");
 const messages = document.getElementById('chat-area');
 
 messages.addEventListener('scroll', handleScroll);
+document.getElementById('leaveRoomBtn').onclick = handleUnsubscribe
+document.getElementById('deleteRoomBtn').onclick = handleDeleteRoom
+document.getElementById('roomDetailsBtn').onclick = handleRenderRoomDetails
+
+const Status = {
+  MessageTypeJoin: 0,
+  MessageTypeLeave: 1,
+  MessageTypePublish: 2,
+  MessageTypeRoomDeleted: 3
+};
+
 function handleScroll() {
   if (messages.scrollTop === 0) {
     const roomId = currentRoom.id;
@@ -30,82 +40,64 @@ function handleScroll() {
   }
 }
 
-document.getElementById('leaveRoomBtn').onclick = function (event) {
-  leaveRoom(currentRoom.id, true);
-  removeRoom(currentRoom.id)
-  updateRoomList()
-  clearRoomView()
+function handleRenderRoomDetails (event) {
+  if (!currentRoom) {
+    return
+  }
+
+  const sideBar = document.createElement('div')
+  sideBar.className = 'sidebar'
+  sideBar.innerHTML = `
+    <div class="close-header">
+      <button id="closeBtn" class="icon-button" aria-label="Close">
+        X
+      </button>
+    </div>
+    <div class=room-info>
+      <h3>Name</h3>
+      <p>${currentRoom.name}</p>
+      <h3>Description</h3>
+      <p>${currentRoom.description}</p>
+    </div>
+    <div class="subscribers">
+      <h3>Subscribers</h3>
+      <ul class="subscribers-list">
+        ${currentRoom.subscribers.map(sub => `<li>${sub.username}</li>`).join('')}
+      </ul>
+    </div>
+  `
+
+  sideBar.querySelector('#closeBtn').addEventListener('click', function () {
+    sideBar.remove();
+  });
+
+  document.body.appendChild(sideBar)
 }
 
-document.getElementById('deleteRoomBtn').onclick = function (event) {
-  let result = confirm("Are you sure you want to delete this room?");
+function handleUnsubscribe(event) {
+  if (!currentRoom) {
+    return
+  }
 
-  if (result) {
+  unsubscribeRoom(currentRoom.id).then(() => {
+    leaveRoom(currentRoom.id, false)
+    updateRoomList()
+    clearRoomView()
+  }).catch(err => {
+    console.log(err)
+  })
+}
+
+function handleDeleteRoom (event) {
+  let yes = confirm("Are you sure you want to delete this room?");
+
+  if (yes) {
     deleteRoom(currentRoom.id).then(roomId => {
-      removeRoom(roomId)
       updateRoomList()
       clearRoomView()
     })
   }
 }
-
-document.getElementById('roomDetailsBtn').onclick = function (event) {
-  const sideBar = document.createElement('div')
-  sideBar.className = 'sidebar'
-
-  const closeHeader = document.createElement('div')
-  closeHeader.className = 'close-header'
-
-  const closeBtn = document.createElement('button')
-  closeBtn.className = 'icon-button'
-  closeBtn.innerText = 'X'
-  closeBtn.onclick = function () {
-    sideBar.remove()
-  }
-  closeHeader.appendChild(closeBtn)
-  sideBar.appendChild(closeHeader)
-
-  roomInfo = document.createElement('div')
-  roomInfo.className = 'room-info'
-  const roomNameHeader = document.createElement('h3')
-  roomNameHeader.innerText = "Name"
-  roomInfo.appendChild(roomNameHeader)
-  const roomNameBody = document.createElement('p')
-  roomNameBody.innerText = currentRoom.name
-  roomInfo.appendChild(roomNameBody)
-  const roomDescHeader = document.createElement('h3')
-  roomDescHeader.innerText = "Description"
-  roomInfo.appendChild(roomDescHeader)
-  const roomDescBody = document.createElement('p')
-  roomDescBody.innerText = currentRoom.description
-  roomInfo.appendChild(roomDescBody)
-  sideBar.appendChild(roomInfo)
-
-  subscribersContainer = document.createElement('div')
-  subscribersContainer.className = 'subscribers'
-  const subscribersHeader = document.createElement('h3')
-  subscribersHeader.innerText = "Subscribers"
-  subscribersContainer.appendChild(subscribersHeader)
-
-  const subscribersList = document.createElement('ul')
-  subscribersList.className = 'subscribers-list'
-  currentRoom.subscribers.forEach(sub => {
-    const li = document.createElement('li')
-    li.innerText = sub.username
-    subscribersList.appendChild(li)
-  })
-  subscribersContainer.appendChild(subscribersList)
-  sideBar.appendChild(subscribersContainer)
-
-  document.body.appendChild(sideBar)
-}
-
-const Status = {
-  MessageTypeJoin: 0,
-  MessageTypeLeave: 1,
-  MessageTypePublish: 2,
-  MessageTypeRoomDeleted: 3
-};
 
 function setCurrentRoom(room) {
   console.log("Setting current room: " + JSON.stringify(room))
@@ -114,14 +106,33 @@ function setCurrentRoom(room) {
 
 function updateRoomList() {
   const roomList = document.getElementById('room-list')
-  roomList.innerHTML = "";
+  if (!roomList) {
+    console.log("Room list not found")
+    return
+  }
 
-  if (subscriptions && subscriptions.length > 0) {
-    subscriptions.forEach(room => {
-      roomList.appendChild(createRoomElement(room));
-    });
-  } else {
-    roomList.innerHTML = "No rooms available";
+  listSubscriptions().then(subs => {
+    roomList.innerHTML = "";
+    subs.forEach(sub => {
+      roomList.appendChild(createRoomElement(sub));
+    })
+  }).catch(err => {
+    console.log(err)
+    roomList.innerHTML = `<p class="error">Failed to load chat rooms.</p>`
+  })
+}
+
+async function unsubscribeRoom(roomId) {
+  try {
+    const response = await fetch("http://" + document.location.host + `/subscriptions?room_id=${roomId}`, {
+      method: 'DELETE',
+    })
+    const res = await response.json()
+    if (!response.ok) {
+      throw new Error(res.error || "Couldn't unsubscribe from room")
+    }
+  } catch (err) {
+    console.log(err)
   }
 }
 
@@ -154,7 +165,7 @@ async function getRoom(roomId) {
     if (!response.ok) {
       throw new Error(data.error)
     }
-    
+
     return data
   } catch (error) {
     console.log(error)
@@ -322,21 +333,11 @@ async function subscribeRoom(roomId) {
   }
 }
 
-function addSub(room) {
-  subscriptions.push(room)
-}
-
-function removeRoom(roomId) {
-  subscriptions = subscriptions.filter(room => room.id !== roomId)
-}
-
 function createRoomElement(room) {
   const roomDiv = document.createElement('div');
-  roomDiv.classList.add('room')
-  roomDiv.id = `room-${room.id}`
-  roomDiv.textContent = room.name
+  roomDiv.innerHTML = `<div class="room" id ="room-${room.id}">${room.name}</div>`;
   roomDiv.onclick = activateRoom
-  
+
   return roomDiv
 }
 
@@ -387,7 +388,8 @@ if (window["WebSocket"]) {
           appendMessage(msg);
           break
         case Status.MessageTypeRoomDeleted:
-          removeRoom(renderedMessage.room_id)
+          // removeRoom(renderedMessage.room_id)
+          updateRoomList()
           clearRoomView()
           currentRoom = null
         default:
@@ -467,7 +469,7 @@ function renderAddRoom(event) {
 
     createRoom(name, description).then(room => {
       console.log(room)
-      addSub(room);
+      // addSub(room);
       renderRoomsList();
       switchRoom(room.id)
       setCurrentRoom(room)
@@ -564,6 +566,7 @@ function handleJoinRoom(event) {
   const formData = new FormData(event.target)
 
   subscribeRoom(formData.get('id')).then(sub => {
+    updateRoomList()
     switchRoom(sub.room.id)
     renderNewRoom(sub.room.id)
   }).catch(err => {
@@ -599,7 +602,6 @@ handleLogout = function (event) {
     }
 
     conn.close()
-    subscriptions = []
     currentRoom = null
     localStorage.removeItem("username")
     window.location.href = "/login"
@@ -608,10 +610,4 @@ handleLogout = function (event) {
   })
 }
 
-listSubscriptions().then(subs => {
-  subs.forEach(sub => {
-    addSub(sub)
-  })
-
-  renderRoomsList()
-})
+renderRoomsList()
