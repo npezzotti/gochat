@@ -6,7 +6,7 @@ const MESSAGES_PAGE_LIMIT = 10
 var formMsg = document.getElementById("msg");
 const messages = document.getElementById('chat-area');
 
-messages.addEventListener('scroll', handleScroll);
+messages.addEventListener('scroll', handleMessagesScroll);
 document.getElementById('leaveRoomBtn').onclick = handleUnsubscribe
 document.getElementById('deleteRoomBtn').onclick = handleDeleteRoom
 document.getElementById('roomDetailsBtn').onclick = handleRenderRoomDetails
@@ -18,7 +18,7 @@ const Status = {
   MessageTypeRoomDeleted: 3
 };
 
-function handleScroll() {
+function handleMessagesScroll() {
   if (messages.scrollTop === 0) {
     const roomId = currentRoom.id;
     var firstMessage = messages.firstChild;
