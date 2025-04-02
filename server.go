@@ -30,7 +30,6 @@ type Message struct {
 	RoomId    int         `json:"room_id"`
 	Content   string      `json:"content"`
 	UserId    int         `json:"user_id,omitempty"`
-	Unsub     bool        `json:"unsub,omitempty"`
 	Timestamp time.Time   `json:"timestamp"`
 	client    *Client     `json:"-"`
 }
@@ -87,7 +86,7 @@ func (cs *ChatServer) run() {
 					Description:   dbRoom.Description,
 					cs:            cs,
 					joinChan:      make(chan *Client, 256),
-					leaveChan:     make(chan leaveReq, 256),
+					leaveChan:     make(chan *Client, 256),
 					clientMsgChan: make(chan *Message, 256),
 					seq_id:        dbRoom.SeqId,
 					clients:       make(map[*Client]struct{}),

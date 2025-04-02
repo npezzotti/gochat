@@ -13,8 +13,7 @@ import (
 var idleRoomTimeout = time.Second * 5
 
 type leaveReq struct {
-	c     *Client
-	unSub bool
+	c *Client
 }
 
 type exitReq struct {
@@ -28,7 +27,7 @@ type Room struct {
 	Subscribers   []User `json:"subscribers"`
 	cs            *ChatServer
 	joinChan      chan *Client
-	leaveChan     chan leaveReq
+	leaveChan     chan *Client
 	clientMsgChan chan *Message
 	seq_id        int
 	clients       map[*Client]struct{}
@@ -63,22 +62,10 @@ func (r *Room) start() {
 			}
 
 			r.addClient(c)
-		case leave := <-r.leaveChan:
-			if leave.unSub {
-				r.log.Printf("unscribing user %q from room %q", leave.c.user.Username, r.Name)
-				if !SubscriptionExists(leave.c.user.Id, r.Id) {
-					r.log.Println("subscription doesn't exist")
-					continue
-				}
-
-				if err := DeleteSubscription(leave.c.user.Id, r.Id); err != nil {
-					r.log.Println("DeleteSubscription", err)
-					continue
-				}
-			}
-
-			r.removeClient(leave.c)
-			leave.c.delRoom(r.Id)
+		case client := <-r.leaveChan:
+			r.log.Printf("removing %q from room %q", client.user.Username, r.Name)
+			r.removeClient(client)
+			client.delRoom(r.Id)
 
 			if len(r.clients) == 0 {
 				r.log.Printf("no clients in %q, starting kill timer", r.Name)
