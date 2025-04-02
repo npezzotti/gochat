@@ -3,14 +3,6 @@ var currentRoom
 
 const MESSAGES_PAGE_LIMIT = 10
 
-var formMsg = document.getElementById("msg");
-const messages = document.getElementById('chat-area');
-
-messages.addEventListener('scroll', handleMessagesScroll);
-document.getElementById('leaveRoomBtn').onclick = handleUnsubscribe
-document.getElementById('deleteRoomBtn').onclick = handleDeleteRoom
-document.getElementById('roomDetailsBtn').onclick = handleRenderRoomDetails
-
 const Status = {
   MessageTypeJoin: 0,
   MessageTypeLeave: 1,
@@ -19,9 +11,10 @@ const Status = {
 };
 
 function handleMessagesScroll() {
+  const messages = document.getElementById('chat-area');
   if (messages.scrollTop === 0) {
     const roomId = currentRoom.id;
-    var firstMessage = messages.firstChild;
+    const firstMessage = messages.firstElementChild;
     if (firstMessage) {
       const firstMessageSeqId = firstMessage.getAttribute('data-message-seq-id');
       if (firstMessageSeqId > 1) {
@@ -194,8 +187,34 @@ function toggleRoomActive(roomId) {
 
 function renderNewRoom(room) {
   toggleRoomActive(room.id)
-  clearRoomView()
-  updateTitle(room)
+  
+  chatContainer = document.querySelector('.chat-container')
+  chatContainer.innerHTML = `
+    <div class="chat-header">
+      <h2 class="chat-title">${room.name}</h2>
+      <div class="dropdown">
+        <i class="fa fa-ellipsis-v" style="font-size:1em"></i>
+        <div class="dropdown-content">
+          <a id="roomDetailsBtn" href="#">Room Details</a>
+          <a href="#" id="leaveRoomBtn" >Leave Room</a>
+          <a href="#" id="deleteRoomBtn">Delete Room</a>
+        </div>
+      </div>
+    </div>
+    <div class="chat-area" id="chat-area">
+    </div>
+    <form class="chat-input" id="chat-input">
+      <input type="text" placeholder="Type a message..." name="" id="msg" autofocus>
+      <button type="submit">Send</button>
+    </form>
+  `
+
+  document.getElementById('chat-area').addEventListener('scroll', handleMessagesScroll);
+  document.getElementById('leaveRoomBtn').onclick = handleUnsubscribe
+  document.getElementById('deleteRoomBtn').onclick = handleDeleteRoom
+  document.getElementById('roomDetailsBtn').onclick = handleRenderRoomDetails
+  document.getElementById('chat-input').onsubmit = sendMessage
+
   getMessages(room.id).then(messages => {
     if (!messages || messages.length === 0) {
       return;
@@ -205,10 +224,6 @@ function renderNewRoom(room) {
       appendMessage(msg)
     }
   })
-}
-
-function updateTitle(room) {
-  document.querySelector('.chat-title').innerText = room.name
 }
 
 async function getMessages(roomId, before = 0) {
@@ -257,6 +272,7 @@ function leaveRoom(roomId, unsub) {
 }
 
 function appendMessage(item) {
+  const messages = document.getElementById('chat-area');
   var doScroll = messages.scrollTop > messages.scrollHeight - messages.clientHeight - 1
   messages.appendChild(item)
 
@@ -265,13 +281,16 @@ function appendMessage(item) {
   }
 }
 
-document.getElementById("chat-input").onsubmit = sendMessage
-
 function sendMessage(e) {
   e.preventDefault()
 
   if (!conn) {
     return false;
+  }
+
+  const formMsg = document.getElementById("msg");
+  if (!formMsg) {
+    return false
   }
 
   if (!formMsg.value) {
@@ -357,9 +376,9 @@ async function deleteRoom(roomId) {
   }
 }
 
-function clearRoomView() {
-  messages.innerHTML = "";
-}
+// function clearRoomView() {
+//   document.getElementById('chat-area').innerHTML = "";
+// }
 
 if (window["WebSocket"]) {
   conn = new WebSocket("ws://" + document.location.host + "/ws");
