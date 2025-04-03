@@ -33,16 +33,19 @@ function handleMessagesScroll() {
   }
 }
 
-function handleRenderRoomDetails (event) {
+function handleRenderRoomDetails(event) {
   if (!currentRoom) {
     return
   }
+
+  document.getElementById('room-opts-dropdown-content').style.display = 'none'
+  document.getElementById('options-btn').style.display = 'none'
 
   const sideBar = document.createElement('div')
   sideBar.className = 'sidebar'
   sideBar.innerHTML = `
     <div class="close-header">
-      <button id="closeBtn" class="icon-button" aria-label="Close">
+      <button id="close-btn" class="icon-button" aria-label="Close">
         X
       </button>
     </div>
@@ -60,8 +63,9 @@ function handleRenderRoomDetails (event) {
     </div>
   `
 
-  sideBar.querySelector('#closeBtn').addEventListener('click', function () {
+  sideBar.querySelector('#close-btn').addEventListener('click', function () {
     sideBar.remove();
+    document.getElementById('options-btn').style.display = 'block';
   });
 
   document.body.appendChild(sideBar)
@@ -81,7 +85,7 @@ function handleUnsubscribe(event) {
   })
 }
 
-function handleDeleteRoom (event) {
+function handleDeleteRoom(event) {
   let yes = confirm("Are you sure you want to delete this room?");
 
   if (yes) {
@@ -212,7 +216,7 @@ function renderNewRoom(room) {
   `
 
   document.getElementById('chat-area').addEventListener('scroll', handleMessagesScroll);
-  document.getElementById('options-btn').onclick = function(event) {
+  document.getElementById('options-btn').onclick = function (event) {
     const dropdown = document.getElementById('room-opts-dropdown-content')
     dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block'
   }
@@ -526,6 +530,103 @@ function renderAddRoom(event) {
   sideBar.appendChild(formEl)
 }
 
+async function getAccount() {
+  try {
+    const response = await fetch("http://" + document.location.host + "/account", { method: 'GET' })
+
+    if (!response.ok) {
+      throw new Error(res.error || "Couldn't get account info.")
+    }
+
+    return await response.json()
+  } catch (err) {
+    console.log(err)
+  }
+}
+
+function renderAccountEdit(event) {
+  getAccount().then(user => {
+    const dropdown = document.getElementById('account-opts-dropdown-content')
+    if (dropdown) {
+      dropdown.style.display = 'none'
+    }
+
+    const sideBar = document.querySelector('.sidebar')
+    sideBar.innerHTML = ""
+    sideBar.innerHTML = `
+      <div class="sidebar-header">
+        <button id="close-btn" class="icon-button" aria-label="Close">
+          <i class="fa fa-arrow-left"></i>
+        </button>
+        <h2>Account</h2>
+      </div>
+      <div class="account-info">
+        <h3>Email</h3>
+        <p>${user.email_address}</p>
+        <form id="update-acct-form" class="sidebar-form">
+          <label for="username">Username</label>
+          <input 
+            type="text" 
+            id="username" 
+            name="username" 
+            value="${user.username}" 
+            aria-label="Username"
+          >
+          <label for="password">Password</label>
+          <input 
+            type="password" 
+            id="passsword" 
+            name="password" 
+            placeholder="**********"
+            required 
+            aria-label="Password"
+          >
+          <input type="submit" value="Update"></input>
+        </form>
+      </div>
+    `
+
+    sideBar.querySelector('#close-btn').addEventListener('click', function () {
+      renderRoomsList()
+    })
+
+    sideBar.querySelector('#update-acct-form').onsubmit = async function(event) {
+      event.preventDefault()
+      const formData = new FormData(event.target)
+      try {
+        const user = await handleUpdateAccount(formData.get('username'), formData.get('password'))
+        if (user && user.username) { // Ensure user is valid
+          localStorage.setItem("username", user.username)
+          renderAccountEdit()
+        } else {
+          console.error("Failed to update account: Invalid user data")
+        }
+      } catch (err) {
+        console.error("Error updating account:", err)
+      }
+    }
+  })
+}
+
+async function handleUpdateAccount(username, password) {
+  try {
+    const response = await fetch("http://" + document.location.host + "/account", {
+      method: 'PUT',
+      headers: { 'Content-type': 'application/json' },
+      body: JSON.stringify({ username: username, password: password })
+    })
+
+    const resp = await response.json()
+    if (!response.ok) {
+      throw new Error(resp.error || "Couldn't update account")
+    }
+
+    return resp
+  } catch (err) {
+    console.log(err)
+  }
+}
+
 function renderRoomsList(component = '.sidebar') {
   const container = document.querySelector(component)
   if (!container) {
@@ -548,14 +649,14 @@ function renderRoomsList(component = '.sidebar') {
             <i class="fa fa-gear"></i>
           </button>
           <div id="account-opts-dropdown-content" class="dropdown-content">
-            <a id="account" href="/account/edit">Account</a>
+            <a id="account">Account</a>
             <a id="logoutBtn">Logout</a>
           </div>
         </div>
       </div>
     </div>
 
-    <form id="joinRoomForm" class="join-room-form">
+    <form id="joinRoomForm" class="sidebar-form">
       <label for="roomId">Join Room</label>
       <input 
         type="text" 
@@ -565,7 +666,7 @@ function renderRoomsList(component = '.sidebar') {
         required 
         aria-label="Join Room"
       >
-      <button type="submit">Join</button>
+      <input type="submit" value="Join"></input>
     </form>
 
     <div id="room-list" class="room-list">
@@ -616,6 +717,11 @@ function addRoomListEvtListeners() {
   const joinRoomForm = document.getElementById('joinRoomForm')
   if (joinRoomForm) {
     joinRoomForm.onsubmit = handleJoinRoom
+  }
+
+  const accountBtn = document.getElementById('account')
+  if (accountBtn) {
+    accountBtn.onclick = renderAccountEdit
   }
 
   const logoutBtn = document.getElementById('logoutBtn')

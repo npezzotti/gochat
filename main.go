@@ -258,8 +258,12 @@ func subscribeRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sub := Subscription{
-		Id:   dbSub.Id,
-		User: user,
+		Id: dbSub.Id,
+		User: User{
+			Id:           user.Id,
+			Username:     user.Username,
+			EmailAddress: user.EmailAddress,
+		},
 		Room: &Room{
 			Id:          dbRoom.Id,
 			Name:        dbRoom.Name,
@@ -404,7 +408,11 @@ func serveWs(chatServer *ChatServer, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := NewClient(user, conn, chatServer, chatServer.log)
+	client := NewClient(User{
+		Id:           user.Id,
+		Username:     user.Username,
+		EmailAddress: user.EmailAddress,
+	}, conn, chatServer, chatServer.log)
 	chatServer.registerChan <- client
 
 	go client.write()
@@ -451,8 +459,8 @@ func main() {
 		createAccount(logger, w, r)
 	})
 
-	mux.Handle("/account/edit", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
-		editAccount(logger, w, r)
+	mux.Handle("/account", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
+		account(logger, w, r)
 	}))
 
 	mux.Handle("POST /room/new", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {

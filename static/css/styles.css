@@ -4,6 +4,22 @@
   box-sizing: border-box;
 }
 
+.sidebar-form {
+  padding: 1rem;
+}
+form label, input[type="submit"] {
+  display: block;
+}
+
+form input[type="submit"] {
+  color: white;
+  background: #2c3e50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
 body {
   display: flex;
   height: 100vh;
@@ -72,10 +88,6 @@ body {
 
 .dropdown-content a:hover {
   background-color: #ddd;
-}
-
-.join-room-form {
-  padding: 1rem;
 }
 
 .room-list {

@@ -35,7 +35,7 @@ type User struct {
 	Id           int    `json:"id"`
 	Username     string `json:"username"`
 	EmailAddress string `json:"email_address,omitempty"`
-	PasswordHash string `json:"password_hash,omitempty"`
+	Password     string `json:"password,omitempty"`
 }
 
 type LoginRequest struct {
@@ -116,14 +116,9 @@ func createAccount(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func editAccount(l *log.Logger, w http.ResponseWriter, r *http.Request) {
+func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
-		if err := render(w, "edit-account.html.tmpl"); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
-		}
-	} else if r.Method == http.MethodPost {
-		userId, ok := r.Context().Value(userIdKey).(int)
+		userId, ok := UserId(r.Context())
 		if !ok {
 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 			return
@@ -136,13 +131,49 @@ func editAccount(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := r.ParseForm(); err != nil {
-			l.Println("parse form:", err)
+		u := User{
+			Id:           user.Id,
+			Username:     user.Username,
+			EmailAddress: user.EmailAddress,
+		}
+
+		resp, err := json.Marshal(u)
+		if err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 
-		pwdHash, err := hashPassword(r.Form.Get("password"))
+		w.Write(resp)
+	} else if r.Method == http.MethodPut {
+		userId, ok := UserId(r.Context())
+		if !ok {
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			return
+		}
+
+		curUser, err := GetAccount(userId)
+		if err != nil {
+			l.Println("get account:", err)
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			return
+		}
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			l.Println(err)
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		}
+		defer r.Body.Close()
+
+		var u User
+		err = json.Unmarshal(body, &u)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		}
+
+		pwdHash, err := hashPassword(u.Password)
 		if err != nil {
 			l.Println("hash passwd:", err)
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -150,17 +181,31 @@ func editAccount(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		}
 
 		params := UpdateAccountParams{
-			User:         user,
-			Username:     r.Form.Get("username"),
+			UserId:       curUser.Id,
+			Username:     u.Username,
 			PasswordHash: pwdHash,
 		}
 
-		_, err = UpdateAccount(params)
+		dbUser, err := UpdateAccount(params)
 		if err != nil {
 			l.Println("update account:", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
-		http.Redirect(w, r, "/account/edit", http.StatusFound)
+		userResp := User{
+			Id:           dbUser.Id,
+			Username:     dbUser.Username,
+			EmailAddress: dbUser.EmailAddress,
+		}
+
+		resp, err := json.Marshal(userResp)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+
+		w.Write(resp)
 	} else {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 	}
@@ -188,7 +233,7 @@ func login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user, err := GetAccountByEmail(lr.Email)
+		dbUser, err := GetAccountByEmail(lr.Email)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
@@ -200,12 +245,18 @@ func login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if !verifyPassword(user.PasswordHash, lr.Password) {
+		if !verifyPassword(dbUser.PasswordHash, lr.Password) {
 			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 			return
 		}
 
-		token, err := createJwtForSession(user, defaultExp)
+		u := User{
+			Id:           dbUser.Id,
+			Username:     dbUser.Username,
+			EmailAddress: dbUser.EmailAddress,
+		}
+
+		token, err := createJwtForSession(u, defaultExp)
 		if err != nil {
 			l.Println("create jwt:", err)
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -214,13 +265,7 @@ func login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 
 		http.SetCookie(w, createJwtCookie(token, defaultExp))
 
-		userResp := User{
-			Id:           user.Id,
-			Username:     user.Username,
-			EmailAddress: user.EmailAddress,
-		}
-
-		userRespJSON, err := json.Marshal(userResp)
+		userRespJSON, err := json.Marshal(u)
 		if err != nil {
 			l.Println("marshal user:", err)
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

@@ -17,7 +17,7 @@ type CreateAccountParams struct {
 }
 
 type UpdateAccountParams struct {
-	User         User
+	UserId       int
 	Username     string
 	PasswordHash string
 }
@@ -52,7 +52,7 @@ func UpdateAccount(accountParams UpdateAccountParams) (User, error) {
 	res := DB.QueryRow(
 		"UPDATE accounts SET username = $2, password_hash = $3, updated_at = $4 "+
 			"WHERE id = $1 RETURNING id, username, email",
-		accountParams.User.Id,
+		accountParams.UserId,
 		accountParams.Username,
 		accountParams.PasswordHash,
 		time.Now().UTC(),
@@ -68,14 +68,14 @@ func UpdateAccount(accountParams UpdateAccountParams) (User, error) {
 	return u, err
 }
 
-func GetAccount(id int) (User, error) {
+func GetAccount(id int) (db.User, error) {
 	row := DB.QueryRow(
 		"SELECT id, username, email FROM accounts "+
 			"WHERE id = $1 LIMIT 1",
 		id,
 	)
 
-	var user User
+	var user db.User
 	err := row.Scan(
 		&user.Id,
 		&user.Username,
@@ -85,13 +85,13 @@ func GetAccount(id int) (User, error) {
 	return user, err
 }
 
-func GetAccountByEmail(email string) (User, error) {
+func GetAccountByEmail(email string) (db.User, error) {
 	row := DB.QueryRow(
 		"SELECT id, username, email, password_hash FROM accounts "+
 			"WHERE email = $1 LIMIT 1",
 		email,
 	)
-	var user User
+	var user db.User
 	err := row.Scan(
 		&user.Id,
 		&user.Username,

@@ -1,15 +1,15 @@
 # Todo
 
-* Populate room name in header
+* Style join form
+* Style create room form
+* Fix menu styles
 * When user unsubscribes from room
 * * HTTP request removes subscription
 * * Websocket server removes users sessions
 * * Websocket server event sent for unsub
 * When user subscribes to a room
 * * Websocket event notifies subs and they update their cache
-* Frontend for Room details view
 * Frontend for edit account
-* Implement logout in frontend
 * Delete user
 
 ## Nice to have
