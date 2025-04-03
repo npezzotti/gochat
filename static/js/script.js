@@ -120,7 +120,6 @@ async function unsubscribeRoom(roomId) {
     const response = await fetch("http://" + document.location.host + `/subscriptions?room_id=${roomId}`, {
       method: 'DELETE',
     })
-    const res = await response.json()
     if (!response.ok) {
       throw new Error(res.error || "Couldn't unsubscribe from room")
     }
@@ -166,9 +165,9 @@ async function getRoom(roomId) {
 }
 
 function activateRoom(event) {
-  var roomId = event.target.id.replace("room-", "")
+  const roomId = event.target.id.replace("room-", "");
   if (currentRoom != null && roomId === currentRoom.id) {
-    return false
+    return false;
   }
 
   getRoom(roomId).then(room => {
@@ -179,22 +178,25 @@ function activateRoom(event) {
 }
 
 function toggleRoomActive(roomId) {
-  const roomList = document.getElementById('room-list')
   document.querySelectorAll(".active-room").forEach(el => el.classList.remove('active-room'));
-  let roomDiv = roomList.querySelector(`#room-${roomId}`)
+  const roomDiv = document.getElementById(`room-${roomId}`);
+  if (!roomDiv) {
+    console.warn(`Room with ID ${roomId} not found.`);
+    return;
+  }
   roomDiv.classList.add('active-room');
 }
 
 function renderNewRoom(room) {
-  toggleRoomActive(room.id)
-  
   chatContainer = document.querySelector('.chat-container')
   chatContainer.innerHTML = `
     <div class="chat-header">
       <h2 class="chat-title">${room.name}</h2>
       <div class="dropdown">
-        <i class="fa fa-ellipsis-v" style="font-size:1em"></i>
-        <div class="dropdown-content">
+        <button id="options-btn" class="icon-button" aria-label="Options">
+          <i class="fa fa-ellipsis-v"></i>
+        </button>
+        <div id="room-opts-dropdown-content" class="dropdown-content">
           <a id="roomDetailsBtn" href="#">Room Details</a>
           <a href="#" id="leaveRoomBtn" >Leave Room</a>
           <a href="#" id="deleteRoomBtn">Delete Room</a>
@@ -210,6 +212,10 @@ function renderNewRoom(room) {
   `
 
   document.getElementById('chat-area').addEventListener('scroll', handleMessagesScroll);
+  document.getElementById('options-btn').onclick = function(event) {
+    const dropdown = document.getElementById('room-opts-dropdown-content')
+    dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block'
+  }
   document.getElementById('leaveRoomBtn').onclick = handleUnsubscribe
   document.getElementById('deleteRoomBtn').onclick = handleDeleteRoom
   document.getElementById('roomDetailsBtn').onclick = handleRenderRoomDetails
@@ -220,8 +226,7 @@ function renderNewRoom(room) {
       return;
     }
     for (let i = messages.length - 1; i >= 0; i--) {
-      msg = createMsg(messages[i])
-      appendMessage(msg)
+      appendMessage(createMsg(messages[i]))
     }
   })
 }
@@ -344,8 +349,6 @@ async function subscribeRoom(roomId) {
       throw new Error(sub.error)
     }
 
-    addSub(sub.room); // Add the new subscription to the list
-    updateRoomList(); // Refresh the UI
     return sub;
   } catch (err) {
     console.log(err)
@@ -376,9 +379,9 @@ async function deleteRoom(roomId) {
   }
 }
 
-// function clearRoomView() {
-//   document.getElementById('chat-area').innerHTML = "";
-// }
+function clearRoomView() {
+  document.querySelector('.chat-container').innerHTML = "";
+}
 
 if (window["WebSocket"]) {
   conn = new WebSocket("ws://" + document.location.host + "/ws");
@@ -452,10 +455,6 @@ function formatTimestamp(timestamp) {
   return new Date(timestamp).toLocaleTimeString()
 }
 
-// Side panels
-
-document.getElementById('addRoomBtn').onclick = renderAddRoom
-
 function renderAddRoom(event) {
   const sideBar = document.querySelector('.sidebar')
   sideBar.innerHTML = ""
@@ -487,8 +486,6 @@ function renderAddRoom(event) {
     const description = formData.get('description');
 
     createRoom(name, description).then(room => {
-      console.log(room)
-      // addSub(room);
       renderRoomsList();
       switchRoom(room.id)
       setCurrentRoom(room)
@@ -543,34 +540,34 @@ function renderRoomsList(component = '.sidebar') {
     <div class="sidebar-header">
       <h2>${username}</h2>
       <div class="menu-icons">
-        <button id="addRoomBtn" class="icon-button" aria-label="Add Room">
+        <button id="add-room-btn" class="icon-button" aria-label="Add Room">
           <i class="fa fa-plus"></i>
         </button>
         <div class="dropdown">
-          <button class="icon-button" aria-label="Settings">
+          <button id="account-opts-btn" class="icon-button" aria-label="Settings">
             <i class="fa fa-gear"></i>
           </button>
-          <div class="dropdown-content">
+          <div id="account-opts-dropdown-content" class="dropdown-content">
             <a id="account" href="/account/edit">Account</a>
             <a id="logoutBtn">Logout</a>
           </div>
         </div>
       </div>
     </div>
-    
+
     <form id="joinRoomForm" class="join-room-form">
-      <label for="roomId">Room ID</label>
+      <label for="roomId">Join Room</label>
       <input 
         type="text" 
         id="roomId" 
         name="id" 
         placeholder="Enter room ID" 
         required 
-        aria-label="Room ID"
+        aria-label="Join Room"
       >
       <button type="submit">Join</button>
     </form>
-    
+
     <div id="room-list" class="room-list">
       <p class="loading-text">Loading rooms...</p>
     </div>
@@ -580,14 +577,22 @@ function renderRoomsList(component = '.sidebar') {
   updateRoomList()
 }
 
+function addRoomToList(room) {
+  const roomList = document.getElementById('room-list')
+  if (roomList) {
+    roomList.appendChild(createRoomElement(room));
+  }
+}
+
 function handleJoinRoom(event) {
   event.preventDefault()
   const formData = new FormData(event.target)
 
   subscribeRoom(formData.get('id')).then(sub => {
-    updateRoomList()
-    switchRoom(sub.room.id)
-    renderNewRoom(sub.room.id)
+    addRoomToList(sub.room)
+    toggleRoomActive(sub.room.id);
+    renderNewRoom(sub.room);
+    switchRoom(sub.room.id);
   }).catch(err => {
     console.log(err)
   })
@@ -595,9 +600,17 @@ function handleJoinRoom(event) {
 }
 
 function addRoomListEvtListeners() {
-  const addRoomBtn = document.getElementById('addRoomBtn')
+  const addRoomBtn = document.getElementById('add-room-btn')
   if (addRoomBtn) {
     addRoomBtn.onclick = renderAddRoom
+  }
+
+  const accountOptBtn = document.getElementById('account-opts-btn')
+  if (accountOptBtn) {
+    accountOptBtn.onclick = function (event) {
+      const dropdown = document.getElementById('account-opts-dropdown-content')
+      dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block'
+    }
   }
 
   const joinRoomForm = document.getElementById('joinRoomForm')

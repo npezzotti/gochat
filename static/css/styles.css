@@ -24,7 +24,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1em;
+  padding: 1rem;
 }
 
 .menu-icons i {
@@ -33,17 +33,16 @@ body {
 }
 
 .icon-button {
+  color: rgba(255, 255, 255, 0.722);
   background: none;
   border: none;
   font-size: 1em;
-  color: white;
   cursor: pointer;
-  padding: 5px 10px;
   transition: background-color 0.2s;
 }
 
 .icon-button:hover {
-  background-color: #34495e;
+  color: #ffffff;
 }
 
 .dropdown {
@@ -75,12 +74,13 @@ body {
   background-color: #ddd;
 }
 
-.dropdown:hover .dropdown-content {
-  display: block;
+.join-room-form {
+  padding: 1rem;
 }
 
 .room-list {
   margin: 3px, 0;
+  padding: 1rem;
 }
 
 .room {
