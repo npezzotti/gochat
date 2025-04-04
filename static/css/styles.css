@@ -4,22 +4,6 @@
   box-sizing: border-box;
 }
 
-.sidebar-form {
-  padding: 1rem;
-}
-form label, input[type="submit"] {
-  display: block;
-}
-
-form input[type="submit"] {
-  color: white;
-  background: #2c3e50;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
 body {
   display: flex;
   height: 100vh;
@@ -27,6 +11,7 @@ body {
 }
 
 .sidebar {
+  padding: 1rem;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -40,7 +25,17 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.actions-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.actions-header i {
+  margin-right: .5rem;
 }
 
 .menu-icons i {
@@ -90,9 +85,42 @@ body {
   background-color: #ddd;
 }
 
+.sidebar-form {
+  margin-bottom: .5rem;
+}
+
+.sidebar-form label, input{
+  margin: .3rem 0;
+}
+
+.sidebar-form input[type="text"], input[type="password"] {
+  padding: .5rem;
+  border: none;
+  border-radius: 5px;
+  outline: none;
+  font-size: 1em;
+}
+
+.sidebar-form label,input {
+  display: block;
+}
+
+.sidebar-form input[type="submit"] {
+  padding: .5rem;
+  color: #2c3e50;
+  background: #f1f1f1;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.sidebar-form input[type="submit"]:hover {
+  background-color: white;
+}
+
 .room-list {
   margin: 3px, 0;
-  padding: 1rem;
+  overflow-y: auto;
 }
 
 .room {
@@ -112,6 +140,21 @@ body {
   display: flex;
   flex-direction: column;
   flex: 5;
+  background-color: #ecf0f1;
+}
+
+.logo-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.logo {
+  max-width: 400px;
+  max-height: 400px;
+  width: auto;
+  height: auto;
 }
 
 .chat-header {
@@ -136,7 +179,6 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: .5em;
-  background-color: #ecf0f1;
 }
 
 .chat-message {
@@ -198,14 +240,13 @@ body {
 /* Room Details */
 
 .room-info {
-  padding: 1rem;
   border-bottom: 1px solid #536b84;
 }
 
 .close-header {
   display: flex;
   justify-content: flex-end;
-  padding: 1rem;
+  margin-bottom: 1rem;
   border-bottom: 1px solid #536b84;
 }
 
@@ -220,7 +261,6 @@ body {
 }
 
 .subscribers {
-  padding: 1rem;
   flex-grow: 1;
   overflow-y: auto;
 }

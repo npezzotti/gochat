@@ -78,7 +78,7 @@ function handleUnsubscribe(event) {
 
   unsubscribeRoom(currentRoom.id).then(() => {
     leaveRoom(currentRoom.id, false)
-    updateRoomList()
+    removeRoomFromList(currentRoom)
     clearRoomView()
   }).catch(err => {
     console.log(err)
@@ -101,22 +101,20 @@ function setCurrentRoom(room) {
   currentRoom = room
 }
 
-function updateRoomList() {
+function updateRoomList(rooms) {
   const roomList = document.getElementById('room-list')
   if (!roomList) {
-    console.log("Room list not found")
+    console.Error("Room list not found")
     return
   }
 
-  listSubscriptions().then(subs => {
-    roomList.innerHTML = "";
-    subs.forEach(sub => {
-      roomList.appendChild(createRoomElement(sub));
-    })
-  }).catch(err => {
-    console.log(err)
-    roomList.innerHTML = `<p class="error">Failed to load chat rooms.</p>`
+  rooms.forEach(room => {
+    roomList.appendChild(createRoomElement(room));
   })
+
+  if (currentRoom) {
+    toggleRoomActive(currentRoom.id)
+  }
 }
 
 async function unsubscribeRoom(roomId) {
@@ -168,17 +166,15 @@ async function getRoom(roomId) {
   }
 }
 
-function activateRoom(event) {
-  const roomId = event.target.id.replace("room-", "");
-  if (currentRoom != null && roomId === currentRoom.id) {
-    return false;
-  }
-
+function activateRoom(roomId) {
+  console.log("Activating room: " + roomId)
   getRoom(roomId).then(room => {
-    switchRoom(room.id)
-    setCurrentRoom(room)
+    toggleRoomActive(room.id)
     renderNewRoom(room)
-  });
+    switchRoom(room)
+  }).catch(err => {
+    console.log(err)
+  })
 }
 
 function toggleRoomActive(roomId) {
@@ -236,29 +232,35 @@ function renderNewRoom(room) {
 }
 
 async function getMessages(roomId, before = 0) {
-  let url = "http://" + document.location.host + `/messages?room_id=${roomId}&limit=${MESSAGES_PAGE_LIMIT}`
+  const params = new URLSearchParams({
+    room_id: roomId,
+    limit: MESSAGES_PAGE_LIMIT,
+  });
   if (before > 0) {
-    url += `&before=${before}`
+    params.append('before', before);
   }
 
+  const url = `http://${document.location.host}/messages?${params.toString()}`;
+
   try {
-    const response = await fetch(url, { method: 'GET' })
+    const response = await fetch(url, { method: 'GET' });
     if (!response.ok) {
-      throw new Error(res.error)
+      throw new Error(res.error);
     }
 
-    return await response.json()
+    return await response.json();
   } catch (err) {
-    console.log(err)
+    console.log(err);
   }
 }
 
-function switchRoom(roomId) {
+function switchRoom(room) {
   if (currentRoom) {
     leaveRoom(currentRoom.id, false)
   }
 
-  joinRoom(roomId)
+  joinRoom(room.id)
+  setCurrentRoom(room)
 }
 
 function joinRoom(roomId) {
@@ -362,7 +364,14 @@ async function subscribeRoom(roomId) {
 function createRoomElement(room) {
   const roomDiv = document.createElement('div');
   roomDiv.innerHTML = `<div class="room" id ="room-${room.id}">${room.name}</div>`;
-  roomDiv.onclick = activateRoom
+  roomDiv.onclick = function (event) {
+    const roomId = event.target.id.replace("room-", "");
+    if (currentRoom != null && roomId === currentRoom.id) {
+      return false;
+    }
+
+    activateRoom(roomId);
+  }
 
   return roomDiv
 }
@@ -384,7 +393,11 @@ async function deleteRoom(roomId) {
 }
 
 function clearRoomView() {
-  document.querySelector('.chat-container').innerHTML = "";
+  document.querySelector('.chat-container').innerHTML = `
+    <div class="logo-container">
+      <img class="logo" src="/static/logo.png" alt="go-chat" />
+    <div>
+  `
 }
 
 if (window["WebSocket"]) {
@@ -465,7 +478,7 @@ function renderAddRoom(event) {
 
   const headerEl = document.createDocumentFragment()
   let header = document.createElement('div')
-  header.className = 'sidebar-header'
+  header.className = 'actions-header'
 
   let backBtn = document.createElement('i')
   backBtn.className = 'icon-button'
@@ -483,6 +496,7 @@ function renderAddRoom(event) {
 
   const formEl = document.createDocumentFragment();
   const form = document.createElement('form')
+  form.classList.add("sidebar-form")
   form.onsubmit = event => {
     event.preventDefault()
     const formData = new FormData(event.target)
@@ -490,9 +504,8 @@ function renderAddRoom(event) {
     const description = formData.get('description');
 
     createRoom(name, description).then(room => {
+      switchRoom(room)
       renderRoomsList();
-      switchRoom(room.id)
-      setCurrentRoom(room)
       renderNewRoom(room)
     })
   }
@@ -545,21 +558,28 @@ async function getAccount() {
 }
 
 function renderAccountEdit(event) {
+  const sideBar = document.querySelector('.sidebar')
+  header = `
+    <div class="actions-header">
+      <button id="close-btn" class="icon-button" aria-label="Close">
+        <i class="fa fa-arrow-left"></i>
+      </button>
+      <h2>Account</h2>
+    </div>
+  `
+  sideBar.innerHTML = `
+    ${header}
+    <p>Loading account information...</p>
+  `
+
   getAccount().then(user => {
     const dropdown = document.getElementById('account-opts-dropdown-content')
     if (dropdown) {
       dropdown.style.display = 'none'
     }
 
-    const sideBar = document.querySelector('.sidebar')
-    sideBar.innerHTML = ""
     sideBar.innerHTML = `
-      <div class="sidebar-header">
-        <button id="close-btn" class="icon-button" aria-label="Close">
-          <i class="fa fa-arrow-left"></i>
-        </button>
-        <h2>Account</h2>
-      </div>
+      ${header}
       <div class="account-info">
         <h3>Email</h3>
         <p>${user.email_address}</p>
@@ -586,11 +606,7 @@ function renderAccountEdit(event) {
       </div>
     `
 
-    sideBar.querySelector('#close-btn').addEventListener('click', function () {
-      renderRoomsList()
-    })
-
-    sideBar.querySelector('#update-acct-form').onsubmit = async function(event) {
+    sideBar.querySelector('#update-acct-form').onsubmit = async function (event) {
       event.preventDefault()
       const formData = new FormData(event.target)
       try {
@@ -605,6 +621,15 @@ function renderAccountEdit(event) {
         console.error("Error updating account:", err)
       }
     }
+  }).catch(err => {
+    sideBar.innerHTML = `
+    ${header}
+    <p class="error">Failed to load account info.</p>
+    `
+  }).finally(() => {
+    sideBar.querySelector('#close-btn').addEventListener('click', function () {
+      renderRoomsList()
+    })
   })
 }
 
@@ -655,7 +680,6 @@ function renderRoomsList(component = '.sidebar') {
         </div>
       </div>
     </div>
-
     <form id="joinRoomForm" class="sidebar-form">
       <label for="roomId">Join Room</label>
       <input 
@@ -668,14 +692,26 @@ function renderRoomsList(component = '.sidebar') {
       >
       <input type="submit" value="Join"></input>
     </form>
-
     <div id="room-list" class="room-list">
-      <p class="loading-text">Loading rooms...</p>
+      <p class="loading-text" id="loading-text">Loading rooms...</p>
     </div>
   `;
 
-  addRoomListEvtListeners()
-  updateRoomList()
+  listSubscriptions().then(subs => {
+    updateRoomList(subs);
+    const loadingText = document.getElementById('loading-text');
+    if (loadingText) {
+      loadingText.remove();
+    }
+
+    addRoomListEvtListeners()
+
+    if (currentRoom) {
+      activateRoom(currentRoom.id);
+    }
+  }).catch(err => {
+    console.log(err);
+  });
 }
 
 function addRoomToList(room) {
@@ -685,19 +721,29 @@ function addRoomToList(room) {
   }
 }
 
+function removeRoomFromList(room) {
+  const roomList = document.getElementById('room-list')
+  if (roomList) {
+    roomList.find(roomEl => roomEl.id === `room-${room.id}`).remove()
+  }
+}
+
 function handleJoinRoom(event) {
-  event.preventDefault()
-  const formData = new FormData(event.target)
+  event.preventDefault();
+  const formData = new FormData(event.target);
 
   subscribeRoom(formData.get('id')).then(sub => {
-    addRoomToList(sub.room)
-    toggleRoomActive(sub.room.id);
-    renderNewRoom(sub.room);
-    switchRoom(sub.room.id);
+    addRoomToList(sub.room);
+    activateRoom(sub.room.id);
   }).catch(err => {
-    console.log(err)
-  })
-  event.target.reset()
+    console.log(err);
+  });
+
+  // Clear the input field
+  const roomIdInput = event.target.querySelector('#roomId');
+  if (roomIdInput) {
+    roomIdInput.value = '';
+  }
 }
 
 function addRoomListEvtListeners() {
