@@ -149,6 +149,9 @@ func CreateRoom(params CreateRoomParams) (db.Room, error) {
 		&room.CreatedAt,
 		&room.UpdatedAt,
 	)
+	if err != nil {
+		return db.Room{}, err
+	}
 
 	_, err = tx.Exec(
 		createSubQuery,
