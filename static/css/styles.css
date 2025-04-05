@@ -249,7 +249,10 @@ body {
   display: flex;
   justify-content: flex-end;
   border-bottom: 1px solid #536b84;
-  padding: 1em 0;
+}
+
+.close-header .icon-button {
+  margin-bottom: 1rem;
 }
 
 .sidebar h3 {
