@@ -135,7 +135,7 @@ async function unsubscribeRoom(roomId) {
       throw new Error(res.error || "Couldn't unsubscribe from room")
     }
   } catch (err) {
-    console.log(err)
+    console.log("Error unsubscribing from room:", err)
   }
 }
 
@@ -153,7 +153,7 @@ async function listSubscriptions() {
 
     return res
   } catch (error) {
-    console.log(error)
+    throw new Error("Error fetching subscriptions: " + error)
   }
 }
 
@@ -182,7 +182,7 @@ function activateRoom(roomId) {
     renderNewRoom(room)
     switchRoom(room)
   }).catch(err => {
-    console.log(err)
+    console.log("Error fetching room:", err)
   })
 }
 
@@ -190,7 +190,7 @@ function toggleRoomActive(roomId) {
   document.querySelectorAll(".active-room").forEach(el => el.classList.remove('active-room'));
   const roomDiv = document.getElementById(`room-${roomId}`);
   if (!roomDiv) {
-    console.warn(`Room with ID ${roomId} not found.`);
+    console.warn(`Room with ID ${roomId} not found in list.`);
     return;
   }
   roomDiv.classList.add('active-room');
@@ -237,6 +237,10 @@ function renderNewRoom(room) {
     for (let i = messages.length - 1; i >= 0; i--) {
       appendMessage(createMsg(messages[i]))
     }
+  }).catch(err => {
+    const messages = document.getElementById('chat-area').innerHTML = `
+      <div class="error">Failed to load messages.</div>
+    `
   })
 }
 
