@@ -77,9 +77,10 @@ function handleUnsubscribe(event) {
   }
 
   unsubscribeRoom(currentRoom.id).then(() => {
-    leaveRoom(currentRoom.id, false)
-    removeRoomFromList(currentRoom)
-    clearRoomView()
+    leaveRoom(currentRoom.id)
+    removeRoomFromList(currentRoom);
+    clearRoomView();
+    clearCurrentRoom();
   }).catch(err => {
     console.log(err)
   })
@@ -89,9 +90,12 @@ function handleDeleteRoom(event) {
   let yes = confirm("Are you sure you want to delete this room?");
 
   if (yes) {
-    deleteRoom(currentRoom.id).then(roomId => {
-      updateRoomList()
-      clearRoomView()
+    deleteRoom(currentRoom.id).then(() => {
+      console.log(currentRoom)
+      removeRoomFromList(currentRoom);
+      clearRoomView();
+    }).catch(err => {
+      console.log(err)
     })
   }
 }
@@ -99,6 +103,11 @@ function handleDeleteRoom(event) {
 function setCurrentRoom(room) {
   console.log("Setting current room: " + JSON.stringify(room))
   currentRoom = room
+}
+
+function clearCurrentRoom() {
+  console.log("Clearing current room")
+  currentRoom = null
 }
 
 function updateRoomList(rooms) {
@@ -272,11 +281,10 @@ function joinRoom(roomId) {
   conn.send(JSON.stringify(msgObj))
 }
 
-function leaveRoom(roomId, unsub) {
+function leaveRoom(roomId) {
   var msgObj = {
     type: Status.MessageTypeLeave,
     room_id: roomId,
-    unsub: unsub
   };
 
   conn.send(JSON.stringify(msgObj))
@@ -385,8 +393,6 @@ async function deleteRoom(roomId) {
     if (response.status !== 204) {
       throw new Error(res.error)
     }
-
-    return roomId
   } catch (err) {
     console.log(err)
   }
@@ -427,14 +433,17 @@ if (window["WebSocket"]) {
           appendMessage(msg);
           break
         case Status.MessageTypeRoomDeleted:
-          // removeRoom(renderedMessage.room_id)
-          updateRoomList()
-          clearRoomView()
-          currentRoom = null
+          if (currentRoom && currentRoom.id === renderedMessage.room_id) {
+            removeRoomFromList(renderedMessage.room_id)
+            clearRoomView();
+            clearCurrentRoom();
+          }
         default:
       }
     }
   };
+
+  renderRoomsList();
 } else {
   var item = document.createElement('div');
   item.innerHTML = "<b>Your browser does not support WebSockets.</b>";
@@ -599,6 +608,7 @@ function renderAccountEdit(event) {
             name="password" 
             placeholder="**********"
             required 
+            autocomplete="on"
             aria-label="Password"
           >
           <input type="submit" value="Update"></input>
@@ -652,7 +662,7 @@ async function handleUpdateAccount(username, password) {
   }
 }
 
-function renderRoomsList(component = '.sidebar') {
+async function renderRoomsList(component = '.sidebar') {
   const container = document.querySelector(component)
   if (!container) {
     console.log(`Container ${component} not found`)
@@ -697,7 +707,8 @@ function renderRoomsList(component = '.sidebar') {
     </div>
   `;
 
-  listSubscriptions().then(subs => {
+  try {
+    const subs = await listSubscriptions()
     updateRoomList(subs);
     const loadingText = document.getElementById('loading-text');
     if (loadingText) {
@@ -707,11 +718,11 @@ function renderRoomsList(component = '.sidebar') {
     addRoomListEvtListeners()
 
     if (currentRoom) {
-      activateRoom(currentRoom.id);
+      toggleRoomActive(currentRoom.id);
     }
-  }).catch(err => {
+  } catch (err) {
     console.log(err);
-  });
+  }
 }
 
 function addRoomToList(room) {
@@ -722,9 +733,9 @@ function addRoomToList(room) {
 }
 
 function removeRoomFromList(room) {
-  const roomList = document.getElementById('room-list')
-  if (roomList) {
-    roomList.find(roomEl => roomEl.id === `room-${room.id}`).remove()
+  const roomDiv = document.getElementById(`room-${room.id}`);
+  if (roomDiv) {
+    roomDiv.remove();
   }
 }
 
@@ -793,5 +804,3 @@ handleLogout = function (event) {
     console.log(err)
   })
 }
-
-renderRoomsList()
