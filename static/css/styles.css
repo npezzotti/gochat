@@ -108,7 +108,7 @@ body {
 .sidebar-form input[type="submit"] {
   padding: .5rem;
   color: #2c3e50;
-  background: #f1f1f1;
+  background: rgba(255, 255, 255, 0.722);
   border: none;
   border-radius: 5px;
   cursor: pointer;
