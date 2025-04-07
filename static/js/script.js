@@ -797,19 +797,27 @@ function addRoomListEvtListeners() {
 }
 
 handleLogout = function (event) {
-  event.preventDefault()
+  event.preventDefault();
+
+  const logoutBtn = event.target;
+  logoutBtn.disabled = true;
+
   fetch("http://" + document.location.host + "/logout", {
     method: 'GET',
   }).then(res => {
     if (!res.ok) {
-      throw new Error(res.error)
+      throw new Error(res.statusText || "Logout failed");
     }
 
-    conn.close()
-    currentRoom = null
-    localStorage.removeItem("username")
-    window.location.href = "/login"
+    conn.close();
+    clearCurrentRoom();
+    localStorage.removeItem("username");
+    window.location.href = "/login";
   }).catch(err => {
-    console.log(err)
-  })
+    console.error("Error during logout:", err);
+    alert("Failed to log out. Please try again.");
+  }).finally(() => {
+    logoutBtn.disabled = false;
+    logoutBtn.textContent = "Logout";
+  });
 }
