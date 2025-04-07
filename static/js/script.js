@@ -111,18 +111,23 @@ function clearCurrentRoom() {
 }
 
 function updateRoomList(rooms) {
-  const roomList = document.getElementById('room-list')
+  const roomList = document.getElementById('room-list');
   if (!roomList) {
-    console.Error("Room list not found")
-    return
+    console.error("Room list not found");
+    return;
+  }
+
+  if (!rooms || rooms.length === 0) {
+    roomList.innerHTML = "<p class='no-rooms'>Join a Room to get started.</p>";
+    return;
   }
 
   rooms.forEach(room => {
     roomList.appendChild(createRoomElement(room));
-  })
+  });
 
   if (currentRoom) {
-    toggleRoomActive(currentRoom.id)
+    toggleRoomActive(currentRoom.id);
   }
 }
 
