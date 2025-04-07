@@ -22,7 +22,7 @@ function handleMessagesScroll() {
         getMessages(roomId, firstMessageSeqId)
           .then(newMessages => {
             for (let i = newMessages.length - 1; i >= 0; i--) {
-              msg = createMsg(newMessages[i])
+              let msg = createMsg(newMessages[i]);
               messages.insertBefore(msg, firstMessage);
             }
             messages.scrollTop += messages.scrollHeight - previousScrollHeight; // Adjust scroll position
