@@ -7,7 +7,8 @@ const Status = {
   MessageTypeJoin: 0,
   MessageTypeLeave: 1,
   MessageTypePublish: 2,
-  MessageTypeRoomDeleted: 3
+  MessageTypeRoomDeleted: 3,
+  MessageTypePresence: 4
 };
 
 function handleMessagesScroll() {
@@ -33,16 +34,10 @@ function handleMessagesScroll() {
   }
 }
 
-function handleRenderRoomDetails(event) {
-  if (!currentRoom) {
-    return
-  }
-
-  document.getElementById('room-opts-dropdown-content').style.display = 'none'
-  document.getElementById('options-btn').style.display = 'none'
-
+function createRoomInfo(room) {
   const sideBar = document.createElement('div')
   sideBar.className = 'sidebar'
+  sideBar.id = 'room-info-sidebar'
   sideBar.innerHTML = `
     <div class="close-header">
       <button id="close-btn" class="icon-button" aria-label="Close">
@@ -51,24 +46,39 @@ function handleRenderRoomDetails(event) {
     </div>
     <div class=room-info>
       <h3>Name</h3>
-      <p>${currentRoom.name}</p>
+      <p>${room.name}</p>
       <h3>Description</h3>
-      <p>${currentRoom.description}</p>
+      <p>${room.description}</p>
     </div>
     <div class="subscribers">
       <h3>Subscribers</h3>
       <ul class="subscribers-list">
-        ${currentRoom.subscribers.map(sub => `<li>${sub.username}</li>`).join('')}
+        ${room.subscribers.map(sub => `<li>${sub.username}</li>`).join('')}
       </ul>
     </div>
   `
 
   sideBar.querySelector('#close-btn').addEventListener('click', function () {
-    sideBar.remove();
-    document.getElementById('options-btn').style.display = 'block';
+    hideRoomInfoPanel()
   });
 
+  sideBar.style.display = 'none';
   document.body.appendChild(sideBar)
+}
+
+function showRoomInfoPanel(event) {
+  if (!currentRoom) {
+    return
+  }
+  
+  document.getElementById('room-opts-dropdown-content').style.display = 'none'
+  document.getElementById('options-btn').style.display = 'none'
+  document.getElementById('room-info-sidebar').style.display = 'block'
+}
+
+function hideRoomInfoPanel(event) {
+  document.getElementById('room-info-sidebar').style.display = 'none'
+  document.getElementById('options-btn').style.display = 'block'
 }
 
 function handleUnsubscribe(event) {
@@ -232,7 +242,7 @@ function renderNewRoom(room) {
   }
   document.getElementById('leaveRoomBtn').onclick = handleUnsubscribe
   document.getElementById('deleteRoomBtn').onclick = handleDeleteRoom
-  document.getElementById('roomDetailsBtn').onclick = handleRenderRoomDetails
+  document.getElementById('roomDetailsBtn').onclick = showRoomInfoPanel
   document.getElementById('chat-input').onsubmit = sendMessage
 
   getMessages(room.id).then(messages => {
@@ -243,10 +253,12 @@ function renderNewRoom(room) {
       appendMessage(createMsg(messages[i]))
     }
   }).catch(err => {
-    const messages = document.getElementById('chat-area').innerHTML = `
+    document.getElementById('chat-area').innerHTML = `
       <div class="error">Failed to load messages.</div>
     `
   })
+
+  createRoomInfo(room)
 }
 
 async function getMessages(roomId, before = 0) {
@@ -447,6 +459,11 @@ if (window["WebSocket"]) {
             clearRoomView();
             clearCurrentRoom();
           }
+        case Status.MessageTypePresence:
+          if (currentRoom && currentRoom.id === renderedMessage.room_id) {
+            setStatus(renderedMessage.user_id, renderedMessage.status)
+          }
+          break
         default:
       }
     }
@@ -457,6 +474,25 @@ if (window["WebSocket"]) {
   var item = document.createElement('div');
   item.innerHTML = "<b>Your browser does not support WebSockets.</b>";
   appendMessage(item);
+}
+
+function setStatus(userId, status) {
+  const subscriber = currentRoom.subscribers.find(sub => sub.id === userId);
+  if (subscriber) {
+    const statusEl = document.getElementById(`user-status-${userId}`);
+    if (statusEl) {
+      statusEl.classList.remove('online', 'offline');
+      statusEl.classList.add(status);
+    } else {
+      const msgEl = document.querySelector(`.chat-message[data-message-id="${userId}"]`);
+      if (msgEl) {
+        const newStatusEl = document.createElement('span');
+        newStatusEl.id = `user-status-${userId}`;
+        newStatusEl.classList.add(status);
+        msgEl.appendChild(newStatusEl);
+      }
+    }
+  }
 }
 
 function createMsg(rawMsg) {
