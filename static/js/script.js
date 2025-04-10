@@ -519,7 +519,7 @@ function setPresence(userId, presence) {
       subscriberItem.classList.add('status-offline');
       break;
     default:
-      console.warn("Unknown status:", status);
+      console.warn("Unknown status:", presence);
   }
 }
 
