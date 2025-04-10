@@ -62,10 +62,35 @@ func (r *Room) start() {
 			}
 
 			r.addClient(c)
+			r.broadcast(&Message{
+				Type:    MessageTypePresence,
+				RoomId:  r.Id,
+				UserId:  c.user.Id,
+				Content: PresenceTypeOnline,
+			})
+
+			for client := range r.clients {
+				if client.user.Id == c.user.Id {
+					continue
+				}
+
+				r.broadcast(&Message{
+					Type:    MessageTypePresence,
+					RoomId:  r.Id,
+					UserId:  client.user.Id,
+					Content: PresenceTypeOnline,
+				})
+			}
 		case client := <-r.leaveChan:
 			r.log.Printf("removing %q from room %q", client.user.Username, r.Name)
 			r.removeClient(client)
 			client.delRoom(r.Id)
+			r.broadcast(&Message{
+				Type:    MessageTypePresence,
+				RoomId:  r.Id,
+				UserId:  client.user.Id,
+				Content: PresenceTypeOffline,
+			})
 
 			if len(r.clients) == 0 {
 				r.log.Printf("no clients in %q, starting kill timer", r.Name)

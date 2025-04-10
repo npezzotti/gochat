@@ -13,6 +13,10 @@ const (
 	MessageTypeLeave
 	MessageTypePublish
 	MessageTypeRoomDeleted
+	MessageTypePresence
+
+	PresenceTypeOnline  = "online"
+	PresenceTypeOffline = "offline"
 )
 
 func (mt MessageType) String() string {
