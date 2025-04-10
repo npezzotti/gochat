@@ -60,6 +60,7 @@ function createRoomInfo(room) {
       <p>${room.name}</p>
       <h3>Description</h3>
       <p>${room.description}</p>
+      <p>Room ID: ${room.external_id}</p>
     </div>
     <div class="subscribers">
       <h3>Subscribers</h3>
@@ -510,7 +511,7 @@ function setPresence(userId, presence) {
 
   subscriberItem.classList.remove('status-online', 'status-offline');
 
-  switch (status) {
+  switch (presence) {
     case 'online':
       subscriberItem.classList.add('status-online');
       break;
