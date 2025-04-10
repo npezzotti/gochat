@@ -48,6 +48,7 @@ function createRoomInfo(room) {
   sideBar.className = 'sidebar'
   sideBar.id = sideBarId
   const closeBtnId = 'close-btn'
+  const roomId = room.id
 
   sideBar.innerHTML = `
     <div class="close-header">
@@ -55,12 +56,15 @@ function createRoomInfo(room) {
         X
       </button>
     </div>
-    <div class=room-info>
+    <div class="room-info">
       <h3>Name</h3>
       <p>${room.name}</p>
       <h3>Description</h3>
       <p>${room.description}</p>
-      <p>Room ID: ${room.external_id}</p>
+      <div>
+        <span>ID: </span><span class="room-id">${room.external_id}</span>
+        <button id="room-id-cp-btn">Copy</button>
+      </div>
     </div>
     <div class="subscribers">
       <h3>Subscribers</h3>
@@ -72,6 +76,15 @@ function createRoomInfo(room) {
 
   sideBar.querySelector(`#${closeBtnId}`).onclick = event => {
     hideRoomInfoPanel()
+  };
+
+  sideBar.querySelector('#room-id-cp-btn').onclick = event => {
+    var text = sideBar.querySelector('.room-id').innerHTML;
+    navigator.clipboard.writeText(text);
+    event.target.innerText = "Copied!";
+    setTimeout(() => {
+      event.target.innerText = "Copy";
+    }, 1000);
   };
 
   sideBar.style.display = 'none';
@@ -265,8 +278,9 @@ function renderNewRoom(room) {
       appendMessage(createMsg(messages[i]))
     }
   }).catch(err => {
+    console.error(err)
     document.getElementById('chat-area').innerHTML = `
-      <div class="error">Failed to load messages.</div>
+      <div class="error">Failed to load messages</div>
     `
   })
 
@@ -529,23 +543,14 @@ function createMsg(rawMsg) {
   msgEl.setAttribute('data-message-id', rawMsg.id);
   msgEl.setAttribute('data-message-seq-id', rawMsg.seq_id);
 
-  const metaEl = document.createElement('div');
-  metaEl.classList.add('meta');
-
-  // Map user ID to username
   const user = currentRoom.subscribers.find(sub => sub.id === rawMsg.user_id);
   const username = user ? user.username : "Unknown";
-
-  metaEl.textContent = `${username} • ${formatTimestamp(rawMsg.timestamp)}`;
-
-  const contentText = document.createTextNode(rawMsg.content);
-
-  msgEl.appendChild(metaEl);
-  msgEl.appendChild(contentText);
 
   if (username === localStorage.getItem("username")) {
     msgEl.classList.add("user");
   }
+
+  msgEl.innerHTML = `<div class="meta">${username} • ${formatTimestamp(rawMsg.timestamp)}</div>${rawMsg.content}`;
 
   return msgEl;
 }

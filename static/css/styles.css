@@ -242,7 +242,7 @@ body {
 
 .room-info {
   border-bottom: 1px solid #536b84;
-  margin-top: 1rem;
+  padding: 1rem 0;
 }
 
 .close-header {
