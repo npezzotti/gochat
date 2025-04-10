@@ -66,6 +66,7 @@ func (c *Client) write() {
 
 			n := len(c.send)
 			for i := 0; i < n; i++ {
+				writer.Write([]byte{'\n'})
 				if _, err := writer.Write(<-c.send); err != nil {
 					c.log.Println("write extras:", err)
 					return
