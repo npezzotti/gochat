@@ -23,6 +23,7 @@ type exitReq struct {
 type Room struct {
 	Id            int    `json:"id"`
 	Name          string `json:"name"`
+	ExternalId    string `json:"external_id"`
 	Description   string `json:"description"`
 	Subscribers   []User `json:"subscribers"`
 	cs            *ChatServer

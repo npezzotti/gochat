@@ -6,6 +6,7 @@ type Room struct {
 	Id          int
 	OwnerId     int
 	Name        string
+	ExternalId  string
 	Description string
 	SeqId       int
 	CreatedAt   time.Time

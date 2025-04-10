@@ -19,6 +19,7 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/websocket"
 	_ "github.com/lib/pq"
+	"github.com/teris-io/shortid"
 )
 
 var (
@@ -67,6 +68,13 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sid, err := shortid.Generate()
+	if err != nil {
+		http.Error(w, "generate shortid: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	params.ExternalId = sid
 	params.OwnerId = userId
 
 	newRoom, err := CreateRoom(params)
@@ -91,6 +99,7 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 
 	room := &Room{
 		Id:          newRoom.Id,
+		ExternalId:  newRoom.ExternalId,
 		Name:        newRoom.Name,
 		Description: newRoom.Description,
 		Subscribers: subscribers,
@@ -138,6 +147,7 @@ func getRoom(w http.ResponseWriter, r *http.Request) {
 
 	room := &Room{
 		Id:          dbRoom.Id,
+		ExternalId:  dbRoom.ExternalId,
 		Name:        dbRoom.Name,
 		Description: dbRoom.Description,
 		Subscribers: subscribers,
@@ -449,7 +459,10 @@ func main() {
 		}
 	}()
 
-	chatServer := NewChatServer(logger)
+	chatServer, err := NewChatServer(logger)
+	if err != nil {
+		logger.Fatal("new chat server:", err)
+	}
 	go chatServer.run()
 
 	mux := http.NewServeMux()

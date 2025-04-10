@@ -9,6 +9,7 @@ CREATE TABLE accounts(
 
 CREATE TABLE rooms (
     id SERIAL PRIMARY KEY,
+    external_id VARCHAR(50) UNIQUE NOT NULL,
     owner_id integer,
     name VARCHAR(50) NOT NULL,
     description VARCHAR(100) NOT NULL,

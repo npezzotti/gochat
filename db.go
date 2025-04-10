@@ -26,6 +26,7 @@ type CreateRoomParams struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	OwnerId     int    `json:"-"`
+	ExternalId  string `json:"external_id"`
 }
 
 func CreateAccount(accountParams CreateAccountParams) (User, error) {
@@ -104,7 +105,7 @@ func GetAccountByEmail(email string) (db.User, error) {
 
 func GetRoomById(id int) (db.Room, error) {
 	row := DB.QueryRow(
-		"SELECT id, name, description, seq_id FROM rooms "+
+		"SELECT id, external_id, name, description, seq_id FROM rooms "+
 			"WHERE id = $1 LIMIT 1",
 		id,
 	)
@@ -112,6 +113,7 @@ func GetRoomById(id int) (db.Room, error) {
 	var room db.Room
 	err := row.Scan(
 		&room.Id,
+		&room.ExternalId,
 		&room.Name,
 		&room.Description,
 		&room.SeqId,
@@ -131,9 +133,10 @@ func CreateRoom(params CreateRoomParams) (db.Room, error) {
 		}
 	}()
 	res := tx.QueryRow(
-		"INSERT INTO rooms (name, description, owner_id, created_at, updated_at) "+
-			"VALUES ($1, $2, $3, $4, $5) RETURNING id, name, description, owner_id, created_at, updated_at",
+		"INSERT INTO rooms (name, external_id, description, owner_id, created_at, updated_at) "+
+			"VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, external_id, description, owner_id, created_at, updated_at",
 		params.Name,
+		params.ExternalId,
 		params.Description,
 		params.OwnerId,
 		time.Now().UTC(),
@@ -144,6 +147,7 @@ func CreateRoom(params CreateRoomParams) (db.Room, error) {
 	err = res.Scan(
 		&room.Id,
 		&room.Name,
+		&room.ExternalId,
 		&room.Description,
 		&room.OwnerId,
 		&room.CreatedAt,
