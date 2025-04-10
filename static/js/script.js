@@ -11,6 +11,9 @@ const Status = {
   MessageTypePresence: 4
 };
 
+const PRESENCE_ONLINE = "online"
+const PRESENCE_OFFLINE = "offline"
+
 function handleMessagesScroll() {
   const messages = document.getElementById('chat-area');
   if (messages.scrollTop === 0) {
@@ -35,12 +38,20 @@ function handleMessagesScroll() {
 }
 
 function createRoomInfo(room) {
+  const sideBarId = 'room-info-sidebar'
+  const existingSidebar = document.getElementById(sideBarId)
+  if (existingSidebar) {
+    existingSidebar.remove()
+  }
+
   const sideBar = document.createElement('div')
   sideBar.className = 'sidebar'
-  sideBar.id = 'room-info-sidebar'
+  sideBar.id = sideBarId
+  const closeBtnId = 'close-btn'
+
   sideBar.innerHTML = `
     <div class="close-header">
-      <button id="close-btn" class="icon-button" aria-label="Close">
+      <button id="${closeBtnId}" class="icon-button" aria-label="Close">
         X
       </button>
     </div>
@@ -53,14 +64,14 @@ function createRoomInfo(room) {
     <div class="subscribers">
       <h3>Subscribers</h3>
       <ul class="subscribers-list">
-        ${room.subscribers.map(sub => `<li>${sub.username}</li>`).join('')}
+        ${room.subscribers.map(sub => `<li class="status-offline" data-user-id=${sub.id}>${sub.username}</li>`).join('')}
       </ul>
     </div>
   `
 
-  sideBar.querySelector('#close-btn').addEventListener('click', function () {
+  sideBar.querySelector(`#${closeBtnId}`).onclick = event => {
     hideRoomInfoPanel()
-  });
+  };
 
   sideBar.style.display = 'none';
   document.body.appendChild(sideBar)
@@ -70,7 +81,7 @@ function showRoomInfoPanel(event) {
   if (!currentRoom) {
     return
   }
-  
+
   document.getElementById('room-opts-dropdown-content').style.display = 'none'
   document.getElementById('options-btn').style.display = 'none'
   document.getElementById('room-info-sidebar').style.display = 'block'
@@ -447,23 +458,26 @@ if (window["WebSocket"]) {
 
       switch (renderedMessage.type) {
         case Status.MessageTypeJoin:
+          break;
         case Status.MessageTypeLeave:
-          break
+          break;
         case Status.MessageTypePublish:
           msg = createMsg(renderedMessage)
           appendMessage(msg);
-          break
+          break;
         case Status.MessageTypeRoomDeleted:
           if (currentRoom && currentRoom.id === renderedMessage.room_id) {
             removeRoomFromList(renderedMessage.room_id)
             clearRoomView();
             clearCurrentRoom();
           }
+          break;
         case Status.MessageTypePresence:
           if (currentRoom && currentRoom.id === renderedMessage.room_id) {
-            setStatus(renderedMessage.user_id, renderedMessage.status)
+            let status = renderedMessage.content === PRESENCE_ONLINE ? PRESENCE_ONLINE : PRESENCE_OFFLINE
+            setPresence(renderedMessage.user_id, status);
           }
-          break
+          break;
         default:
       }
     }
@@ -476,22 +490,35 @@ if (window["WebSocket"]) {
   appendMessage(item);
 }
 
-function setStatus(userId, status) {
-  const subscriber = currentRoom.subscribers.find(sub => sub.id === userId);
-  if (subscriber) {
-    const statusEl = document.getElementById(`user-status-${userId}`);
-    if (statusEl) {
-      statusEl.classList.remove('online', 'offline');
-      statusEl.classList.add(status);
-    } else {
-      const msgEl = document.querySelector(`.chat-message[data-message-id="${userId}"]`);
-      if (msgEl) {
-        const newStatusEl = document.createElement('span');
-        newStatusEl.id = `user-status-${userId}`;
-        newStatusEl.classList.add(status);
-        msgEl.appendChild(newStatusEl);
-      }
-    }
+function setPresence(userId, presence) {
+  if (presence !== PRESENCE_ONLINE && presence !== PRESENCE_OFFLINE) {
+    console.error("Invalid presence status:", presence);
+    return;
+  }
+
+  const subscribersList = document.querySelector('.subscribers-list');
+  if (!subscribersList) {
+    console.error("Subscribers list not found");
+    return;
+  }
+
+  var subscriberItem = subscribersList.querySelector(`li[data-user-id="${userId}"]`);
+  if (!subscriberItem) {
+    console.error("Subscriber item not found");
+    return;
+  }
+
+  subscriberItem.classList.remove('status-online', 'status-offline');
+
+  switch (status) {
+    case 'online':
+      subscriberItem.classList.add('status-online');
+      break;
+    case 'offline':
+      subscriberItem.classList.add('status-offline');
+      break;
+    default:
+      console.warn("Unknown status:", status);
   }
 }
 

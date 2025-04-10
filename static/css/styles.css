@@ -288,7 +288,14 @@ body {
   display: inline-block;
   width: 8px;
   height: 8px;
-  background-color: #4caf50;
+  background-color: var(--indicator-color, #4caf50); /* Default to #4caf50 */
   border-radius: 50%;
   margin-right: 10px;
+}
+
+.subscribers-list li.status-online::before {
+  background-color: green;
+}
+.subscribers-list li.status-offline::before {
+  background-color: gray;
 }
