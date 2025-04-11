@@ -181,7 +181,7 @@ func (c *Client) addRoom(r *Room) {
 	defer c.roomsLock.Unlock()
 
 	c.rooms[r.Id] = r
-	c.log.Printf("added user %q to room %q, client's current rooms: %+v\n", c.user.Username, r.Name, c.rooms)
+	c.log.Printf("added user %q to room %q, client's current rooms: %+v\n", c.user.Username, r.ExternalId, c.rooms)
 }
 
 func (c *Client) getRoom(id int) *Room {

@@ -136,7 +136,7 @@ func (cs *ChatServer) run() {
 		case <-cs.stop:
 			cs.log.Println("shutting down rooms")
 			for _, r := range cs.rooms {
-				cs.log.Println("shutting down room", r.Name)
+				cs.log.Println("shutting down room", r.ExternalId)
 				close(r.exit)
 
 				<-r.done
