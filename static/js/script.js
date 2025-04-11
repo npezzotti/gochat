@@ -93,6 +93,8 @@ function createRoomInfo(room) {
 }
 
 function showRoomInfoPanel(event) {
+  event.preventDefault()
+
   if (!currentRoom) {
     return
   }
@@ -203,16 +205,17 @@ async function getRoom(roomId) {
     const response = await fetch("http://" + document.location.host + `/room?id=${roomId}`, {
       method: 'GET',
       headers: { 'Content-type': 'application/json' },
-    })
+    });
 
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error)
+      throw new Error(data.error);
     }
 
-    return data
+    return data;
   } catch (error) {
-    console.log(error)
+    console.log(error);
+    throw error;
   }
 }
 
@@ -247,9 +250,9 @@ function renderNewRoom(room) {
           <i class="fa fa-ellipsis-v"></i>
         </button>
         <div id="room-opts-dropdown-content" class="dropdown-content">
-          <a id="roomDetailsBtn" href="#">Room Details</a>
-          <a href="#" id="leaveRoomBtn" >Leave Room</a>
-          <a href="#" id="deleteRoomBtn">Delete Room</a>
+          <a id="roomDetailsBtn">Room Details</a>
+          <a id="leaveRoomBtn" >Leave Room</a>
+          <a id="deleteRoomBtn">Delete Room</a>
         </div>
       </div>
     </div>
@@ -394,7 +397,7 @@ async function createRoom(name, description) {
 
     return room
   } catch (err) {
-    console.log(err)
+    throw new Error("Error creating room: " + err)
   }
 }
 
@@ -413,7 +416,7 @@ async function subscribeRoom(roomId) {
 
     return sub;
   } catch (err) {
-    console.log(err)
+    throw new Error("Error subscribing to room: " + err)
   }
 }
 
@@ -422,7 +425,7 @@ function createRoomElement(room) {
   roomDiv.innerHTML = `<div class="room" id="${room.external_id}">${room.name}</div>`;
   roomDiv.onclick = function (event) {
     const roomId = event.target.id;
-    if (currentRoom != null && roomId === currentRoom.external_id) {
+    if (currentRoom && roomId === currentRoom.external_id) {
       return false;
     }
 
@@ -585,18 +588,7 @@ function renderAddRoom(event) {
   const formEl = document.createDocumentFragment();
   const form = document.createElement('form')
   form.classList.add("sidebar-form")
-  form.onsubmit = event => {
-    event.preventDefault()
-    const formData = new FormData(event.target)
-    const name = formData.get('name');
-    const description = formData.get('description');
-
-    createRoom(name, description).then(room => {
-      switchRoom(room)
-      renderRoomsList();
-      renderNewRoom(room)
-    })
-  }
+  form.onsubmit = handleCreateRoom
 
   const nameLabel = document.createElement('label');
   nameLabel.setAttribute('for', 'name');
@@ -629,6 +621,42 @@ function renderAddRoom(event) {
 
   sideBar.appendChild(header)
   sideBar.appendChild(formEl)
+}
+
+async function handleCreateRoom(event) {
+  event.preventDefault();
+
+  const form = event.target;
+  const existingError = form.querySelector('.error');
+  if (existingError) {
+    existingError.remove();
+  }
+
+  const roomName = form.querySelector('#name');
+  const roomDesc = form.querySelector('#description');
+
+  if (!roomName || !roomName.value || !roomDesc || !roomDesc.value) {
+    const errorMessage = document.createElement('p');
+    errorMessage.className = 'error';
+    errorMessage.textContent = 'Please fill in all fields.';
+    form.appendChild(errorMessage);
+    return;
+  }
+
+  try {
+    const room = await createRoom(roomName, roomDesc)
+    renderRoomsList();
+    renderNewRoom(room)
+    switchRoom(room)
+  } catch (err) {
+    console.error(err)
+    const errorMessage = document.createElement('p');
+    errorMessage.className = 'error';
+    errorMessage.textContent = 'Failed to create room. Please try again.';
+    roomName.value = '';
+    roomDesc.value = '';
+    form.appendChild(errorMessage);
+  }
 }
 
 async function getAccount() {
@@ -795,12 +823,8 @@ async function renderRoomsList(component = '.sidebar') {
     }
 
     addRoomListEvtListeners()
-
-    if (currentRoom) {
-      toggleRoomActive(currentRoom.external_id);
-    }
   } catch (err) {
-    console.log(err);
+    throw new Error("Error fetching subscriptions: " + err)
   }
 }
 
@@ -818,22 +842,50 @@ function removeRoomFromList(room) {
   }
 }
 
-function handleJoinRoom(event) {
+async function handleJoinRoom(event) {
   event.preventDefault();
-  const formData = new FormData(event.target);
 
-  subscribeRoom(formData.get('id')).then(sub => {
+  const form = event.target;
+  const existingError = form.querySelector('.error');
+  if (existingError) {
+    existingError.remove();
+  }
+
+  const roomIdInput = form.querySelector('#roomId');
+
+  if (!roomIdInput || !roomIdInput.value) {
+    return;
+  }
+
+  const roomId = roomIdInput.value.trim();
+
+  if (currentRoom && roomId === currentRoom.external_id) {
+    // Already in the room
+    roomIdInput.value = '';
+    return;
+  }
+
+  const roomList = document.getElementById('room-list');
+  if (roomList.querySelector(`#${roomId}`)) {
+    // Room already exists in the list, just activate it
+    activateRoom(roomIdInput.value);
+    roomIdInput.value = '';
+    return;
+  }
+
+  try {
+    const sub = await subscribeRoom(roomIdInput.value);
     addRoomToList(sub.room);
     activateRoom(sub.room.external_id);
-  }).catch(err => {
-    console.log(err);
-  });
-
-  // Clear the input field
-  const roomIdInput = event.target.querySelector('#roomId');
-  if (roomIdInput) {
-    roomIdInput.value = '';
+  } catch (err) {
+    console.error("Error joining room:", err);
+    const errorMessage = document.createElement('p');
+    errorMessage.className = 'error';
+    errorMessage.textContent = 'Failed to join room. Please check the ID and try again.';
+    form.appendChild(errorMessage);
   }
+
+  roomIdInput.value = '';
 }
 
 function addRoomListEvtListeners() {

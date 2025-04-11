@@ -159,7 +159,7 @@ func (r *Room) broadcast(msg *Message) {
 		return
 	}
 
-	fmt.Printf("received message to room %s: %s\n", r.ExternalId, string(jsonMsg))
+	fmt.Printf("received message to room %q: %s\n", r.ExternalId, string(jsonMsg))
 	for client := range r.clients {
 		select {
 		case client.send <- jsonMsg:
