@@ -117,25 +117,19 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 }
 
 func getRoom(w http.ResponseWriter, r *http.Request) {
-	roomIdStr := r.URL.Query().Get("id")
-	if roomIdStr == "" {
+	externalId := r.URL.Query().Get("id")
+	if externalId == "" {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 
-	roomId, err := strconv.Atoi(roomIdStr)
-	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	dbRoom, err := GetRoomById(roomId)
+	dbRoom, err := GetRoomByExternalID(externalId)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
 
-	dbSubs, err := GetSubscribersForRoom(roomId)
+	dbSubs, err := GetSubscribersForRoom(dbRoom.Id)
 	var subscribers []User
 	for _, dbSub := range dbSubs {
 		var u User
@@ -163,26 +157,26 @@ func getRoom(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteRoom(cs *ChatServer, w http.ResponseWriter, r *http.Request) {
-	roomIdStr := r.URL.Query().Get("id")
-	if roomIdStr == "" {
+	externalId := r.URL.Query().Get("id")
+	if externalId == "" {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 
-	roomId, err := strconv.Atoi(roomIdStr)
+	room, err := GetRoomByExternalID(externalId)
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
-	err = DeleteRoom(roomId)
+	err = DeleteRoom(room.Id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	fmt.Println("deleted the room")
-	cs.rmRoom <- roomId
+	cs.rmRoomChan <- room.Id
 
 	fmt.Println("done")
 
@@ -206,6 +200,7 @@ func getUsersRooms(w http.ResponseWriter, r *http.Request) {
 	for _, dbRoom := range dbRooms {
 		rooms = append(rooms, Room{
 			Id:          dbRoom.Id,
+			ExternalId:  dbRoom.ExternalId,
 			Name:        dbRoom.Name,
 			Description: dbRoom.Description,
 		})
@@ -221,15 +216,9 @@ func getUsersRooms(w http.ResponseWriter, r *http.Request) {
 }
 
 func subscribeRoom(w http.ResponseWriter, r *http.Request) {
-	roomIdStr := r.URL.Query().Get("room_id")
-	if roomIdStr == "" {
+	externalId := r.URL.Query().Get("room_id")
+	if externalId == "" {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return
-	}
-
-	roomId, err := strconv.Atoi(roomIdStr)
-	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
@@ -245,7 +234,7 @@ func subscribeRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbRoom, err := GetRoomById(roomId)
+	dbRoom, err := GetRoomByExternalID(externalId)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
@@ -257,7 +246,7 @@ func subscribeRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbSubs, err := GetSubscribersForRoom(roomId)
+	dbSubs, err := GetSubscribersForRoom(dbRoom.Id)
 	var subscribers []User
 	for _, dbSub := range dbSubs {
 		var u User
@@ -276,6 +265,7 @@ func subscribeRoom(w http.ResponseWriter, r *http.Request) {
 		},
 		Room: &Room{
 			Id:          dbRoom.Id,
+			ExternalId:  dbRoom.ExternalId,
 			Name:        dbRoom.Name,
 			Description: dbRoom.Description,
 			Subscribers: subscribers,
@@ -293,15 +283,9 @@ func subscribeRoom(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cs *ChatServer) unsubscribeRoom(w http.ResponseWriter, r *http.Request) {
-	roomIdStr := r.URL.Query().Get("room_id")
-	if roomIdStr == "" {
+	externalId := r.URL.Query().Get("room_id")
+	if externalId == "" {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return
-	}
-
-	roomId, err := strconv.Atoi(roomIdStr)
-	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
@@ -311,7 +295,13 @@ func (cs *ChatServer) unsubscribeRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = DeleteSubscription(userId, roomId)
+	room, err := GetRoomByExternalID(externalId)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	err = DeleteSubscription(userId, room.Id)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
@@ -321,15 +311,15 @@ func (cs *ChatServer) unsubscribeRoom(w http.ResponseWriter, r *http.Request) {
 }
 
 func getMessages(w http.ResponseWriter, r *http.Request) {
-	roomIdStr := r.URL.Query().Get("room_id")
-	if roomIdStr == "" {
+	externalId := r.URL.Query().Get("room_id")
+	if externalId == "" {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 
-	roomId, err := strconv.Atoi(roomIdStr)
+	room, err := GetRoomByExternalID(externalId)
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
@@ -362,7 +352,7 @@ func getMessages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	messages, err := MessageGetAll(roomId, after, before, limit)
+	messages, err := MessageGetAll(room.Id, after, before, limit)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return

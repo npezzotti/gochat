@@ -17,7 +17,7 @@ const PRESENCE_OFFLINE = "offline"
 function handleMessagesScroll() {
   const messages = document.getElementById('chat-area');
   if (messages.scrollTop === 0) {
-    const roomId = currentRoom.id;
+    const roomId = currentRoom.external_id;
     const firstMessage = messages.firstElementChild;
     if (firstMessage) {
       const firstMessageSeqId = firstMessage.getAttribute('data-message-seq-id');
@@ -48,7 +48,7 @@ function createRoomInfo(room) {
   sideBar.className = 'sidebar'
   sideBar.id = sideBarId
   const closeBtnId = 'close-btn'
-  const roomId = room.id
+  const roomId = room.external_id
 
   sideBar.innerHTML = `
     <div class="close-header">
@@ -111,7 +111,7 @@ function handleUnsubscribe(event) {
     return
   }
 
-  unsubscribeRoom(currentRoom.id).then(() => {
+  unsubscribeRoom(currentRoom.external_id).then(() => {
     leaveRoom(currentRoom.id)
     removeRoomFromList(currentRoom);
     clearRoomView();
@@ -125,7 +125,7 @@ function handleDeleteRoom(event) {
   let yes = confirm("Are you sure you want to delete this room?");
 
   if (yes) {
-    deleteRoom(currentRoom.id).then(() => {
+    deleteRoom(currentRoom.external_id).then(() => {
       console.log(currentRoom)
       removeRoomFromList(currentRoom);
       clearRoomView();
@@ -162,7 +162,7 @@ function updateRoomList(rooms) {
   });
 
   if (currentRoom) {
-    toggleRoomActive(currentRoom.id);
+    toggleRoomActive(currentRoom.external_id);
   }
 }
 
@@ -218,7 +218,7 @@ async function getRoom(roomId) {
 function activateRoom(roomId) {
   console.log("Activating room: " + roomId)
   getRoom(roomId).then(room => {
-    toggleRoomActive(room.id)
+    toggleRoomActive(room.external_id)
     renderNewRoom(room)
     switchRoom(room)
   }).catch(err => {
@@ -228,7 +228,7 @@ function activateRoom(roomId) {
 
 function toggleRoomActive(roomId) {
   document.querySelectorAll(".active-room").forEach(el => el.classList.remove('active-room'));
-  const roomDiv = document.getElementById(`room-${roomId}`);
+  const roomDiv = document.getElementById(roomId);
   if (!roomDiv) {
     console.warn(`Room with ID ${roomId} not found in list.`);
     return;
@@ -270,7 +270,7 @@ function renderNewRoom(room) {
   document.getElementById('roomDetailsBtn').onclick = showRoomInfoPanel
   document.getElementById('chat-input').onsubmit = sendMessage
 
-  getMessages(room.id).then(messages => {
+  getMessages(room.external_id).then(messages => {
     if (!messages || messages.length === 0) {
       return;
     }
@@ -418,10 +418,10 @@ async function subscribeRoom(roomId) {
 
 function createRoomElement(room) {
   const roomDiv = document.createElement('div');
-  roomDiv.innerHTML = `<div class="room" id ="room-${room.id}">${room.name}</div>`;
+  roomDiv.innerHTML = `<div class="room" id="${room.external_id}">${room.name}</div>`;
   roomDiv.onclick = function (event) {
-    const roomId = event.target.id.replace("room-", "");
-    if (currentRoom != null && roomId === currentRoom.id) {
+    const roomId = event.target.id;
+    if (currentRoom != null && roomId === currentRoom.external_id) {
       return false;
     }
 
@@ -481,7 +481,7 @@ if (window["WebSocket"]) {
           appendMessage(msg);
           break;
         case Status.MessageTypeRoomDeleted:
-          if (currentRoom && currentRoom.id === renderedMessage.room_id) {
+          if (currentRoom && currentRoom.external_id === renderedMessage.room_id) {
             removeRoomFromList(renderedMessage.room_id)
             clearRoomView();
             clearCurrentRoom();
@@ -796,7 +796,7 @@ async function renderRoomsList(component = '.sidebar') {
     addRoomListEvtListeners()
 
     if (currentRoom) {
-      toggleRoomActive(currentRoom.id);
+      toggleRoomActive(currentRoom.external_id);
     }
   } catch (err) {
     console.log(err);
@@ -811,7 +811,7 @@ function addRoomToList(room) {
 }
 
 function removeRoomFromList(room) {
-  const roomDiv = document.getElementById(`room-${room.id}`);
+  const roomDiv = document.getElementById(room.external_id);
   if (roomDiv) {
     roomDiv.remove();
   }
@@ -823,7 +823,7 @@ function handleJoinRoom(event) {
 
   subscribeRoom(formData.get('id')).then(sub => {
     addRoomToList(sub.room);
-    activateRoom(sub.room.id);
+    activateRoom(sub.room.external_id);
   }).catch(err => {
     console.log(err);
   });

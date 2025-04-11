@@ -47,7 +47,7 @@ type ChatServer struct {
 	registerChan   chan *Client
 	deRegisterChan chan *Client
 	broadcastChan  chan Message
-	rmRoom         chan int
+	rmRoomChan     chan int
 	rooms          map[int]*Room
 	stop           chan struct{}
 	done           chan struct{}
@@ -67,7 +67,7 @@ func NewChatServer(logger *log.Logger) (*ChatServer, error) {
 		registerChan:   make(chan *Client),
 		deRegisterChan: make(chan *Client),
 		broadcastChan:  make(chan Message),
-		rmRoom:         make(chan int),
+		rmRoomChan:     make(chan int),
 		rooms:          make(map[int]*Room),
 		stop:           make(chan struct{}),
 		done:           make(chan struct{}),
@@ -87,7 +87,7 @@ func (cs *ChatServer) run() {
 					cs.log.Printf("join channel full on room %d", room.Id)
 				}
 			} else {
-				dbRoom, err := GetRoomById(join.RoomId)
+				dbRoom, err := GetRoomByID(join.RoomId)
 				if err != nil {
 					cs.log.Println("get room:", err)
 					continue
@@ -95,6 +95,7 @@ func (cs *ChatServer) run() {
 
 				room := &Room{
 					Id:            dbRoom.Id,
+					ExternalId:    dbRoom.ExternalId,
 					Name:          dbRoom.Name,
 					Description:   dbRoom.Description,
 					cs:            cs,
@@ -125,7 +126,7 @@ func (cs *ChatServer) run() {
 			}
 		case msg := <-cs.broadcastChan:
 			cs.broadcast(msg)
-		case id := <-cs.rmRoom:
+		case id := <-cs.rmRoomChan:
 			r, ok := cs.rooms[id]
 			if ok {
 				cs.unloadRoom(r.Id)

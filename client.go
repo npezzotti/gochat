@@ -172,7 +172,7 @@ func (c *Client) delRoom(id int) {
 
 	if r, ok := c.rooms[id]; ok {
 		delete(c.rooms, r.Id)
-		c.log.Printf("removed room %d from rooms, current rooms: %v", id, c.rooms)
+		c.log.Printf("removed room %q from rooms, current rooms: %v", r.ExternalId, c.rooms)
 	}
 }
 

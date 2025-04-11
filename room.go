@@ -44,7 +44,7 @@ func (r *Room) start() {
 		r.log.Println("room exiting")
 	}()
 
-	r.log.Printf("starting room %q", r.Name)
+	r.log.Printf("starting room %q", r.ExternalId)
 
 	r.killTimer = time.NewTimer(time.Second * 10)
 	r.killTimer.Stop()
@@ -83,7 +83,7 @@ func (r *Room) start() {
 				})
 			}
 		case client := <-r.leaveChan:
-			r.log.Printf("removing %q from room %q", client.user.Username, r.Name)
+			r.log.Printf("removing %q from room %q", client.user.Username, r.ExternalId)
 			r.removeClient(client)
 			client.delRoom(r.Id)
 			r.broadcast(&Message{
@@ -94,14 +94,14 @@ func (r *Room) start() {
 			})
 
 			if len(r.clients) == 0 {
-				r.log.Printf("no clients in %q, starting kill timer", r.Name)
+				r.log.Printf("no clients in %q, starting kill timer", r.ExternalId)
 				r.killTimer.Reset(idleRoomTimeout)
 			}
 
 		case msg := <-r.clientMsgChan:
 			r.saveAndBroadcast(msg)
 		case <-r.killTimer.C:
-			r.log.Printf("room %q timed out", r.Name)
+			r.log.Printf("room %q timed out", r.ExternalId)
 			r.cs.unloadRoom(r.Id)
 		case e := <-r.exit:
 			if e.deleted {
@@ -123,7 +123,7 @@ func (r *Room) addClient(c *Client) {
 
 	r.clientLock.Lock()
 	r.clients[c] = struct{}{}
-	r.log.Printf("added %q to room %q, current clients %v", c.user.Username, r.Name, r.clients)
+	r.log.Printf("added %q to room %q, current clients %v", c.user.Username, r.ExternalId, r.clients)
 	r.clientLock.Unlock()
 
 	c.addRoom(r)
@@ -134,7 +134,7 @@ func (r *Room) removeClient(c *Client) {
 	delete(r.clients, c)
 	r.clientLock.Unlock()
 
-	r.log.Printf("removed client %q from room %q, current clients %v", c.user.Username, r.Name, r.clients)
+	r.log.Printf("removed client %q from room %q, current clients %v", c.user.Username, r.ExternalId, r.clients)
 }
 
 func (r *Room) saveAndBroadcast(msg *Message) {
@@ -159,7 +159,7 @@ func (r *Room) broadcast(msg *Message) {
 		return
 	}
 
-	fmt.Printf("received message to room %d: %s\n", r.Id, string(jsonMsg))
+	fmt.Printf("received message to room %s: %s\n", r.ExternalId, string(jsonMsg))
 	for client := range r.clients {
 		select {
 		case client.send <- jsonMsg:

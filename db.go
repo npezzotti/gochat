@@ -103,11 +103,30 @@ func GetAccountByEmail(email string) (db.User, error) {
 	return user, err
 }
 
-func GetRoomById(id int) (db.Room, error) {
+func GetRoomByID(id int) (db.Room, error) {
 	row := DB.QueryRow(
 		"SELECT id, external_id, name, description, seq_id FROM rooms "+
 			"WHERE id = $1 LIMIT 1",
 		id,
+	)
+
+	var room db.Room
+	err := row.Scan(
+		&room.Id,
+		&room.ExternalId,
+		&room.Name,
+		&room.Description,
+		&room.SeqId,
+	)
+
+	return room, err
+}
+
+func GetRoomByExternalID(externalId string) (db.Room, error) {
+	row := DB.QueryRow(
+		"SELECT id, external_id, name, description, seq_id FROM rooms "+
+			"WHERE external_id = $1 LIMIT 1",
+		externalId,
 	)
 
 	var room db.Room
@@ -240,7 +259,7 @@ func SubscriptionExists(account_id, room_id int) bool {
 
 func ListSubscriptions(account_id int) ([]db.Room, error) {
 	rows, err := DB.Query(
-		"SELECT r.id, r.name, r.description FROM subscriptions s JOIN rooms r ON r.id = s.room_id WHERE s.account_id = $1",
+		"SELECT r.id, r.external_id, r.name, r.description FROM subscriptions s JOIN rooms r ON r.id = s.room_id WHERE s.account_id = $1",
 		account_id,
 	)
 
@@ -251,7 +270,7 @@ func ListSubscriptions(account_id int) ([]db.Room, error) {
 	var rooms []db.Room
 	for rows.Next() {
 		var room db.Room
-		if err = rows.Scan(&room.Id, &room.Name, &room.Description); err != nil {
+		if err = rows.Scan(&room.Id, &room.ExternalId, &room.Name, &room.Description); err != nil {
 			break
 		}
 
