@@ -81,9 +81,10 @@ function createRoomInfo(room) {
   sideBar.querySelector('#room-id-cp-btn').onclick = event => {
     var text = sideBar.querySelector('.room-id').innerHTML;
     navigator.clipboard.writeText(text);
+    const prevColor = event.target.style.color;
     event.target.style.color = 'green';
     setTimeout(() => {
-      event.target.style.color = 'white';
+      event.target.style.color = prevColor;
     }, 1000);
   };
 
