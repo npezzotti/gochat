@@ -1,8 +1,5 @@
 # Todo
 
-* Room external IDs
-* * Add database table for external Ids
-* * Replace all references to Id with external ID
 * User external IDs
 * * Add database table for external Ids
 * * Replace all references to Id with external ID

@@ -150,7 +150,7 @@ func (cs *ChatServer) run() {
 
 func (cs *ChatServer) unloadRoom(roomId int) {
 	if r, ok := cs.rooms[roomId]; ok {
-		cs.log.Printf("removing room %q", r.Name)
+		cs.log.Printf("removing room %q", r.ExternalId)
 		delete(cs.rooms, roomId)
 	}
 

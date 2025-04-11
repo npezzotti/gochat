@@ -63,7 +63,7 @@ function createRoomInfo(room) {
       <p>${room.description}</p>
       <div>
         <span>ID: </span><span class="room-id">${room.external_id}</span>
-        <button id="room-id-cp-btn">Copy</button>
+        <i id="room-id-cp-btn" class="fa fa-copy icon-button"></i>
       </div>
     </div>
     <div class="subscribers">
@@ -81,9 +81,9 @@ function createRoomInfo(room) {
   sideBar.querySelector('#room-id-cp-btn').onclick = event => {
     var text = sideBar.querySelector('.room-id').innerHTML;
     navigator.clipboard.writeText(text);
-    event.target.innerText = "Copied!";
+    event.target.style.color = 'green';
     setTimeout(() => {
-      event.target.innerText = "Copy";
+      event.target.style.color = 'white';
     }, 1000);
   };
 
