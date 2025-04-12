@@ -66,25 +66,35 @@ func (r *Room) start() {
 			r.killTimer.Stop()
 
 			r.addClient(c)
+
+			// notify the client of user presence in the room
+			for client := range r.clients {
+				if client.user.Id == c.user.Id {
+					continue
+				}
+
+				presenceMsg, err := json.Marshal(&Message{
+					Type:    MessageTypePresence,
+					RoomId:  r.Id,
+					UserId:  client.user.Id,
+					Content: PresenceTypeOnline,
+				})
+				if err != nil {
+					r.log.Println("failed to marshal presence msg:", err)
+					continue
+				}
+
+				c.send <- presenceMsg
+
+			}
+
+			// notify all clients user is online
 			r.broadcast(&Message{
 				Type:    MessageTypePresence,
 				RoomId:  r.Id,
 				UserId:  c.user.Id,
 				Content: PresenceTypeOnline,
 			})
-
-			for client := range r.clients {
-				if client.user.Id == c.user.Id {
-					continue
-				}
-
-				r.broadcast(&Message{
-					Type:    MessageTypePresence,
-					RoomId:  r.Id,
-					UserId:  client.user.Id,
-					Content: PresenceTypeOnline,
-				})
-			}
 		case client := <-r.leaveChan:
 			r.log.Printf("removing %q from room %q", client.user.Username, r.ExternalId)
 			r.removeClient(client)
