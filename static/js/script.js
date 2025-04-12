@@ -1,3 +1,5 @@
+const JOIN_ROOM_FORM_ID = 'join-room-form'
+
 var conn
 var currentRoom
 
@@ -48,8 +50,9 @@ function createRoomInfo(room) {
   sideBar.className = 'sidebar'
   sideBar.id = sideBarId
   const closeBtnId = 'close-btn'
-  const roomId = room.external_id
-
+  const roomIdCpBbtn = 'room-id-cp-btn'
+  const roomIdTextClass = 'room-id'
+  
   sideBar.innerHTML = `
     <div class="close-header">
       <button id="${closeBtnId}" class="icon-button" aria-label="Close">
@@ -62,8 +65,8 @@ function createRoomInfo(room) {
       <h3>Description</h3>
       <p>${room.description}</p>
       <div>
-        <span>ID: </span><span class="room-id">${room.external_id}</span>
-        <i id="room-id-cp-btn" class="fa fa-copy icon-button"></i>
+        <span>ID: </span><span class="${roomIdTextClass}">${room.external_id}</span>
+        <i id="${roomIdCpBbtn}" class="fa fa-copy icon-button"></i>
       </div>
     </div>
     <div class="subscribers">
@@ -78,11 +81,11 @@ function createRoomInfo(room) {
     hideRoomInfoPanel()
   };
 
-  sideBar.querySelector('#room-id-cp-btn').onclick = event => {
-    var text = sideBar.querySelector('.room-id').innerHTML;
+  sideBar.querySelector(`#${roomIdCpBbtn}`).onclick = event => {
+    var text = sideBar.querySelector(`.${roomIdTextClass}`).innerHTML;
     navigator.clipboard.writeText(text);
     const prevColor = event.target.style.color;
-    event.target.style.color = 'green';
+    event.target.style.color = '#15d438'; 
     setTimeout(() => {
       event.target.style.color = prevColor;
     }, 1000);
@@ -797,7 +800,7 @@ async function renderRoomsList(component = '.sidebar') {
         </div>
       </div>
     </div>
-    <form id="joinRoomForm" class="sidebar-form">
+    <form id="${JOIN_ROOM_FORM_ID}" class="sidebar-form">
       <label for="roomId">Join Room</label>
       <input 
         type="text" 
@@ -902,7 +905,7 @@ function addRoomListEvtListeners() {
     }
   }
 
-  const joinRoomForm = document.getElementById('joinRoomForm')
+  const joinRoomForm = document.getElementById(JOIN_ROOM_FORM_ID)
   if (joinRoomForm) {
     joinRoomForm.onsubmit = handleJoinRoom
   }
