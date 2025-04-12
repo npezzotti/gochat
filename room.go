@@ -62,6 +62,9 @@ func (r *Room) start() {
 				}
 			}
 
+			// stop the kill timer if it was running
+			r.killTimer.Stop()
+
 			r.addClient(c)
 			r.broadcast(&Message{
 				Type:    MessageTypePresence,
