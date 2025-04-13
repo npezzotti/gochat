@@ -685,7 +685,7 @@ async function handleCreateRoom(event) {
   }
 
   try {
-    const room = await createRoom(roomName, roomDesc)
+    const room = await createRoom(roomName.value, roomDesc.value)
     renderRoomsList();
     renderNewRoom(room)
     switchRoom(room)
