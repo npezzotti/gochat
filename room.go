@@ -32,6 +32,7 @@ type Room struct {
 	clientMsgChan chan *Message
 	seq_id        int
 	clients       map[*Client]struct{}
+	userMap       map[int]map[*Client]struct{}
 	clientLock    sync.RWMutex
 	exit          chan exitReq
 	done          chan struct{}
@@ -98,19 +99,19 @@ func (r *Room) start() {
 		case client := <-r.leaveChan:
 			r.log.Printf("removing %q from room %q", client.user.Username, r.ExternalId)
 			r.removeClient(client)
-			client.delRoom(r.Id)
-			r.broadcast(&Message{
-				Type:    MessageTypePresence,
-				RoomId:  r.Id,
-				UserId:  client.user.Id,
-				Content: PresenceTypeOffline,
-			})
 
-			if len(r.clients) == 0 {
-				r.log.Printf("no clients in %q, starting kill timer", r.ExternalId)
-				r.killTimer.Reset(idleRoomTimeout)
+			r.clientLock.Lock()
+			// notify all clients user is offline
+			// if no sessions for user in the room
+			if r.userMap[client.user.Id] == nil {
+				r.broadcast(&Message{
+					Type:    MessageTypePresence,
+					RoomId:  r.Id,
+					UserId:  client.user.Id,
+					Content: PresenceTypeOffline,
+				})
 			}
-
+			r.clientLock.Unlock()
 		case msg := <-r.clientMsgChan:
 			r.saveAndBroadcast(msg)
 		case <-r.killTimer.C:
@@ -136,6 +137,15 @@ func (r *Room) addClient(c *Client) {
 
 	r.clientLock.Lock()
 	r.clients[c] = struct{}{}
+
+	if r.userMap[c.user.Id] == nil {
+		r.userMap[c.user.Id] = make(map[*Client]struct{})
+	}
+	r.userMap[c.user.Id][c] = struct{}{}
+
+	if len(r.userMap[c.user.Id]) > 1 {
+		r.log.Printf("user %q has multiple clients in room %q", c.user.Username, r.ExternalId)
+	}
 	r.log.Printf("added %q to room %q, current clients %v", c.user.Username, r.ExternalId, r.clients)
 	r.clientLock.Unlock()
 
@@ -144,10 +154,54 @@ func (r *Room) addClient(c *Client) {
 
 func (r *Room) removeClient(c *Client) {
 	r.clientLock.Lock()
+
+	// check if the client is in the room
+	if _, ok := r.clients[c]; !ok {
+		r.log.Printf("client %q not found in room %q", c.user.Username, r.ExternalId)
+		r.clientLock.Unlock()
+		return
+	}
+
+	r.log.Printf("removing client %q from room %q", c.user.Username, r.ExternalId)
 	delete(r.clients, c)
+
+	// remove the client from the userMap
+	if userClients, ok := r.userMap[c.user.Id]; ok {
+		delete(userClients, c)
+		if len(userClients) == 0 {
+			delete(r.userMap, c.user.Id)
+		}
+	}
+
+	if len(r.clients) == 0 {
+		r.log.Printf("no clients in %q, starting kill timer", r.ExternalId)
+		r.killTimer.Reset(idleRoomTimeout)
+	}
+
 	r.clientLock.Unlock()
 
 	r.log.Printf("removed client %q from room %q, current clients %v", c.user.Username, r.ExternalId, r.clients)
+	c.delRoom(r.Id)
+}
+
+func (r *Room) removeAllClientsForUser(userId int) {
+	r.clientLock.Lock()
+	defer r.clientLock.Unlock()
+
+	if userClients, ok := r.userMap[userId]; ok {
+		for client := range userClients {
+			delete(r.clients, client)
+			client.delRoom(r.Id)
+		}
+		delete(r.userMap, userId)
+	}
+
+	r.log.Printf("removed all clients for user %d from room %q", userId, r.ExternalId)
+
+	if len(r.clients) == 0 {
+		r.log.Printf("no clients in %q, starting kill timer", r.ExternalId)
+		r.killTimer.Reset(idleRoomTimeout)
+	}
 }
 
 func (r *Room) saveAndBroadcast(msg *Message) {

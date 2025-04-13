@@ -123,6 +123,7 @@ func (cs *ChatServer) run() {
 					clientMsgChan: make(chan *Message, 256),
 					seq_id:        dbRoom.SeqId,
 					clients:       make(map[*Client]struct{}),
+					userMap:       make(map[int]map[*Client]struct{}),
 					log:           cs.log,
 					exit:          make(chan exitReq),
 					done:          make(chan struct{}),
@@ -148,7 +149,7 @@ func (cs *ChatServer) run() {
 		case req := <-cs.subChan:
 			switch req.subType {
 			case subReqTypeSubscribe:
-				cs.log.Printf("subscribing user %q to room %d", req.user.Username, req.roomId)
+				// notify other users in the room
 				if room, ok := cs.rooms[req.roomId]; ok {
 					room.broadcast(&Message{
 						Type:     MessageTypeNotification,
@@ -160,6 +161,7 @@ func (cs *ChatServer) run() {
 			case subReqTypeUnsubscribe:
 				cs.log.Printf("unsubscribing user %q from room %d", req.user.Username, req.roomId)
 				if room, ok := cs.rooms[req.roomId]; ok {
+					room.removeAllClientsForUser(req.user.Id)
 					room.broadcast(&Message{
 						Type:    MessageTypeNotification,
 						Content: NotificationUserUnsubscribe,

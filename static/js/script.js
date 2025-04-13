@@ -127,7 +127,6 @@ function handleUnsubscribe(event) {
   }
 
   unsubscribeRoom(currentRoom.external_id).then(() => {
-    leaveRoom(currentRoom.id)
     removeRoomFromList(currentRoom);
     clearRoomView();
     clearCurrentRoom();
