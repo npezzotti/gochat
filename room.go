@@ -166,6 +166,9 @@ func (r *Room) saveAndBroadcast(msg *Message) {
 }
 
 func (r *Room) broadcast(msg *Message) {
+	msg.RoomId = r.Id
+	msg.Timestamp = time.Now()
+
 	jsonMsg, err := json.Marshal(msg)
 	if err != nil {
 		r.log.Println(":", err)

@@ -215,9 +215,9 @@ func getUsersRooms(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
-func subscribeRoom(w http.ResponseWriter, r *http.Request) {
-	externalId := r.URL.Query().Get("room_id")
-	if externalId == "" {
+func (cs *ChatServer) subscribeRoom(w http.ResponseWriter, r *http.Request) {
+	roomExternalId := r.URL.Query().Get("room_id")
+	if roomExternalId == "" {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
@@ -234,19 +234,25 @@ func subscribeRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbRoom, err := GetRoomByExternalID(externalId)
+	room, err := GetRoomByExternalID(roomExternalId)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
 
-	dbSub, err := CreateSubscription(user.Id, dbRoom.Id)
+	dbSub, err := CreateSubscription(user.Id, room.Id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	dbSubs, err := GetSubscribersForRoom(dbRoom.Id)
+	cs.subChan <- subReq{
+		subType: subReqTypeSubscribe,
+		user:    User{Id: user.Id, Username: user.Username},
+		roomId:  room.Id,
+	}
+
+	dbSubs, err := GetSubscribersForRoom(room.Id)
 	var subscribers []User
 	for _, dbSub := range dbSubs {
 		var u User
@@ -264,10 +270,10 @@ func subscribeRoom(w http.ResponseWriter, r *http.Request) {
 			EmailAddress: user.EmailAddress,
 		},
 		Room: &Room{
-			Id:          dbRoom.Id,
-			ExternalId:  dbRoom.ExternalId,
-			Name:        dbRoom.Name,
-			Description: dbRoom.Description,
+			Id:          room.Id,
+			ExternalId:  room.ExternalId,
+			Name:        room.Name,
+			Description: room.Description,
 			Subscribers: subscribers,
 		},
 	}
@@ -295,6 +301,12 @@ func (cs *ChatServer) unsubscribeRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user, err := GetAccount(userId)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+
 	room, err := GetRoomByExternalID(externalId)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
@@ -305,6 +317,12 @@ func (cs *ChatServer) unsubscribeRoom(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
+	}
+
+	cs.subChan <- subReq{
+		subType: subReqTypeUnsubscribe,
+		user:    User{Id: user.Id, Username: user.Username},
+		roomId:  room.Id,
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -479,7 +497,7 @@ func main() {
 		getUsersRooms(w, r)
 	}))
 
-	mux.Handle("POST /subscriptions", authMiddleware(logger, http.HandlerFunc(subscribeRoom)))
+	mux.Handle("POST /subscriptions", authMiddleware(logger, http.HandlerFunc(chatServer.subscribeRoom)))
 	mux.Handle("DELETE /subscriptions", authMiddleware(logger, http.HandlerFunc(chatServer.unsubscribeRoom)))
 	mux.Handle("GET /messages", authMiddleware(logger, http.HandlerFunc(getMessages)))
 	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {

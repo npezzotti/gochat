@@ -10,7 +10,8 @@ const Status = {
   MessageTypeLeave: 1,
   MessageTypePublish: 2,
   MessageTypeRoomDeleted: 3,
-  MessageTypePresence: 4
+  MessageTypePresence: 4,
+  MessageTypeNotification: 5
 };
 
 const PRESENCE_ONLINE = "online"
@@ -52,7 +53,7 @@ function createRoomInfo(room) {
   const closeBtnId = 'close-btn'
   const roomIdCpBbtn = 'room-id-cp-btn'
   const roomIdTextClass = 'room-id'
-  
+
   sideBar.innerHTML = `
     <div class="close-header">
       <button id="${closeBtnId}" class="icon-button" aria-label="Close">
@@ -72,7 +73,7 @@ function createRoomInfo(room) {
     <div class="subscribers">
       <h3>Subscribers</h3>
       <ul class="subscribers-list">
-        ${room.subscribers.map(sub => `<li class="status-offline" data-user-id=${sub.id}>${sub.username}</li>`).join('')}
+        ${room.subscribers.map(user => createUserListItem(user.id, user.username).outerHTML).join('')}
       </ul>
     </div>
   `
@@ -85,7 +86,7 @@ function createRoomInfo(room) {
     var text = sideBar.querySelector(`.${roomIdTextClass}`).innerHTML;
     navigator.clipboard.writeText(text);
     const prevColor = event.target.style.color;
-    event.target.style.color = '#15d438'; 
+    event.target.style.color = '#15d438';
     setTimeout(() => {
       event.target.style.color = prevColor;
     }, 1000);
@@ -93,6 +94,14 @@ function createRoomInfo(room) {
 
   sideBar.style.display = 'none';
   document.body.appendChild(sideBar)
+}
+
+function createUserListItem(userId, username) {
+  const item = document.createElement('li');
+  item.className = 'status-offline';
+  item.setAttribute('data-user-id', userId);
+  item.innerText = username;
+  return item;
 }
 
 function showRoomInfoPanel(event) {
@@ -482,6 +491,7 @@ if (window["WebSocket"]) {
         case Status.MessageTypeJoin:
           break;
         case Status.MessageTypeLeave:
+
           break;
         case Status.MessageTypePublish:
           msg = createMsg(renderedMessage)
@@ -500,7 +510,36 @@ if (window["WebSocket"]) {
             setPresence(renderedMessage.user_id, status);
           }
           break;
-        default:
+        case Status.MessageTypeNotification:
+          switch (renderedMessage.content) {
+            case "unsubscribe":
+              if (currentRoom && currentRoom.id === renderedMessage.room_id) {
+                currentRoom.subscribers = currentRoom.subscribers.filter(sub => sub.id !== renderedMessage.user_id);
+                const subscribersList = document.querySelector('.subscribers-list');
+                if (subscribersList) {
+                  const subscriberItem = subscribersList.querySelector(`li[data-user-id="${renderedMessage.user_id}"]`);
+                  if (subscriberItem) {
+                    subscriberItem.remove();
+                  }
+                }
+              }
+              break;
+            case "subscribe":
+              if (currentRoom && currentRoom.id === renderedMessage.room_id) {
+                const newSubscriber = {
+                  id: renderedMessage.user_id,
+                  username: renderedMessage.username
+                };
+                currentRoom.subscribers.push(newSubscriber);
+                const subscribersList = document.querySelector('.subscribers-list');
+                if (subscribersList) {
+                  const newSubscriberItem = createUserListItem(newSubscriber.id, newSubscriber.username);
+                  subscribersList.appendChild(newSubscriberItem);
+                }
+              }
+              break;
+            default:
+          }
       }
     }
   };

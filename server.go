@@ -16,9 +16,12 @@ const (
 	MessageTypePublish
 	MessageTypeRoomDeleted
 	MessageTypePresence
+	MessageTypeNotification
 
-	PresenceTypeOnline  = "online"
-	PresenceTypeOffline = "offline"
+	NotificationUserUnsubscribe = "unsubscribe"
+	NotificationUserSubscribe   = "subscribe"
+	PresenceTypeOnline          = "online"
+	PresenceTypeOffline         = "offline"
 )
 
 func (mt MessageType) String() string {
@@ -29,6 +32,19 @@ func (mt MessageType) String() string {
 	}[mt]
 }
 
+type subReq struct {
+	subType subReqType
+	user    User
+	roomId  int
+}
+
+type subReqType string
+
+const (
+	subReqTypeSubscribe   subReqType = "subscribe"
+	subReqTypeUnsubscribe subReqType = "unsubscribe"
+)
+
 type Message struct {
 	Id        int         `json:"id"`
 	Type      MessageType `json:"type,omitempty"`
@@ -36,6 +52,7 @@ type Message struct {
 	RoomId    int         `json:"room_id"`
 	Content   string      `json:"content"`
 	UserId    int         `json:"user_id,omitempty"`
+	Username  string      `json:"username,omitempty"`
 	Timestamp time.Time   `json:"timestamp"`
 	client    *Client     `json:"-"`
 }
@@ -47,6 +64,7 @@ type ChatServer struct {
 	registerChan   chan *Client
 	deRegisterChan chan *Client
 	broadcastChan  chan Message
+	subChan        chan subReq
 	rmRoomChan     chan int
 	rooms          map[int]*Room
 	stop           chan struct{}
@@ -67,6 +85,7 @@ func NewChatServer(logger *log.Logger) (*ChatServer, error) {
 		registerChan:   make(chan *Client),
 		deRegisterChan: make(chan *Client),
 		broadcastChan:  make(chan Message),
+		subChan:        make(chan subReq),
 		rmRoomChan:     make(chan int),
 		rooms:          make(map[int]*Room),
 		stop:           make(chan struct{}),
@@ -126,6 +145,28 @@ func (cs *ChatServer) run() {
 			}
 		case msg := <-cs.broadcastChan:
 			cs.broadcast(msg)
+		case req := <-cs.subChan:
+			switch req.subType {
+			case subReqTypeSubscribe:
+				cs.log.Printf("subscribing user %q to room %d", req.user.Username, req.roomId)
+				if room, ok := cs.rooms[req.roomId]; ok {
+					room.broadcast(&Message{
+						Type:     MessageTypeNotification,
+						Content:  NotificationUserSubscribe,
+						UserId:   req.user.Id,
+						Username: req.user.Username,
+					})
+				}
+			case subReqTypeUnsubscribe:
+				cs.log.Printf("unsubscribing user %q from room %d", req.user.Username, req.roomId)
+				if room, ok := cs.rooms[req.roomId]; ok {
+					room.broadcast(&Message{
+						Type:    MessageTypeNotification,
+						Content: NotificationUserUnsubscribe,
+						UserId:  req.user.Id,
+					})
+				}
+			}
 		case id := <-cs.rmRoomChan:
 			r, ok := cs.rooms[id]
 			if ok {
