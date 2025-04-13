@@ -154,16 +154,17 @@ func (r *Room) addClient(c *Client) {
 
 func (r *Room) removeClient(c *Client) {
 	r.clientLock.Lock()
+	defer r.clientLock.Unlock()
 
 	// check if the client is in the room
 	if _, ok := r.clients[c]; !ok {
 		r.log.Printf("client %q not found in room %q", c.user.Username, r.ExternalId)
-		r.clientLock.Unlock()
 		return
 	}
 
 	r.log.Printf("removing client %q from room %q", c.user.Username, r.ExternalId)
 	delete(r.clients, c)
+	c.delRoom(r.Id)
 
 	// remove the client from the userMap
 	if userClients, ok := r.userMap[c.user.Id]; ok {
@@ -173,15 +174,13 @@ func (r *Room) removeClient(c *Client) {
 		}
 	}
 
+	r.log.Printf("removed client %q from room %q, current clients %v", c.user.Username, r.ExternalId, r.clients)
+
+	// if the client is the last one in the room, start the kill timer
 	if len(r.clients) == 0 {
 		r.log.Printf("no clients in %q, starting kill timer", r.ExternalId)
 		r.killTimer.Reset(idleRoomTimeout)
 	}
-
-	r.clientLock.Unlock()
-
-	r.log.Printf("removed client %q from room %q, current clients %v", c.user.Username, r.ExternalId, r.clients)
-	c.delRoom(r.Id)
 }
 
 func (r *Room) removeAllClientsForUser(userId int) {
@@ -198,6 +197,7 @@ func (r *Room) removeAllClientsForUser(userId int) {
 
 	r.log.Printf("removed all clients for user %d from room %q", userId, r.ExternalId)
 
+	// if the user is the last one in the room, start the kill timer
 	if len(r.clients) == 0 {
 		r.log.Printf("no clients in %q, starting kill timer", r.ExternalId)
 		r.killTimer.Reset(idleRoomTimeout)
