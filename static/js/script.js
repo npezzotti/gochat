@@ -497,8 +497,8 @@ if (window["WebSocket"]) {
           appendMessage(msg);
           break;
         case Status.MessageTypeRoomDeleted:
-          if (currentRoom && currentRoom.external_id === renderedMessage.room_id) {
-            removeRoomFromList(renderedMessage.room_id)
+          if (currentRoom && currentRoom.id === renderedMessage.room_id) {
+            removeRoomFromList(currentRoom)
             clearRoomView();
             clearCurrentRoom();
           }
