@@ -33,7 +33,7 @@ func NewBadRequestError(message string) *ApiError {
 func NewNotFoundError() *ApiError {
 	return &ApiError{
 		Code:    http.StatusNotFound,
-		Message: "not found",
+		Message: http.StatusText(http.StatusNotFound),
 	}
 }
 
