@@ -23,10 +23,10 @@ func (e *ApiError) Unwrap() error {
 	return e.Err
 }
 
-func NewBadRequestError(message string) *ApiError {
+func NewBadRequestError() *ApiError {
 	return &ApiError{
 		Code:    http.StatusBadRequest,
-		Message: message,
+		Message: http.StatusText(http.StatusBadRequest),
 	}
 }
 
@@ -45,14 +45,14 @@ func NewInternalServerError(err error) *ApiError {
 	}
 }
 
-func NewUnauthorizedError(err error) *ApiError {
+func NewUnauthorizedError() *ApiError {
 	return &ApiError{
 		Code:    http.StatusUnauthorized,
 		Message: http.StatusText(http.StatusUnauthorized),
 	}
 }
 
-func NewethodNotAllowedError() *ApiError {
+func NewMethodNotAllowedError() *ApiError {
 	return &ApiError{
 		Code:    http.StatusMethodNotAllowed,
 		Message: http.StatusText(http.StatusMethodNotAllowed),

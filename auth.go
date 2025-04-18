@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"time"
@@ -80,20 +79,21 @@ func authMiddleware(l *log.Logger, next http.HandlerFunc) http.HandlerFunc {
 func createAccount(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		if err := render(w, "signup.html.tmpl"); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			errResp := NewInternalServerError(err)
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 	} else if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
-			l.Println("parse form:", err)
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			errResp := NewInternalServerError(err)
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 
 		pwdHash, err := hashPassword(r.Form.Get("password"))
 		if err != nil {
-			l.Println("hash passwd:", err)
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			errResp := NewInternalServerError(err)
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 
@@ -105,14 +105,16 @@ func createAccount(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 
 		_, err = CreateAccount(params)
 		if err != nil {
-			l.Println("created account:", err)
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			errResp := NewInternalServerError(err)
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 
 		http.Redirect(w, r, "/login", http.StatusFound)
 	} else {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+		errResp := NewMethodNotAllowedError()
+		writeJson(l, w, errResp.Code, errResp)
+		return
 	}
 }
 
@@ -120,14 +122,15 @@ func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		userId, ok := UserId(r.Context())
 		if !ok {
-			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			errResp := NewUnauthorizedError()
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 
 		user, err := GetAccount(userId)
 		if err != nil {
-			l.Println("get account:", err)
-			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			errResp := NewNotFoundError()
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 
@@ -137,46 +140,34 @@ func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 			EmailAddress: user.EmailAddress,
 		}
 
-		resp, err := json.Marshal(u)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
-		}
-
-		w.Write(resp)
+		writeJson(l, w, http.StatusOK, u)
 	} else if r.Method == http.MethodPut {
 		userId, ok := UserId(r.Context())
 		if !ok {
-			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			errResp := NewUnauthorizedError()
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 
 		curUser, err := GetAccount(userId)
 		if err != nil {
-			l.Println("get account:", err)
-			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			errResp := NewNotFoundError()
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
-
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			l.Println(err)
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return
-		}
-		defer r.Body.Close()
 
 		var u User
-		err = json.Unmarshal(body, &u)
+		err = json.NewDecoder(r.Body).Decode(&u)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			errResp := NewBadRequestError()
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 
 		pwdHash, err := hashPassword(u.Password)
 		if err != nil {
-			l.Println("hash passwd:", err)
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			errResp := NewInternalServerError(err)
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 
@@ -188,8 +179,8 @@ func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 
 		dbUser, err := UpdateAccount(params)
 		if err != nil {
-			l.Println("update account:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			errResp := NewInternalServerError(err)
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 
@@ -199,15 +190,10 @@ func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 			EmailAddress: dbUser.EmailAddress,
 		}
 
-		resp, err := json.Marshal(userResp)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
-		}
-
-		w.Write(resp)
+		writeJson(l, w, http.StatusOK, userResp)
 	} else {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+		errResp := NewMethodNotAllowedError()
+		writeJson(l, w, errResp.Code, errResp)
 	}
 }
 
@@ -218,35 +204,28 @@ func login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if r.Method == http.MethodPost {
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			l.Println(err)
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return
-		}
-		defer r.Body.Close()
-
 		var lr LoginRequest
-		if err := json.Unmarshal(body, &lr); err != nil {
-			l.Println(err)
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		if err := json.NewDecoder(r.Body).Decode(&lr); err != nil {
+			errResp := NewBadRequestError()
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 
 		dbUser, err := GetAccountByEmail(lr.Email)
 		if err != nil {
+			var errResp *ApiError
 			if err == sql.ErrNoRows {
-				http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+				errResp = NewNotFoundError()
 			} else {
-				l.Println("get account by email:", err)
-				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				errResp = NewInternalServerError(err)
 			}
-
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 
 		if !verifyPassword(dbUser.PasswordHash, lr.Password) {
-			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			errResp := NewUnauthorizedError()
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 
@@ -258,23 +237,17 @@ func login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 
 		token, err := createJwtForSession(u, defaultExp)
 		if err != nil {
-			l.Println("create jwt:", err)
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			errResp := NewInternalServerError(err)
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 
 		http.SetCookie(w, createJwtCookie(token, defaultExp))
 
-		userRespJSON, err := json.Marshal(u)
-		if err != nil {
-			l.Println("marshal user:", err)
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
-		}
-
-		w.Write(userRespJSON)
+		writeJson(l, w, http.StatusOK, u)
 	} else {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+		errResp := NewMethodNotAllowedError()
+		writeJson(l, w, errResp.Code, errResp)
 	}
 }
 

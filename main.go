@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"flag"
-	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -36,6 +34,14 @@ func UserId(ctx context.Context) (int, bool) {
 	return userId, ok
 }
 
+func writeJson(l *log.Logger, w http.ResponseWriter, statusCode int, v interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		l.Printf("JSON encoding error: %v", err)
+	}
+}
+
 func serveHome(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
@@ -48,29 +54,26 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func createRoom(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "read: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	defer r.Body.Close()
-
+func createRoom(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	var params CreateRoomParams
-	if err := json.Unmarshal(body, &params); err != nil {
-		http.Error(w, "unmarshal json: "+err.Error(), http.StatusBadRequest)
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		errResp := NewBadRequestError()
+		writeJson(l, w, errResp.Code, errResp)
 		return
 	}
 
 	userId, ok := UserId(r.Context())
 	if !ok {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		errResp := NewUnauthorizedError()
+		writeJson(l, w, errResp.Code, errResp)
 		return
 	}
 
 	sid, err := shortid.Generate()
 	if err != nil {
-		http.Error(w, "generate shortid: "+err.Error(), http.StatusInternalServerError)
+		l.Print("generate shortid:", err)
+		errResp := NewInternalServerError(err)
+		writeJson(l, w, errResp.Code, errResp)
 		return
 	}
 
@@ -79,13 +82,15 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 
 	newRoom, err := CreateRoom(params)
 	if err != nil {
-		http.Error(w, "CreateRoom: "+err.Error(), http.StatusBadRequest)
+		errResp := NewBadRequestError()
+		writeJson(l, w, errResp.Code, errResp)
 		return
 	}
 
 	subs, err := GetSubscribersForRoom(newRoom.Id)
 	if err != nil {
-		http.Error(w, "GetSubscribersForRoom: "+err.Error(), http.StatusInternalServerError)
+		errResp := NewInternalServerError(err)
+		writeJson(l, w, errResp.Code, errResp)
 		return
 	}
 
@@ -105,27 +110,21 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 		Subscribers: subscribers,
 	}
 
-	w.WriteHeader(http.StatusCreated)
-
-	resp, err := json.Marshal(room)
-	if err != nil {
-		http.Error(w, "marshal json: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Write(resp)
+	writeJson(l, w, http.StatusCreated, room)
 }
 
-func getRoom(w http.ResponseWriter, r *http.Request) {
+func getRoom(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	externalId := r.URL.Query().Get("id")
 	if externalId == "" {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		errResp := NewBadRequestError()
+		writeJson(l, w, errResp.Code, errResp)
 		return
 	}
 
 	dbRoom, err := GetRoomByExternalID(externalId)
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		errResp := NewNotFoundError()
+		writeJson(l, w, errResp.Code, errResp)
 		return
 	}
 
@@ -147,52 +146,49 @@ func getRoom(w http.ResponseWriter, r *http.Request) {
 		Subscribers: subscribers,
 	}
 
-	roomResp, err := json.Marshal(room)
-	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	w.Write(roomResp)
+	writeJson(l, w, http.StatusOK, room)
 }
 
 func deleteRoom(cs *ChatServer, w http.ResponseWriter, r *http.Request) {
 	externalId := r.URL.Query().Get("id")
 	if externalId == "" {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		errResp := NewBadRequestError()
+		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
 	room, err := GetRoomByExternalID(externalId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		errResp := NewNotFoundError()
+		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
 	err = DeleteRoom(room.Id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		cs.log.Println("delete room:", err)
+		errResp := NewInternalServerError(err)
+		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
-	fmt.Println("deleted the room")
 	cs.rmRoomChan <- room.Id
-
-	fmt.Println("done")
-
-	w.WriteHeader(http.StatusNoContent)
+	writeJson(cs.log, w, http.StatusNoContent, nil)
 }
 
-func getUsersRooms(w http.ResponseWriter, r *http.Request) {
+func getUsersRooms(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	userId, ok := UserId(r.Context())
 	if !ok {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		errResp := NewUnauthorizedError()
+		writeJson(l, w, errResp.Code, errResp)
 		return
 	}
 
 	dbRooms, err := ListSubscriptions(userId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		l.Println("list subscriptions:", err)
+		errResp := NewInternalServerError(err)
+		writeJson(l, w, errResp.Code, errResp)
 		return
 	}
 
@@ -206,43 +202,42 @@ func getUsersRooms(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	resp, err := json.Marshal(rooms)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Write(resp)
+	writeJson(l, w, http.StatusOK, rooms)
 }
 
 func (cs *ChatServer) subscribeRoom(w http.ResponseWriter, r *http.Request) {
 	roomExternalId := r.URL.Query().Get("room_id")
 	if roomExternalId == "" {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		errResp := NewBadRequestError()
+		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
 	userId, ok := UserId(r.Context())
 	if !ok {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		errResp := NewUnauthorizedError()
+		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
 	user, err := GetAccount(userId)
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		errResp := NewNotFoundError()
+		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
 	room, err := GetRoomByExternalID(roomExternalId)
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		errResp := NewNotFoundError()
+		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
 	dbSub, err := CreateSubscription(user.Id, room.Id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		errResp := NewBadRequestError()
+		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
@@ -253,6 +248,12 @@ func (cs *ChatServer) subscribeRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dbSubs, err := GetSubscribersForRoom(room.Id)
+	if err != nil {
+		errResp := NewInternalServerError(err)
+		writeJson(cs.log, w, errResp.Code, errResp)
+		return
+	}
+
 	var subscribers []User
 	for _, dbSub := range dbSubs {
 		var u User
@@ -278,44 +279,43 @@ func (cs *ChatServer) subscribeRoom(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	resp, err := json.Marshal(sub)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-	w.Write(resp)
+	writeJson(cs.log, w, http.StatusCreated, sub)
 }
 
 func (cs *ChatServer) unsubscribeRoom(w http.ResponseWriter, r *http.Request) {
 	externalId := r.URL.Query().Get("room_id")
 	if externalId == "" {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		errResp := NewBadRequestError()
+		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
 	userId, ok := UserId(r.Context())
 	if !ok {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		errResp := NewUnauthorizedError()
+		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
 	user, err := GetAccount(userId)
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		errResp := NewNotFoundError()
+		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
 	room, err := GetRoomByExternalID(externalId)
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		errResp := NewNotFoundError()
+		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
 	err = DeleteSubscription(userId, room.Id)
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		cs.log.Println("delete subscription:", err)
+		errResp := NewInternalServerError(err)
+		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
@@ -325,19 +325,21 @@ func (cs *ChatServer) unsubscribeRoom(w http.ResponseWriter, r *http.Request) {
 		roomId:  room.Id,
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	writeJson(cs.log, w, http.StatusNoContent, nil)
 }
 
-func getMessages(w http.ResponseWriter, r *http.Request) {
+func getMessages(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	externalId := r.URL.Query().Get("room_id")
 	if externalId == "" {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		errResp := NewBadRequestError()
+		writeJson(l, w, errResp.Code, errResp)
 		return
 	}
 
 	room, err := GetRoomByExternalID(externalId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		errResp := NewNotFoundError()
+		writeJson(l, w, errResp.Code, errResp)
 		return
 	}
 
@@ -347,7 +349,8 @@ func getMessages(w http.ResponseWriter, r *http.Request) {
 	if beforeStr != "" {
 		before, err = strconv.Atoi(beforeStr)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			errResp := NewBadRequestError()
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 	}
@@ -356,7 +359,8 @@ func getMessages(w http.ResponseWriter, r *http.Request) {
 	if afterStr != "" {
 		after, err = strconv.Atoi(afterStr)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			errResp := NewBadRequestError()
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 	}
@@ -365,14 +369,16 @@ func getMessages(w http.ResponseWriter, r *http.Request) {
 	if limitStr != "" {
 		limit, err = strconv.Atoi(limitStr)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			errResp := NewBadRequestError()
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 	}
 
 	messages, err := MessageGetAll(room.Id, after, before, limit)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		errResp := NewInternalServerError(err)
+		writeJson(l, w, errResp.Code, errResp)
 		return
 	}
 
@@ -391,13 +397,7 @@ func getMessages(w http.ResponseWriter, r *http.Request) {
 		userMessages = append(userMessages, msg)
 	}
 
-	messagesResp, err := json.Marshal(userMessages)
-	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	w.Write(messagesResp)
+	writeJson(l, w, http.StatusOK, userMessages)
 }
 
 func serveWs(chatServer *ChatServer, w http.ResponseWriter, r *http.Request) {
@@ -408,21 +408,21 @@ func serveWs(chatServer *ChatServer, w http.ResponseWriter, r *http.Request) {
 
 	username, ok := UserId(r.Context())
 	if !ok {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		errResp := NewUnauthorizedError()
+		writeJson(chatServer.log, w, errResp.Code, errResp)
 		return
 	}
 
 	user, err := GetAccount(username)
 	if err != nil {
-		chatServer.log.Println(err)
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		errResp := NewNotFoundError()
+		writeJson(chatServer.log, w, errResp.Code, errResp)
 		return
 	}
 
 	upgrader := websocket.Upgrader{}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println("upgrade:", err)
 		return
 	}
 
@@ -485,21 +485,25 @@ func main() {
 	}))
 
 	mux.Handle("POST /room/new", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
-		createRoom(w, r)
+		createRoom(logger, w, r)
 	}))
 
 	mux.Handle("GET /room/delete", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
 		deleteRoom(chatServer, w, r)
 	}))
 
-	mux.Handle("GET /room", authMiddleware(logger, http.HandlerFunc(getRoom)))
+	mux.Handle("GET /room", authMiddleware(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		getRoom(logger, w, r)
+	})))
 	mux.Handle("GET /subscriptions", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
-		getUsersRooms(w, r)
+		getUsersRooms(logger, w, r)
 	}))
 
 	mux.Handle("POST /subscriptions", authMiddleware(logger, http.HandlerFunc(chatServer.subscribeRoom)))
 	mux.Handle("DELETE /subscriptions", authMiddleware(logger, http.HandlerFunc(chatServer.unsubscribeRoom)))
-	mux.Handle("GET /messages", authMiddleware(logger, http.HandlerFunc(getMessages)))
+	mux.Handle("GET /messages", authMiddleware(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		getMessages(logger, w, r)
+	})))
 	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
 		login(logger, w, r)
 	})
@@ -521,7 +525,7 @@ func main() {
 	)(mux)
 
 	h = ErrorHandler(logger, h)
-	
+
 	srv := http.Server{
 		Addr:    *addr,
 		Handler: h,

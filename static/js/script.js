@@ -186,7 +186,7 @@ async function unsubscribeRoom(roomId) {
       method: 'DELETE',
     })
     if (!response.ok) {
-      throw new Error(res.error || "Couldn't unsubscribe from room")
+      throw new Error(res.message || "Couldn't unsubscribe from room")
     }
   } catch (err) {
     console.log("Error unsubscribing from room:", err)
@@ -202,7 +202,7 @@ async function listSubscriptions() {
 
     const res = await response.json()
     if (!response.ok) {
-      throw new Error(res.error || "Couldn't fetch rooms")
+      throw new Error(res.message || "Couldn't fetch rooms")
     }
 
     return res
@@ -316,7 +316,7 @@ async function getMessages(roomId, before = 0) {
   try {
     const response = await fetch(url, { method: 'GET' });
     if (!response.ok) {
-      throw new Error(res.error);
+      throw new Error(res.message);
     }
 
     return await response.json();
@@ -453,7 +453,7 @@ async function deleteRoom(roomId) {
     })
 
     if (response.status !== 204) {
-      throw new Error(res.error)
+      throw new Error(res.message)
     }
   } catch (err) {
     console.log(err)
@@ -704,11 +704,12 @@ async function getAccount() {
   try {
     const response = await fetch("http://" + document.location.host + "/account", { method: 'GET' })
 
+    res = await response.json()
     if (!response.ok) {
-      throw new Error(res.error || "Couldn't get account info.")
+      throw new Error(res.message || "Couldn't get account info.")
     }
 
-    return await response.json()
+    return res
   } catch (err) {
     console.log(err)
   }
@@ -969,7 +970,7 @@ handleLogout = function (event) {
     method: 'GET',
   }).then(res => {
     if (!res.ok) {
-      throw new Error(res.statusText || "Logout failed");
+      throw new Error(res.message || "Logout failed");
     }
 
     conn.close();
