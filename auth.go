@@ -212,7 +212,6 @@ func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 }
 
 func login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
-	panic("not implemented")
 	if r.Method == http.MethodGet {
 		if err := render(w, "login.html.tmpl"); err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
