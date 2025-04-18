@@ -40,7 +40,7 @@ func NewNotFoundError() *ApiError {
 func NewInternalServerError(err error) *ApiError {
 	return &ApiError{
 		Code:    http.StatusInternalServerError,
-		Message: "internal server error",
+		Message: http.StatusText(http.StatusInternalServerError),
 		Err:     err,
 	}
 }
