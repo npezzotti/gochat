@@ -520,6 +520,8 @@ func main() {
 		handlers.AllowCredentials(),
 	)(mux)
 
+	h = ErrorHandler(logger, h)
+	
 	srv := http.Server{
 		Addr:    *addr,
 		Handler: h,
