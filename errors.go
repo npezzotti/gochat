@@ -52,7 +52,7 @@ func NewUnauthorizedError(err error) *ApiError {
 	}
 }
 
-func NewethodNotAllowedError(err error) *ApiError {
+func NewethodNotAllowedError() *ApiError {
 	return &ApiError{
 		Code:    http.StatusMethodNotAllowed,
 		Message: http.StatusText(http.StatusMethodNotAllowed),
