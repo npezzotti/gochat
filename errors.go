@@ -48,6 +48,6 @@ func NewInternalServerError(err error) *ApiError {
 func NewUnauthorizedError(err error) *ApiError {
 	return &ApiError{
 		Code:    http.StatusUnauthorized,
-		Message: "unauthorized",
+		Message: http.StatusText(http.StatusUnauthorized),
 	}
 }
