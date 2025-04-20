@@ -1,13 +1,30 @@
 {{ template "base" }}
-{{ define "title" }}Login{{ end }}
+{{ define "title" }}Go Chat - Login{{ end }}
+{{ define "scripts" }}
+<script src="/static/js/auth.js" defer></script>
+{{ end }}
 {{ define "content" }}
-<form class="form-container" id="login-form">
-  <h1>Sign in</h1>
-  <label for="email">Email Address</label>
-  <input type="text" name="email" id="email">
-  <label for="password">Password</label>
-  <input type="password" name="password" id="password">
-  <p id="error-message" class="error"></p>
-  <button type="submit" class="send-btn" id="login">Login</button>
-</form>
+<body>
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h1>Sign in</h1>
+    </div>
+    <form class="sidebar-form" id="login-form">
+      <label for="email">Email Address</label>
+      <input type="text" name="email" id="email">
+      <label for="password">Password</label>
+      <input type="password" name="password" id="password">
+      <p id="error-message" class="error"></p>
+      <input type="submit" id="login" value="Login">
+    </form>
+    <p>
+      Don't have an account? <a href="/account/new">Sign up</a>
+    </p>
+  </div>
+  <div class="chat-container">
+    <div class="logo-container">
+    <img class="logo" src="/static/logo.png" alt="go-chat" />
+    <div>
+  </div>
+</body>
 {{ end }}

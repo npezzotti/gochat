@@ -1,3 +1,107 @@
+class WSClient {
+  constructor(url) {
+    this.url = url;
+    this.socket = null;
+  }
+  
+  connect() {
+    this.socket = new WebSocket(this.url);
+
+    this.socket.onopen = () => {
+      console.log("WebSocket connection opened");
+    };
+
+    this.socket.onclose = () => {
+      console.log("WebSocket connection closed");
+    };
+
+    this.socket.onmessage = (event) => {
+      console.log("Received message: " + event.data);
+    };
+  }
+  send(message) {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(message);
+    } else {
+      throw new Error("Unable to send message, WebSocket is not open");
+    }
+  }
+  close() {
+    if (this.socket) {
+      this.socket.close();
+      this.socket = null;
+    }
+  }
+  _reconnect() {
+    if (this.socket && this.socket.readyState !== WebSocket.CLOSED) {
+      this.socket.close();
+    }
+    this.connect();
+  }
+  reconnect() {
+    this._reconnect();
+  }
+  isOpen() {
+    return this.socket && this.socket.readyState === WebSocket.OPEN;
+  }
+  isClosed() {
+    return this.socket && this.socket.readyState === WebSocket.CLOSED;
+  }
+  onMessage(callback) {
+    if (this.socket) {
+      this.socket.onmessage = (event) => {
+        callback(event.data);
+      }
+    }
+  }
+  onError(callback) {
+    if (this.socket) {
+      this.socket.onerror = (event) => {
+        callback(event);
+      }
+    }
+  }
+  onClose(callback) {
+    if (this.socket) {
+      this.socket.onclose = (event) => {
+        this.socket = null;
+        callback(event);
+
+        if (this.autoreconnect) {
+          this._reconnect();
+        }
+      }
+
+      if (this.socket.readyState === WebSocket.CLOSED) {
+        this._reconnect();
+      }
+    }
+  }
+  onOpen(callback) {
+    if (this.socket) {
+      this.socket.onopen = (event) => {
+        callback(event);
+      }
+    }
+  }
+}
+
+const wsClient = new WSClient("ws://" + document.location.host + "/ws");
+wsClient.connect();
+wsClient.onMessage((message) => {
+  console.log("Received message: " + message);
+});
+wsClient.onError((error) => {
+  console.error("WebSocket error: " + error);
+});
+wsClient.onClose((event) => {
+  console.log("WebSocket closed: " + event);
+});
+wsClient.onOpen((event) => {
+  console.log("WebSocket opened: " + event);
+});
+
+
 const JOIN_ROOM_FORM_ID = 'join-room-form'
 
 var conn
@@ -856,18 +960,22 @@ async function renderRoomsList(component = '.sidebar') {
     </div>
   `;
 
+  const loadingText = document.getElementById('loading-text');
   try {
     const subs = await listSubscriptions()
-    updateRoomList(subs);
-    const loadingText = document.getElementById('loading-text');
     if (loadingText) {
       loadingText.remove();
     }
-
-    addRoomListEvtListeners()
+    updateRoomList(subs);
   } catch (err) {
-    throw new Error("Error fetching subscriptions: " + err)
+    loadingText.remove();
+    document.getElementById('room-list').innerHTML = `
+      <p class="error">Failed to load rooms.</p>
+    `
+    console.error("Error fetching subscriptions:", err);
   }
+
+  addRoomListEvtListeners()
 }
 
 function addRoomToList(room) {
