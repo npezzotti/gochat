@@ -36,18 +36,3 @@ async function login(e) {
     errorMessage.textContent = error.message;
   }
 }
-
-async function logout(e) {
-  e.preventDefault();
-  try {
-    const response = await fetch("http://" + document.location.host + "/logout")
-    if (!response.ok) {
-      throw new Error("Logout failed")
-    }
-
-    localStorage.removeItem("username")
-    window.location.replace("http://" + document.location.host + "/login");
-  } catch (error) {
-    console.log(error)
-  }
-}
