@@ -484,15 +484,15 @@ func main() {
 		account(logger, w, r)
 	}))
 
-	mux.Handle("POST /room/new", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("POST /rooms", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
 		createRoom(logger, w, r)
 	}))
 
-	mux.Handle("GET /room/delete", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("DELETE /rooms", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
 		deleteRoom(chatServer, w, r)
 	}))
 
-	mux.Handle("GET /room", authMiddleware(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("GET /rooms", authMiddleware(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		getRoom(logger, w, r)
 	})))
 	mux.Handle("GET /subscriptions", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
