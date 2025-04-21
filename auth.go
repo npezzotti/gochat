@@ -265,6 +265,7 @@ func createJwtCookie(tokenString string, exp time.Duration) *http.Cookie {
 func logout(w http.ResponseWriter, _ *http.Request) {
 	// instruct browser to delete cookie by overwriting it with an expired token
 	http.SetCookie(w, createJwtCookie("", time.Duration(time.Unix(0, 0).Unix())))
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func hashPassword(passwd string) (string, error) {
