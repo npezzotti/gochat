@@ -1,9 +1,152 @@
+class GoChatClient {
+  wsClient;
+
+  constructor(host) {
+    this.username = null;
+    this.rooms = [];
+    this.currentRoom = null;
+    this.host = document.location.host;
+    this.baseUrl = "http://" + this.host;
+
+    this.wsClient = new WsClient("ws://" + this.host + "/ws");
+  }
+
+  setUsername(username) {
+    this.username = username;
+  }
+
+  getUsername() {
+    return this.username;
+  }
+
+  addRoom(room) {
+    this.rooms.push(room);
+  }
+
+  removeRoom(roomId) {
+    this.rooms = this.rooms.filter(room => room.id !== roomId);
+  }
+
+  getRooms() {
+    return this.rooms;
+  }
+
+  setCurrentRoom(room) {
+    this.currentRoom = room;
+  }
+
+  getCurrentRoom() {
+    return this.currentRoom;
+  }
+
+  clearCurrentRoom() {
+    this.currentRoom = null;
+  }
+
+  async _request(method, endpoint, data, params = {}) {
+    const url = new URL(this.baseUrl + endpoint);
+
+    Object.keys(params).forEach(key => {
+      url.searchParams.append(key, params[key]);
+    })
+
+    const options = {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      timeout: 5000
+    }
+
+    if (data && ['POST', 'PUT', 'PATCH'].includes(method)) {
+      options.body = JSON.stringify(data);
+    }
+
+    try {
+      const response = await fetch(url, options);
+
+      let res;
+      try {
+        res = await response.json();
+      } catch (err) {
+        throw new Error("Failed to parse server response.");
+      }
+
+      if (!response.ok) {
+        throw new Error(res.message || "Request failed");
+      }
+      return res;
+    } catch (err) {
+      console.error("Request error:", err);
+      throw err;
+    }
+  }
+
+  async listRooms() {
+    return this._request('GET', '/rooms');
+  }
+
+  async fetchRoom(roomId) {
+    return this._request('GET', '/room', null, { id: roomId });
+  }
+
+  async subscribeRoom(roomId) {
+    return this._request('POST', '/subscriptions', {room_id: roomId});
+  }
+
+  async unsubscribeRoom(roomId) {
+    return this._request('DELETE', '/subscriptions', null, { room_id: roomId });
+  }
+
+  async createRoom(name, description) {
+    return this._request('POST', '/room/new', { name: name, description: description });
+  }
+
+  async deleteRoom(roomId) {
+    return this._request('DELETE', '/room/delete', null, { id: roomId });
+  }
+
+  async getMessages(roomId, before = 0) {
+    const params = {
+      room_id: roomId,
+      limit: 10,
+    }
+
+    if (before > 0) {
+      params.before = before;
+    }
+
+    return this._request('GET', '/messages', null, params);
+  }
+
+  async getAccount() {
+    return this._request('GET', '/account');
+  }
+
+  async updateAccount(username, password) {
+    return this._request('PUT', '/account', { username: username, password: password });
+  }
+
+  async logout() {
+    return this._request('POST', '/logout');
+  }
+
+  async login(email, password) {
+    return this._request('POST', '/login', { email: email, password: password });
+  }
+
+  async register(email, username, password) {
+    return this._request('POST', '/register', { email: email, username: username, password: password });
+  }
+}
+
 class WSClient {
   constructor(url) {
     this.url = url;
     this.socket = null;
   }
-  
+
   connect() {
     this.socket = new WebSocket(this.url);
 
@@ -37,6 +180,9 @@ class WSClient {
       this.socket.close();
     }
     this.connect();
+  }
+  isConnected() {
+    return this.socket && this.socket.readyState === WebSocket.OPEN;
   }
   reconnect() {
     this._reconnect();
@@ -85,22 +231,6 @@ class WSClient {
     }
   }
 }
-
-const wsClient = new WSClient("ws://" + document.location.host + "/ws");
-wsClient.connect();
-wsClient.onMessage((message) => {
-  console.log("Received message: " + message);
-});
-wsClient.onError((error) => {
-  console.error("WebSocket error: " + error);
-});
-wsClient.onClose((event) => {
-  console.log("WebSocket closed: " + event);
-});
-wsClient.onOpen((event) => {
-  console.log("WebSocket opened: " + event);
-});
-
 
 const JOIN_ROOM_FORM_ID = 'join-room-form'
 
@@ -321,13 +451,17 @@ async function getRoom(roomId) {
       method: 'GET',
       headers: { 'Content-type': 'application/json' },
     });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error);
+    let res;
+    try {
+      res = await response.json();
+    } catch (err) {
+      throw new Error("Failed to parse server response.");
     }
-
-    return data;
+    if (!response.ok) {
+      const errorMessage = res.message || "Couldn't fetch room";
+      throw new Error(errorMessage);
+    }
+    return res;
   } catch (error) {
     console.log(error);
     throw error;
