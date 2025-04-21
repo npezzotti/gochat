@@ -25,7 +25,7 @@ async function login(e) {
 
     const res = await response.json()
     if (response.status !== 200) {
-      throw new Error(res.error || "Login failed")
+      throw new Error(res.message || "Login failed")
     }
 
     if (response.ok) {

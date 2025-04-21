@@ -1081,7 +1081,9 @@ handleLogout = function (event) {
       throw new Error(res.message || "Logout failed");
     }
 
-    conn.close();
+    if (conn.readyState === WebSocket.OPEN) {
+      conn.close()
+    }
     clearCurrentRoom();
     localStorage.removeItem("username");
     window.location.href = "/login";
