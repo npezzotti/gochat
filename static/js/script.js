@@ -8,7 +8,7 @@ class GoChatClient {
     this.host = document.location.host;
     this.baseUrl = "http://" + this.host;
 
-    this.wsClient = new WsClient("ws://" + this.host + "/ws");
+    this.wsClient = new WSClient("ws://" + this.host + "/ws");
   }
 
   setUsername(username) {
@@ -66,11 +66,15 @@ class GoChatClient {
     try {
       const response = await fetch(url, options);
 
+      if (response.status === 204) {
+        return null; // No content, return null
+      }
+
       let res;
       try {
         res = await response.json();
       } catch (err) {
-        throw new Error("Failed to parse server response.");
+        throw new Error("Failed to parse server response: " + err);
       }
 
       if (!response.ok) {
@@ -83,16 +87,16 @@ class GoChatClient {
     }
   }
 
-  async listRooms() {
-    return this._request('GET', '/rooms');
+  async listSubscriptions() {
+    return this._request('GET', '/subscriptions');
   }
 
-  async fetchRoom(roomId) {
-    return this._request('GET', '/room', null, { id: roomId });
+  async getRoom(roomId) {
+    return this._request('GET', '/rooms', null, { id: roomId });
   }
 
   async subscribeRoom(roomId) {
-    return this._request('POST', '/subscriptions', {room_id: roomId});
+    return this._request('POST', '/subscriptions', null, {room_id: roomId});
   }
 
   async unsubscribeRoom(roomId) {
@@ -100,11 +104,11 @@ class GoChatClient {
   }
 
   async createRoom(name, description) {
-    return this._request('POST', '/room/new', { name: name, description: description });
+    return this._request('POST', '/rooms', { name: name, description: description });
   }
 
   async deleteRoom(roomId) {
-    return this._request('DELETE', '/room/delete', null, { id: roomId });
+    return this._request('DELETE', '/rooms', null, { id: roomId });
   }
 
   async getMessages(roomId, before = 0) {
@@ -129,7 +133,7 @@ class GoChatClient {
   }
 
   async logout() {
-    return this._request('POST', '/logout');
+    return this._request('GET', '/logout');
   }
 
   async login(email, password) {
@@ -235,6 +239,7 @@ class WSClient {
 const JOIN_ROOM_FORM_ID = 'join-room-form'
 
 var conn
+var goChatClient
 var currentRoom
 
 const MESSAGES_PAGE_LIMIT = 10
@@ -260,7 +265,7 @@ function handleMessagesScroll() {
       const firstMessageSeqId = firstMessage.getAttribute('data-message-seq-id');
       if (firstMessageSeqId > 1) {
         const previousScrollHeight = messages.scrollHeight; // Save current scroll height
-        getMessages(roomId, firstMessageSeqId)
+        goChatClient.getMessages(roomId, firstMessageSeqId)
           .then(newMessages => {
             for (let i = newMessages.length - 1; i >= 0; i--) {
               let msg = createMsg(newMessages[i]);
@@ -360,7 +365,7 @@ function handleUnsubscribe(event) {
     return
   }
 
-  unsubscribeRoom(currentRoom.external_id).then(() => {
+  goChatClient.unsubscribeRoom(currentRoom.external_id).then(() => {
     removeRoomFromList(currentRoom);
     clearRoomView();
     clearCurrentRoom();
@@ -373,8 +378,7 @@ function handleDeleteRoom(event) {
   let yes = confirm("Are you sure you want to delete this room?");
 
   if (yes) {
-    deleteRoom(currentRoom.external_id).then(() => {
-      console.log(currentRoom)
+    goChatClient.deleteRoom(currentRoom.external_id).then(() => {
       removeRoomFromList(currentRoom);
       clearRoomView();
     }).catch(err => {
@@ -414,63 +418,9 @@ function updateRoomList(rooms) {
   }
 }
 
-async function unsubscribeRoom(roomId) {
-  try {
-    const response = await fetch("http://" + document.location.host + `/subscriptions?room_id=${roomId}`, {
-      method: 'DELETE',
-    })
-    if (!response.ok) {
-      throw new Error(res.message || "Couldn't unsubscribe from room")
-    }
-  } catch (err) {
-    console.log("Error unsubscribing from room:", err)
-  }
-}
-
-async function listSubscriptions() {
-  try {
-    const response = await fetch("http://" + document.location.host + "/subscriptions", {
-      method: 'GET',
-      headers: { 'Content-type': 'application/json' },
-    })
-
-    const res = await response.json()
-    if (!response.ok) {
-      throw new Error(res.message || "Couldn't fetch rooms")
-    }
-
-    return res
-  } catch (error) {
-    throw new Error("Error fetching subscriptions: " + error)
-  }
-}
-
-async function getRoom(roomId) {
-  try {
-    const response = await fetch("http://" + document.location.host + `/room?id=${roomId}`, {
-      method: 'GET',
-      headers: { 'Content-type': 'application/json' },
-    });
-    let res;
-    try {
-      res = await response.json();
-    } catch (err) {
-      throw new Error("Failed to parse server response.");
-    }
-    if (!response.ok) {
-      const errorMessage = res.message || "Couldn't fetch room";
-      throw new Error(errorMessage);
-    }
-    return res;
-  } catch (error) {
-    console.log(error);
-    throw error;
-  }
-}
-
 function activateRoom(roomId) {
   console.log("Activating room: " + roomId)
-  getRoom(roomId).then(room => {
+  goChatClient.getRoom(roomId).then(room => {
     toggleRoomActive(room.external_id)
     renderNewRoom(room)
     switchRoom(room)
@@ -523,7 +473,7 @@ function renderNewRoom(room) {
   document.getElementById('roomDetailsBtn').onclick = showRoomInfoPanel
   document.getElementById('chat-input').onsubmit = sendMessage
 
-  getMessages(room.external_id).then(messages => {
+  goChatClient.getMessages(room.external_id).then(messages => {
     if (!messages || messages.length === 0) {
       return;
     }
@@ -538,29 +488,6 @@ function renderNewRoom(room) {
   })
 
   createRoomInfo(room)
-}
-
-async function getMessages(roomId, before = 0) {
-  const params = new URLSearchParams({
-    room_id: roomId,
-    limit: MESSAGES_PAGE_LIMIT,
-  });
-  if (before > 0) {
-    params.append('before', before);
-  }
-
-  const url = `http://${document.location.host}/messages?${params.toString()}`;
-
-  try {
-    const response = await fetch(url, { method: 'GET' });
-    if (!response.ok) {
-      throw new Error(res.message);
-    }
-
-    return await response.json();
-  } catch (err) {
-    console.log(err);
-  }
 }
 
 function switchRoom(room) {
@@ -630,45 +557,6 @@ function sendMessage(e) {
   return false
 }
 
-async function createRoom(name, description) {
-  try {
-    const response = await fetch("http://" + document.location.host + "/room/new", {
-      method: 'POST',
-      headers: { 'Content-type': 'application/json' },
-      body: JSON.stringify({ name: name, description: description })
-    })
-
-    const room = await response.json()
-
-    if (response.status !== 201) {
-      throw new Error(room.error)
-    }
-
-    return room
-  } catch (err) {
-    throw new Error("Error creating room: " + err)
-  }
-}
-
-async function subscribeRoom(roomId) {
-  try {
-    const response = await fetch("http://" + document.location.host + `/subscriptions?room_id=${roomId}`, {
-      method: 'POST',
-      headers: { 'Content-type': 'application/json' },
-    })
-
-    const sub = await response.json()
-
-    if (response.status !== 201) {
-      throw new Error(sub.error)
-    }
-
-    return sub;
-  } catch (err) {
-    throw new Error("Error subscribing to room: " + err)
-  }
-}
-
 function createRoomElement(room) {
   const roomDiv = document.createElement('div');
   roomDiv.innerHTML = `<div class="room" id="${room.external_id}">${room.name}</div>`;
@@ -682,20 +570,6 @@ function createRoomElement(room) {
   }
 
   return roomDiv
-}
-
-async function deleteRoom(roomId) {
-  try {
-    const response = await fetch("http://" + document.location.host + `/room/delete?id=${roomId}`, {
-      method: 'GET',
-    })
-
-    if (response.status !== 204) {
-      throw new Error(res.message)
-    }
-  } catch (err) {
-    console.log(err)
-  }
 }
 
 function clearRoomView() {
@@ -735,11 +609,12 @@ if (window["WebSocket"]) {
           appendMessage(msg);
           break;
         case Status.MessageTypeRoomDeleted:
-          if (currentRoom && currentRoom.id === renderedMessage.room_id) {
-            removeRoomFromList(currentRoom)
-            clearRoomView();
-            clearCurrentRoom();
-          }
+          console.log(renderedMessage.room_id +" was deleted.")
+          // if (currentRoom && currentRoom.id === renderedMessage.room_id) {
+          //   removeRoomFromList(currentRoom)
+          //   clearRoomView();
+          //   clearCurrentRoom();
+          // }
           break;
         case Status.MessageTypePresence:
           if (currentRoom && currentRoom.id === renderedMessage.room_id) {
@@ -780,6 +655,8 @@ if (window["WebSocket"]) {
       }
     }
   };
+
+  goChatClient = new GoChatClient(document.location.host);
 
   renderRoomsList();
 } else {
@@ -923,7 +800,8 @@ async function handleCreateRoom(event) {
   }
 
   try {
-    const room = await createRoom(roomName.value, roomDesc.value)
+    const room = await goChatClient.createRoom(roomName.value, roomDesc.value)
+    console.log(room)
     renderRoomsList();
     renderNewRoom(room)
     switchRoom(room)
@@ -935,21 +813,6 @@ async function handleCreateRoom(event) {
     roomName.value = '';
     roomDesc.value = '';
     form.appendChild(errorMessage);
-  }
-}
-
-async function getAccount() {
-  try {
-    const response = await fetch("http://" + document.location.host + "/account", { method: 'GET' })
-
-    res = await response.json()
-    if (!response.ok) {
-      throw new Error(res.message || "Couldn't get account info.")
-    }
-
-    return res
-  } catch (err) {
-    console.log(err)
   }
 }
 
@@ -968,7 +831,7 @@ function renderAccountEdit(event) {
     <p>Loading account information...</p>
   `
 
-  getAccount().then(user => {
+  goChatClient.getAccount().then(user => {
     const dropdown = document.getElementById('account-opts-dropdown-content')
     if (dropdown) {
       dropdown.style.display = 'none'
@@ -1007,7 +870,7 @@ function renderAccountEdit(event) {
       event.preventDefault()
       const formData = new FormData(event.target)
       try {
-        const user = await handleUpdateAccount(formData.get('username'), formData.get('password'))
+        const user = await goChatClient.updateAccount(formData.get('username'), formData.get('password'))
         if (user && user.username) { // Ensure user is valid
           localStorage.setItem("username", user.username)
           renderAccountEdit()
@@ -1028,25 +891,6 @@ function renderAccountEdit(event) {
       renderRoomsList()
     })
   })
-}
-
-async function handleUpdateAccount(username, password) {
-  try {
-    const response = await fetch("http://" + document.location.host + "/account", {
-      method: 'PUT',
-      headers: { 'Content-type': 'application/json' },
-      body: JSON.stringify({ username: username, password: password })
-    })
-
-    const resp = await response.json()
-    if (!response.ok) {
-      throw new Error(resp.error || "Couldn't update account")
-    }
-
-    return resp
-  } catch (err) {
-    console.log(err)
-  }
 }
 
 async function renderRoomsList(component = '.sidebar') {
@@ -1096,7 +940,7 @@ async function renderRoomsList(component = '.sidebar') {
 
   const loadingText = document.getElementById('loading-text');
   try {
-    const subs = await listSubscriptions()
+    const subs = await goChatClient.listSubscriptions();
     if (loadingText) {
       loadingText.remove();
     }
@@ -1158,7 +1002,7 @@ async function handleJoinRoom(event) {
   }
 
   try {
-    const sub = await subscribeRoom(roomIdInput.value);
+    const sub = await goChatClient.subscribeRoom(roomIdInput.value);
     addRoomToList(sub.room);
     activateRoom(sub.room.external_id);
   } catch (err) {
@@ -1208,13 +1052,7 @@ handleLogout = function (event) {
   const logoutBtn = event.target;
   logoutBtn.disabled = true;
 
-  fetch("http://" + document.location.host + "/logout", {
-    method: 'GET',
-  }).then(res => {
-    if (!res.ok) {
-      throw new Error(res.message || "Logout failed");
-    }
-
+  goChatClient.logout().then(_ => {
     if (conn.readyState === WebSocket.OPEN) {
       conn.close()
     }
