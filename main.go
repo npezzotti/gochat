@@ -382,10 +382,10 @@ func getMessages(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var userMessages []Message
+	var userMessages []SystemMessage
 
 	for _, msg := range messages {
-		msg := Message{
+		msg := SystemMessage{
 			Id:        msg.Id,
 			SeqId:     msg.SeqId,
 			UserId:    msg.UserId,

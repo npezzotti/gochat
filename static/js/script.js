@@ -96,7 +96,7 @@ class GoChatClient {
   }
 
   async subscribeRoom(roomId) {
-    return this._request('POST', '/subscriptions', null, {room_id: roomId});
+    return this._request('POST', '/subscriptions', null, { room_id: roomId });
   }
 
   async unsubscribeRoom(roomId) {
@@ -245,12 +245,14 @@ var currentRoom
 const MESSAGES_PAGE_LIMIT = 10
 
 const Status = {
-  MessageTypeJoin: 0,
-  MessageTypeLeave: 1,
-  MessageTypePublish: 2,
-  MessageTypeRoomDeleted: 3,
-  MessageTypePresence: 4,
-  MessageTypeNotification: 5
+  MessageTypeJoin: 'join',
+  MessageTypeLeave: 'leave',
+  MessageTypePublish: 'publish',
+  MessageTypeUserSubscribed: 'subscribe',
+  MessageTypeUserUnSubscribed: 'unsubscribe',
+  MessageTypeRoomDeleted: 'room_deleted',
+  MessageTypeUserPresent: 'user_present',
+  MessageTypeUserAbsent: 'user_absent',
 };
 
 const PRESENCE_ONLINE = "online"
@@ -599,59 +601,55 @@ if (window["WebSocket"]) {
       var msg
 
       switch (renderedMessage.type) {
-        case Status.MessageTypeJoin:
-          break;
-        case Status.MessageTypeLeave:
-
-          break;
         case Status.MessageTypePublish:
           msg = createMsg(renderedMessage)
           appendMessage(msg);
           break;
         case Status.MessageTypeRoomDeleted:
-          console.log(renderedMessage.room_id +" was deleted.")
+          console.log(renderedMessage.room_id + " was deleted.")
           // if (currentRoom && currentRoom.id === renderedMessage.room_id) {
           //   removeRoomFromList(currentRoom)
           //   clearRoomView();
           //   clearCurrentRoom();
           // }
           break;
-        case Status.MessageTypePresence:
+        case Status.MessageTypeUserPresent:
           if (currentRoom && currentRoom.id === renderedMessage.room_id) {
-            let status = renderedMessage.content === PRESENCE_ONLINE ? PRESENCE_ONLINE : PRESENCE_OFFLINE
-            setPresence(renderedMessage.user_id, status);
+            setPresence(renderedMessage.user_id, PRESENCE_ONLINE);
           }
           break;
-        case Status.MessageTypeNotification:
-          switch (renderedMessage.content) {
-            case "unsubscribe":
-              if (currentRoom && currentRoom.id === renderedMessage.room_id) {
-                currentRoom.subscribers = currentRoom.subscribers.filter(sub => sub.id !== renderedMessage.user_id);
-                const subscribersList = document.querySelector('.subscribers-list');
-                if (subscribersList) {
-                  const subscriberItem = subscribersList.querySelector(`li[data-user-id="${renderedMessage.user_id}"]`);
-                  if (subscriberItem) {
-                    subscriberItem.remove();
-                  }
-                }
-              }
-              break;
-            case "subscribe":
-              if (currentRoom && currentRoom.id === renderedMessage.room_id) {
-                const newSubscriber = {
-                  id: renderedMessage.user_id,
-                  username: renderedMessage.username
-                };
-                currentRoom.subscribers.push(newSubscriber);
-                const subscribersList = document.querySelector('.subscribers-list');
-                if (subscribersList) {
-                  const newSubscriberItem = createUserListItem(newSubscriber.id, newSubscriber.username);
-                  subscribersList.appendChild(newSubscriberItem);
-                }
-              }
-              break;
-            default:
+        case Status.MessageTypeUserAbsent:
+          if (currentRoom && currentRoom.id === renderedMessage.room_id) {
+            setPresence(renderedMessage.user_id, PRESENCE_OFFLINE);
           }
+          break;
+        case Status.MessageTypeUserSubscribed:
+          if (currentRoom && currentRoom.id === renderedMessage.room_id) {
+            currentRoom.subscribers = currentRoom.subscribers.filter(sub => sub.id !== renderedMessage.user_id);
+            const subscribersList = document.querySelector('.subscribers-list');
+            if (subscribersList) {
+              const subscriberItem = subscribersList.querySelector(`li[data-user-id="${renderedMessage.user_id}"]`);
+              if (subscriberItem) {
+                subscriberItem.remove();
+              }
+            }
+          }
+          break;
+        case Status.MessageTypeUserUnSubscribed:
+          if (currentRoom && currentRoom.id === renderedMessage.room_id) {
+            const newSubscriber = {
+              id: renderedMessage.user_id,
+              username: renderedMessage.username
+            };
+            currentRoom.subscribers.push(newSubscriber);
+            const subscribersList = document.querySelector('.subscribers-list');
+            if (subscribersList) {
+              const newSubscriberItem = createUserListItem(newSubscriber.id, newSubscriber.username);
+              subscribersList.appendChild(newSubscriberItem);
+            }
+          }
+          break;
+        default:
       }
     }
   };

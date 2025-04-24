@@ -1,36 +1,34 @@
 # Todo
 
-* User external IDs
-* * Add database table for external Ids
-* * Replace all references to Id with external ID
-* When user subscribes to a room
-* * HTTP request subscribes user
-* * Websocket event notifies subs and they add user to subs cache
-* When a user unsubscrubes from a room
-* * HTTP request removes subscription
-* * Websocket server removes users sessions
-* * Websocket server event sent for unsub
-* When a user actively opens a room
-* * Websocket event notifies other active user that the user joined
-* When a user is no longer active in room
-* * Websocket event notifies other active users that user left
+* Websocket client
+* Chat client (w/Rest APIs and Websocket connectionse)
+** isAuthenticated
+* Frontend notifications
 * Delete user
 
 ## Nice to have
 
+* Re-establish connection
 * Upload files- will require separate API endpoint, local storage, and updating structure of chat message type
 
 
-## WS client event types
+## WS client message types
 
-User subscribes to a room
-User unsubscribes to a room
-User leaves a room
-User publishes a message to a room
+* Join room
+* Leave room
+* Publish message
 
-## WS server event types
 
-Message published to a room a user is actively subscribed to
-Message published to room user to which user is subscribed to, but not active in
-User subscribed to a room a user is subscribed to and active in
+## WS server message types
 
+* Presence
+* * User is present in a room the user is active in
+* * User no longer present in a room the user is active in
+* Subscription
+* * User subscribed to a room (sent to all users active in room)
+* * User unsubscribed from a room (sent to all users active in room)
+* Publish
+* * Message published to a room (sent to all users active in room)
+* * Message published to room user to which user is subscribed to, but not active in (sent to all subscribed users)
+* Notification
+* * A room which a user is active in was deleted. (sent to all active users)

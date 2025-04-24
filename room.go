@@ -29,7 +29,7 @@ type Room struct {
 	cs            *ChatServer
 	joinChan      chan *Client
 	leaveChan     chan *Client
-	clientMsgChan chan *Message
+	clientMsgChan chan *UserMessage
 	seq_id        int
 	clients       map[*Client]struct{}
 	userMap       map[int]map[*Client]struct{}
@@ -74,11 +74,10 @@ func (r *Room) start() {
 					continue
 				}
 
-				presenceMsg, err := json.Marshal(&Message{
-					Type:    MessageTypePresence,
-					RoomId:  r.Id,
-					UserId:  client.user.Id,
-					Content: PresenceTypeOnline,
+				presenceMsg, err := json.Marshal(&SystemMessage{
+					Type:   EventTypeUserPresent,
+					RoomId: r.Id,
+					UserId: client.user.Id,
 				})
 				if err != nil {
 					r.log.Println("failed to marshal presence msg:", err)
@@ -90,11 +89,10 @@ func (r *Room) start() {
 			}
 
 			// notify all clients user is online
-			r.broadcast(&Message{
-				Type:    MessageTypePresence,
-				RoomId:  r.Id,
-				UserId:  c.user.Id,
-				Content: PresenceTypeOnline,
+			r.broadcast(&SystemMessage{
+				Type:   EventTypeUserPresent,
+				RoomId: r.Id,
+				UserId: c.user.Id,
 			})
 		case client := <-r.leaveChan:
 			r.log.Printf("removing %q from room %q", client.user.Username, r.ExternalId)
@@ -104,11 +102,10 @@ func (r *Room) start() {
 			// notify all clients user is offline
 			// if no sessions for user in the room
 			if r.userMap[client.user.Id] == nil {
-				r.broadcast(&Message{
-					Type:    MessageTypePresence,
-					RoomId:  r.Id,
-					UserId:  client.user.Id,
-					Content: PresenceTypeOffline,
+				r.broadcast(&SystemMessage{
+					Type:   EventTypeUserAbsent,
+					RoomId: r.Id,
+					UserId: client.user.Id,
 				})
 			}
 			r.clientLock.Unlock()
@@ -204,7 +201,7 @@ func (r *Room) removeAllClientsForUser(userId int) {
 	}
 }
 
-func (r *Room) saveAndBroadcast(msg *Message) {
+func (r *Room) saveAndBroadcast(msg *UserMessage) {
 	if err := MessageCreate(db.UserMessage{
 		SeqId:     r.seq_id + 1,
 		RoomId:    r.Id,
@@ -216,10 +213,19 @@ func (r *Room) saveAndBroadcast(msg *Message) {
 	}
 
 	r.seq_id++
-	r.broadcast(msg)
+
+	data := &SystemMessage{
+		Type:      EventTypeMessagePublished,
+		UserId:    msg.UserId,
+		Username:  msg.Username,
+		Content:   msg.Content,
+		Timestamp: msg.Timestamp,
+		RoomId:    r.Id,
+	}
+	r.broadcast(data)
 }
 
-func (r *Room) broadcast(msg *Message) {
+func (r *Room) broadcast(msg *SystemMessage) {
 	msg.RoomId = r.Id
 	msg.Timestamp = time.Now()
 
@@ -241,8 +247,8 @@ func (r *Room) broadcast(msg *Message) {
 }
 
 func (r *Room) notifyDeleted() {
-	msg := &Message{
-		Type:   MessageTypeRoomDeleted,
+	msg := &SystemMessage{
+		Type:   EventTypeRoomDeleted,
 		RoomId: r.Id,
 	}
 

@@ -8,6 +8,50 @@ import (
 	"github.com/teris-io/shortid"
 )
 
+type UserMessage struct {
+	Id        int             `json:"id"`
+	Type      UserMessageType `json:"type"`
+	SeqId     int             `json:"seq_id,omitempty"`
+	RoomId    int             `json:"room_id,"`
+	Content   string          `json:"content,omitempty"`
+	UserId    int             `json:"user_id,omitempty"`
+	Username  string          `json:"username,omitempty"`
+	Timestamp time.Time       `json:"timestamp"`
+	client    *Client         `json:"-"`
+}
+
+type UserMessageType string
+
+const (
+	UserMessageTypeJoin    UserMessageType = "join"
+	UserMessageTypeLeave   UserMessageType = "leave"
+	UserMessageTypePublish UserMessageType = "publish"
+)
+
+type SystemMessage struct {
+	Id      int               `json:"id"`
+	Type    SystemMessageType `json:"type"`
+	RoomId  int               `json:"room_id"`
+	SeqId   int               `json:"seq_id,omitempty"`
+	Content string            `json:"content,omitempty"`
+	UserId  int               `json:"user_id,omitempty"`
+	// todo can username be removed?
+	Username  string    `json:"username,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+type SystemMessageType string
+
+const (
+	EventTypeMessagePublished SystemMessageType = "publish"
+	EventTypeUserSubscribe    SystemMessageType = "subscribe"
+	EventTypeUserUnSubscribe  SystemMessageType = "unsubscribe"
+
+	EventTypeUserPresent SystemMessageType = "user_present"
+	EventTypeUserAbsent  SystemMessageType = "user_absent"
+	EventTypeRoomDeleted SystemMessageType = "room_deleted"
+)
+
 type MessageType int
 
 const (
@@ -17,7 +61,9 @@ const (
 	MessageTypeRoomDeleted
 	MessageTypePresence
 	MessageTypeNotification
+)
 
+const (
 	NotificationUserUnsubscribe = "unsubscribe"
 	NotificationUserSubscribe   = "subscribe"
 	PresenceTypeOnline          = "online"
@@ -46,21 +92,22 @@ const (
 )
 
 type Message struct {
-	Id        int         `json:"id"`
-	Type      MessageType `json:"type,omitempty"`
-	SeqId     int         `json:"seq_id,omitempty"`
-	RoomId    int         `json:"room_id"`
-	Content   string      `json:"content"`
-	UserId    int         `json:"user_id,omitempty"`
-	Username  string      `json:"username,omitempty"`
-	Timestamp time.Time   `json:"timestamp"`
-	client    *Client     `json:"-"`
+	Id        int               `json:"id"`
+	Type      MessageType       `json:"type,omitempty"`
+	SeqId     int               `json:"seq_id,omitempty"`
+	RoomId    int               `json:"room_id"`
+	Content   string            `json:"content"`
+	EventType SystemMessageType `json:"event_type,omitempty"`
+	UserId    int               `json:"user_id,omitempty"`
+	Username  string            `json:"username,omitempty"`
+	Timestamp time.Time         `json:"timestamp"`
+	client    *Client           `json:"-"`
 }
 
 type ChatServer struct {
 	log            *log.Logger
 	clients        map[*Client]struct{}
-	joinChan       chan *Message
+	joinChan       chan *UserMessage
 	registerChan   chan *Client
 	deRegisterChan chan *Client
 	broadcastChan  chan Message
@@ -80,7 +127,7 @@ func NewChatServer(logger *log.Logger) (*ChatServer, error) {
 
 	return &ChatServer{
 		log:            logger,
-		joinChan:       make(chan *Message),
+		joinChan:       make(chan *UserMessage),
 		clients:        make(map[*Client]struct{}),
 		registerChan:   make(chan *Client),
 		deRegisterChan: make(chan *Client),
@@ -120,7 +167,7 @@ func (cs *ChatServer) run() {
 					cs:            cs,
 					joinChan:      make(chan *Client, 256),
 					leaveChan:     make(chan *Client, 256),
-					clientMsgChan: make(chan *Message, 256),
+					clientMsgChan: make(chan *UserMessage, 256),
 					seq_id:        dbRoom.SeqId,
 					clients:       make(map[*Client]struct{}),
 					userMap:       make(map[int]map[*Client]struct{}),
@@ -151,9 +198,8 @@ func (cs *ChatServer) run() {
 			case subReqTypeSubscribe:
 				// notify other users in the room
 				if room, ok := cs.rooms[req.roomId]; ok {
-					room.broadcast(&Message{
-						Type:     MessageTypeNotification,
-						Content:  NotificationUserSubscribe,
+					room.broadcast(&SystemMessage{
+						Type:     EventTypeUserSubscribe,
 						UserId:   req.user.Id,
 						Username: req.user.Username,
 					})
@@ -162,10 +208,10 @@ func (cs *ChatServer) run() {
 				cs.log.Printf("unsubscribing user %q from room %d", req.user.Username, req.roomId)
 				if room, ok := cs.rooms[req.roomId]; ok {
 					room.removeAllClientsForUser(req.user.Id)
-					room.broadcast(&Message{
-						Type:    MessageTypeNotification,
-						Content: NotificationUserUnsubscribe,
-						UserId:  req.user.Id,
+					room.broadcast(&SystemMessage{
+						Type:   EventTypeUserUnSubscribe,
+						RoomId: room.Id,
+						UserId: req.user.Id,
 					})
 				}
 			}

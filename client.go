@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -110,7 +111,7 @@ func (c *Client) read() {
 		}
 
 		c.log.Println("Received message:", string(raw))
-		var msg Message
+		var msg UserMessage
 		if err := json.Unmarshal(raw, &msg); err != nil {
 			c.log.Println("error parsing message:", err)
 			continue
@@ -121,15 +122,16 @@ func (c *Client) read() {
 		msg.Timestamp = time.Now().UTC()
 
 		switch msg.Type {
-		case MessageTypeJoin:
+		case UserMessageTypeJoin:
 			c.log.Println("read:", "join message")
 			c.joinRoom(&msg)
-		case MessageTypeLeave:
+		case UserMessageTypeLeave:
 			c.log.Println("read:", "leave message")
 			c.leaveRoom(&msg)
-		case MessageTypePublish:
+		case UserMessageTypePublish:
 			c.log.Println("read:", "publish message")
 			r := c.getRoom(msg.RoomId)
+			fmt.Println("room id", msg.RoomId)
 			if r != nil {
 				r.clientMsgChan <- &msg
 			} else {
@@ -153,11 +155,11 @@ func (c *Client) leaveAllRooms() {
 	}
 }
 
-func (c *Client) joinRoom(msg *Message) {
+func (c *Client) joinRoom(msg *UserMessage) {
 	c.chatServer.joinChan <- msg
 }
 
-func (c *Client) leaveRoom(msg *Message) {
+func (c *Client) leaveRoom(msg *UserMessage) {
 	r := c.getRoom(msg.RoomId)
 	if r != nil {
 		r.leaveChan <- c
