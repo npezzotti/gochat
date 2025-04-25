@@ -615,12 +615,12 @@ if (window["WebSocket"]) {
           break;
         case Status.MessageTypeUserPresent:
           if (currentRoom && currentRoom.id === renderedMessage.room_id) {
-            setPresence(renderedMessage.user_id, PRESENCE_ONLINE);
+            setPresence(renderedMessage.user_id, true);
           }
           break;
         case Status.MessageTypeUserAbsent:
           if (currentRoom && currentRoom.id === renderedMessage.room_id) {
-            setPresence(renderedMessage.user_id, PRESENCE_OFFLINE);
+            setPresence(renderedMessage.user_id, false);
           }
           break;
         case Status.MessageTypeUserSubscribed:
@@ -663,12 +663,7 @@ if (window["WebSocket"]) {
   appendMessage(item);
 }
 
-function setPresence(userId, presence) {
-  if (presence !== PRESENCE_ONLINE && presence !== PRESENCE_OFFLINE) {
-    console.error("Invalid presence status:", presence);
-    return;
-  }
-
+function setPresence(userId, on) {
   const subscribersList = document.querySelector('.subscribers-list');
   if (!subscribersList) {
     console.error("Subscribers list not found");
@@ -683,15 +678,10 @@ function setPresence(userId, presence) {
 
   subscriberItem.classList.remove('status-online', 'status-offline');
 
-  switch (presence) {
-    case 'online':
-      subscriberItem.classList.add('status-online');
-      break;
-    case 'offline':
-      subscriberItem.classList.add('status-offline');
-      break;
-    default:
-      console.warn("Unknown status:", presence);
+  if (on) {
+    subscriberItem.classList.add('status-online');
+  } else {
+    subscriberItem.classList.add('status-offline');
   }
 }
 
