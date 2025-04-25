@@ -30,7 +30,7 @@ async function login(e) {
 
     if (response.ok) {
       localStorage.setItem("username", res.username)
-      window.location.replace('http://localhost:8000/');
+      window.location.replace("http://" + docuent.location.host + "/");
     }
   } catch (error) {
     errorMessage.textContent = error.message;
