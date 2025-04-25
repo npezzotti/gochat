@@ -244,19 +244,15 @@ var currentRoom
 
 const MESSAGES_PAGE_LIMIT = 10
 
-const Status = {
-  MessageTypeJoin: 'join',
-  MessageTypeLeave: 'leave',
-  MessageTypePublish: 'publish',
-  MessageTypeUserSubscribed: 'subscribe',
-  MessageTypeUserUnSubscribed: 'unsubscribe',
-  MessageTypeRoomDeleted: 'room_deleted',
-  MessageTypeUserPresent: 'user_present',
-  MessageTypeUserAbsent: 'user_absent',
-};
+const MessageTypeJoin = 'join'
+const MessageTypeLeave = 'leave'
+const MessageTypePublish = 'publish'
 
-const PRESENCE_ONLINE = "online"
-const PRESENCE_OFFLINE = "offline"
+const EventTypeUserSubscribed = 'subscribe'
+const EventTypeUserUnsubscribed = 'unsubscribe'
+const EventTypeRoomDeleted = 'room_deleted'
+const EventTypeUserPresent = 'user_present'
+const EventTypeUserAbsent = 'user_absent'
 
 function handleMessagesScroll() {
   const messages = document.getElementById('chat-area');
@@ -503,7 +499,7 @@ function switchRoom(room) {
 
 function joinRoom(roomId) {
   var msgObj = {
-    type: Status.MessageTypeJoin,
+    type: MessageTypeJoin,
     room_id: roomId,
   };
 
@@ -512,7 +508,7 @@ function joinRoom(roomId) {
 
 function leaveRoom(roomId) {
   var msgObj = {
-    type: Status.MessageTypeLeave,
+    type: MessageTypeLeave,
     room_id: roomId,
   };
 
@@ -546,7 +542,7 @@ function sendMessage(e) {
   }
 
   var msgObj = {
-    type: Status.MessageTypePublish,
+    type: MessageTypePublish,
     room_id: currentRoom.id,
     content: formMsg.value
   };
@@ -601,29 +597,29 @@ if (window["WebSocket"]) {
       var msg
 
       switch (renderedMessage.type) {
-        case Status.MessageTypePublish:
+        case MessageTypePublish:
           msg = createMsg(renderedMessage)
           appendMessage(msg);
           break;
-        case Status.MessageTypeRoomDeleted:
+        case EventTypeRoomDeleted:
           console.log(renderedMessage.room_id + " was deleted.")
-          // if (currentRoom && currentRoom.id === renderedMessage.room_id) {
-          //   removeRoomFromList(currentRoom)
-          //   clearRoomView();
-          //   clearCurrentRoom();
-          // }
+          if (currentRoom && currentRoom.id === renderedMessage.room_id) {
+            // removeRoomFromList(currentRoom);
+            // clearRoomView();
+            // clearCurrentRoom();
+          }
           break;
-        case Status.MessageTypeUserPresent:
+        case EventTypeUserPresent:
           if (currentRoom && currentRoom.id === renderedMessage.room_id) {
             setPresence(renderedMessage.user_id, true);
           }
           break;
-        case Status.MessageTypeUserAbsent:
+        case EventTypeUserAbsent:
           if (currentRoom && currentRoom.id === renderedMessage.room_id) {
             setPresence(renderedMessage.user_id, false);
           }
           break;
-        case Status.MessageTypeUserSubscribed:
+        case EventTypeUserSubscribed:
           if (currentRoom && currentRoom.id === renderedMessage.room_id) {
             currentRoom.subscribers = currentRoom.subscribers.filter(sub => sub.id !== renderedMessage.user_id);
             const subscribersList = document.querySelector('.subscribers-list');
@@ -635,7 +631,7 @@ if (window["WebSocket"]) {
             }
           }
           break;
-        case Status.MessageTypeUserUnSubscribed:
+        case EventTypeUserUnsubscribed:
           if (currentRoom && currentRoom.id === renderedMessage.room_id) {
             const newSubscriber = {
               id: renderedMessage.user_id,
