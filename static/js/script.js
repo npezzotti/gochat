@@ -364,7 +364,7 @@ function handleUnsubscribe(event) {
   }
 
   goChatClient.unsubscribeRoom(currentRoom.external_id).then(() => {
-    removeRoomFromList(currentRoom);
+    removeRoomFromList(currentRoom.external_id);
     clearRoomView();
     clearCurrentRoom();
   }).catch(err => {
@@ -947,8 +947,8 @@ function addRoomToList(room) {
   }
 }
 
-function removeRoomFromList(room) {
-  const roomDiv = document.getElementById(room.external_id);
+function removeRoomFromList(roomId) {
+  const roomDiv = document.getElementById(roomId);
   if (roomDiv) {
     roomDiv.remove();
   }
