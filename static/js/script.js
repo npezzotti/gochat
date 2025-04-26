@@ -342,8 +342,6 @@ function createUserListItem(userId, username) {
 }
 
 function showRoomInfoPanel(event) {
-  event.preventDefault()
-
   if (!currentRoom) {
     return
   }
@@ -368,7 +366,7 @@ function handleUnsubscribe(event) {
     clearRoomView();
     clearCurrentRoom();
   }).catch(err => {
-    console.log(err)
+    console.error("Error unsubscribing from room:", err);
   })
 }
 
@@ -379,6 +377,7 @@ function handleDeleteRoom(event) {
     goChatClient.deleteRoom(currentRoom.external_id).then(() => {
       removeRoomFromList(currentRoom);
       clearRoomView();
+      clearCurrentRoom();
     }).catch(err => {
       console.log(err)
     })
