@@ -239,7 +239,7 @@ func (r *Room) broadcast(msg *SystemMessage) {
 	for client := range r.clients {
 		select {
 		case client.send <- jsonMsg:
-			r.log.Printf("broadcasting message: %q", jsonMsg)
+			r.log.Printf("broadcasting message: %s", string(jsonMsg))
 		default:
 			r.log.Println("default")
 		}
