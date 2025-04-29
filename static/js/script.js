@@ -496,7 +496,7 @@ function hideRoomInfoPanel(event) {
 }
 
 function handleUnsubscribe(event) {
-  let room = wsClientClient.getCurrentRoom();
+  let room = wsClient.getCurrentRoom();
   if (!room) {
     return
   }
@@ -991,7 +991,7 @@ async function handleJoinRoom(event) {
 
   const roomId = roomIdInput.value.trim();
 
-  if (currentRoom && roomId === currentRoom.external_id) {
+  if (wsClient.getCurrentRoom() && roomId === wsClient.getCurrentRoom().external_id) {
     // Already in the room
     roomIdInput.value = '';
     return;
