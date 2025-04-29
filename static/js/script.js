@@ -496,7 +496,7 @@ function hideRoomInfoPanel(event) {
 }
 
 function handleUnsubscribe(event) {
-  let room = wsClientClient.getCurrentRoom();
+  let room = wsClient.getCurrentRoom();
   if (!room) {
     return
   }
