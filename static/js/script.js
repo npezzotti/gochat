@@ -3,19 +3,9 @@ const JOIN_ROOM_FORM_ID = 'join-room-form'
 var goChatClient
 var wsClient
 
-const MESSAGES_PAGE_LIMIT = 10
-
-const MessageTypeJoin = 'join'
-const MessageTypeLeave = 'leave'
-const MessageTypePublish = 'publish'
-
-const EventTypeUserSubscribed = 'subscribe'
-const EventTypeUserUnsubscribed = 'unsubscribe'
-const EventTypeRoomDeleted = 'room_deleted'
-const EventTypeUserPresent = 'user_present'
-const EventTypeUserAbsent = 'user_absent'
-
 class GoChatClient {
+  static MESSAGES_PAGE_LIMIT = 10
+
   constructor(host) {
     this.host = host;
     this.baseUrl = "http://" + this.host;
@@ -92,7 +82,7 @@ class GoChatClient {
   async getMessages(roomId, before = 0) {
     const params = {
       room_id: roomId,
-      limit: 10,
+      limit: GoChatClient.MESSAGES_PAGE_LIMIT,
     }
 
     if (before > 0) {
@@ -126,6 +116,16 @@ class GoChatClient {
 class GoChatWSClient {
   wsClient = null;
 
+  static MessageTypeJoin = 'join'
+  static MessageTypeLeave = 'leave'
+  static MessageTypePublish = 'publish'
+
+  static EventTypeUserSubscribed = 'subscribe'
+  static EventTypeUserUnsubscribed = 'unsubscribe'
+  static EventTypeRoomDeleted = 'room_deleted'
+  static EventTypeUserPresent = 'user_present'
+  static EventTypeUserAbsent = 'user_absent'
+
   onPublishMessage;
   onEventTypeUserPresent;
   onEventTypeUserAbsent;
@@ -147,19 +147,19 @@ class GoChatWSClient {
         const parsedMsg = JSON.parse(msgs[i]);
 
         switch (parsedMsg.type) {
-          case MessageTypePublish:
+          case GoChatWSClient.MessageTypePublish:
             if (this.onPublishMessage) {
               this.onPublishMessage(parsedMsg);
             }
             break;
-          case EventTypeRoomDeleted:
+          case GoChatWSClient.EventTypeRoomDeleted:
             if (this.currentRoom && this.currentRoom.id === parsedMsg.room_id) {
               // removeRoomFromList(currentRoom);
               // clearRoomView();
             }
             this.clearCurrentRoom();
             break;
-          case EventTypeUserPresent:
+          case GoChatWSClient.EventTypeUserPresent:
             if (!this.currentRoom || this.currentRoom.id != parsedMsg.room_id) {
               return;
             }
@@ -168,7 +168,7 @@ class GoChatWSClient {
               this.onEventTypeUserPresent(parsedMsg);
             }
             break;
-          case EventTypeUserAbsent:
+          case GoChatWSClient.EventTypeUserAbsent:
             if (!this.currentRoom || this.currentRoom.id != parsedMsg.room_id) {
               return;
             }
@@ -177,7 +177,7 @@ class GoChatWSClient {
               this.onEventTypeUserAbsent(parsedMsg);
             }
             break;
-          case EventTypeUserSubscribed:
+          case GoChatWSClient.EventTypeUserSubscribed:
             if (this.currentRoom && this.currentRoom.id === parsedMsg.room_id) {
               this.currentRoom.subscribers = this.currentRoom.subscribers.filter(sub => sub.id !== parsedMsg.user_id);
               const subscribersList = document.querySelector('.subscribers-list');
@@ -189,7 +189,7 @@ class GoChatWSClient {
               }
             }
             break;
-          case EventTypeUserUnsubscribed:
+          case GoChatWSClient.EventTypeUserUnsubscribed:
             if (this.currentRoom && this.currentRoom.id === parsedMsg.room_id) {
               const newSubscriber = {
                 id: parsedMsg.user_id,
@@ -210,7 +210,7 @@ class GoChatWSClient {
 
   joinRoom(roomId) {
     var msgObj = {
-      type: MessageTypeJoin,
+      type: GoChatWSClient.MessageTypeJoin,
       room_id: roomId,
     };
 
@@ -220,7 +220,7 @@ class GoChatWSClient {
 
   leaveRoom(roomId) {
     var msgObj = {
-      type: MessageTypeLeave,
+      type: GoChatWSClient.MessageTypeLeave,
       room_id: roomId,
     };
 
@@ -230,7 +230,7 @@ class GoChatWSClient {
 
   sendMessage(msg) {
     var msgObj = {
-      type: MessageTypePublish,
+      type: GoChatWSClient.MessageTypePublish,
       room_id: this.getCurrentRoom().id,
       content: msg
     };
