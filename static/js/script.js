@@ -1,8 +1,3 @@
-const JOIN_ROOM_FORM_ID = 'join-room-form'
-
-var goChatClient
-var wsClient
-
 class GoChatClient {
   static MESSAGES_PAGE_LIMIT = 10
 
@@ -341,6 +336,11 @@ class WSClient {
   }
 }
 
+const JOIN_ROOM_FORM_ID = 'join-room-form'
+
+var goChatClient
+var wsClient
+
 if (window["WebSocket"]) {
   goChatClient = new GoChatClient(document.location.host);
   wsClient = new GoChatWSClient("ws://" + document.location.host + "/ws");
@@ -500,7 +500,7 @@ function handleUnsubscribe(event) {
     return
   }
 
-  goChatClient.unsubscribeRoom(goChatClient.getCurrentRoom().external_id).then(() => {
+  goChatClient.unsubscribeRoom(wsClient.getCurrentRoom().external_id).then(() => {
     removeRoomFromList(wsClient.getCurrentRoom().external_id);
     clearRoomView();
     clearCurrentRoom();
@@ -513,7 +513,7 @@ function handleDeleteRoom(event) {
   let yes = confirm("Are you sure you want to delete this room?");
 
   if (yes) {
-    goChatClient.deleteRoom(goChatClient.getCurrentRoom().external_id).then(() => {
+    goChatClient.deleteRoom(wsClient.getCurrentRoom().external_id).then(() => {
       removeRoomFromList(currentRoom);
       clearRoomView();
       clearCurrentRoom();
@@ -550,7 +550,7 @@ function updateRoomList(rooms) {
   });
 
   if (wsClient.currentRoom) {
-    toggleRoomActive(goChatClient.getCurrentRoom().external_id);
+    toggleRoomActive(wsClient.getCurrentRoom().external_id);
   }
 }
 
