@@ -1,8 +1,7 @@
 const JOIN_ROOM_FORM_ID = 'join-room-form'
 
-var conn
 var goChatClient
-var currentRoom
+var wsClient
 
 const MESSAGES_PAGE_LIMIT = 10
 
@@ -17,156 +16,9 @@ const EventTypeUserPresent = 'user_present'
 const EventTypeUserAbsent = 'user_absent'
 
 class GoChatClient {
-  wsClient = null;
-
-  onPublishMessage;
-  onEventTypeUserPresent;
-  onEventTypeUserAbsent;
-  onEventTypeUserSubscribed;
-  onEventTypeUserUnsubscribed;
-
   constructor(host) {
-    this.username = null;
-    this.rooms = [];
-    this.currentRoom = null;
     this.host = host;
     this.baseUrl = "http://" + this.host;
-
-    this.wsClient = new WSClient("ws://" + this.host + "/ws");
-    this.wsClient.connect();
-
-    this.wsClient.onOpen(() => {
-      console.log("WebSocket connection opened")
-    })
-
-    this.wsClient.onMessage((data) => {
-      var msgs = data.split('\n');
-      for (var i = 0; i < msgs.length; i++) {
-        const parsedMsg = JSON.parse(msgs[i]);
-
-        switch (parsedMsg.type) {
-          case MessageTypePublish:
-            if (this.onPublishMessage) {
-              this.onPublishMessage(parsedMsg);
-            }
-            break;
-          case EventTypeRoomDeleted:
-            if (this.currentRoom && this.currentRoom.id === parsedMsg.room_id) {
-              // removeRoomFromList(currentRoom);
-              // clearRoomView();
-            }
-            this.clearCurrentRoom();
-            break;
-          case EventTypeUserPresent:
-            if (!this.currentRoom || this.currentRoom.id != parsedMsg.room_id) {
-              return;
-            }
-
-            if (this.onEventTypeUserPresent) {
-              this.onEventTypeUserPresent(parsedMsg);
-            }
-            break;
-          case EventTypeUserAbsent:
-            if (!this.currentRoom || this.currentRoom.id != parsedMsg.room_id) {
-              return;
-            }
-
-            if (this.onEventTypeUserAbsent) {
-              this.onEventTypeUserAbsent(parsedMsg);
-            }
-            break;
-          case EventTypeUserSubscribed:
-            if (this.currentRoom && this.currentRoom.id === parsedMsg.room_id) {
-              this.currentRoom.subscribers = this.currentRoom.subscribers.filter(sub => sub.id !== parsedMsg.user_id);
-              const subscribersList = document.querySelector('.subscribers-list');
-              if (subscribersList) {
-                const subscriberItem = subscribersList.querySelector(`li[data-user-id="${parsedMsg.user_id}"]`);
-                if (subscriberItem) {
-                  subscriberItem.remove();
-                }
-              }
-            }
-            break;
-          case EventTypeUserUnsubscribed:
-            if (this.currentRoom && this.currentRoom.id === parsedMsg.room_id) {
-              const newSubscriber = {
-                id: parsedMsg.user_id,
-                username: parsedMsg.username
-              };
-              this.currentRoom.subscribers.push(newSubscriber);
-
-              if (this.onEventTypeUserUnsubscribed) {
-                this.onEventTypeUserUnsubscribed(parsedMsg);
-              }
-            }
-            break;
-          default:
-        }
-      }
-    })
-  }
-
-  joinRoom(roomId) {
-    var msgObj = {
-      type: MessageTypeJoin,
-      room_id: roomId,
-    };
-  
-    this.wsClient.send(JSON.stringify(msgObj))
-    this.setCurrentRoom(roomId);
-  }
-
-  leaveRoom(roomId) {
-    var msgObj = {
-      type: MessageTypeLeave,
-      room_id: roomId,
-    };
-  
-    this.wsClient.send(JSON.stringify(msgObj))
-    this.clearCurrentRoom();
-  }
-
-  sendMessage(msg) {
-    var msgObj = {
-      type: MessageTypePublish,
-      room_id: this.getCurrentRoom().id,
-      content: msg
-    };
-  
-    msg = JSON.stringify(msgObj)
-    this.wsClient.send(msg)
-  }
-
-  setUsername(username) {
-    this.username = username;
-  }
-
-  getUsername() {
-    return this.username;
-  }
-
-  addRoom(room) {
-    this.rooms.push(room);
-  }
-
-  removeRoom(roomId) {
-    this.rooms = this.rooms.filter(room => room.id !== roomId);
-  }
-
-  getRooms() {
-    return this.rooms;
-  }
-
-  setCurrentRoom(room) {
-    this.currentRoom = room;
-  }
-
-  getCurrentRoom() {
-    return this.currentRoom;
-  }
-
-  clearCurrentRoom() {
-    this.currentRoom = null;
   }
 
   async _request(method, endpoint, data, params = {}) {
@@ -259,11 +111,7 @@ class GoChatClient {
   }
 
   async logout() {
-    return this._request('GET', '/logout').then(_ => {
-      clearCurrentRoom();
-    }).catch(err => {
-      throw new Error(err)
-    })
+    return this._request('GET', '/logout')
   }
 
   async login(email, password) {
@@ -272,6 +120,143 @@ class GoChatClient {
 
   async register(email, username, password) {
     return this._request('POST', '/register', { email: email, username: username, password: password });
+  }
+}
+
+class GoChatWSClient {
+  wsClient = null;
+
+  onPublishMessage;
+  onEventTypeUserPresent;
+  onEventTypeUserAbsent;
+  onEventTypeUserSubscribed;
+  onEventTypeUserUnsubscribed;
+
+  constructor(url) {
+    this.currentRoom = null;
+    this.wsClient = new WSClient(url);
+    this.wsClient.connect();
+
+    this.wsClient.onOpen(() => {
+      console.log("WebSocket connection opened")
+    })
+
+    this.wsClient.onMessage((data) => {
+      var msgs = data.split('\n');
+      for (var i = 0; i < msgs.length; i++) {
+        const parsedMsg = JSON.parse(msgs[i]);
+
+        switch (parsedMsg.type) {
+          case MessageTypePublish:
+            if (this.onPublishMessage) {
+              this.onPublishMessage(parsedMsg);
+            }
+            break;
+          case EventTypeRoomDeleted:
+            if (this.currentRoom && this.currentRoom.id === parsedMsg.room_id) {
+              // removeRoomFromList(currentRoom);
+              // clearRoomView();
+            }
+            this.clearCurrentRoom();
+            break;
+          case EventTypeUserPresent:
+            if (!this.currentRoom || this.currentRoom.id != parsedMsg.room_id) {
+              return;
+            }
+
+            if (this.onEventTypeUserPresent) {
+              this.onEventTypeUserPresent(parsedMsg);
+            }
+            break;
+          case EventTypeUserAbsent:
+            if (!this.currentRoom || this.currentRoom.id != parsedMsg.room_id) {
+              return;
+            }
+
+            if (this.onEventTypeUserAbsent) {
+              this.onEventTypeUserAbsent(parsedMsg);
+            }
+            break;
+          case EventTypeUserSubscribed:
+            if (this.currentRoom && this.currentRoom.id === parsedMsg.room_id) {
+              this.currentRoom.subscribers = this.currentRoom.subscribers.filter(sub => sub.id !== parsedMsg.user_id);
+              const subscribersList = document.querySelector('.subscribers-list');
+              if (subscribersList) {
+                const subscriberItem = subscribersList.querySelector(`li[data-user-id="${parsedMsg.user_id}"]`);
+                if (subscriberItem) {
+                  subscriberItem.remove();
+                }
+              }
+            }
+            break;
+          case EventTypeUserUnsubscribed:
+            if (this.currentRoom && this.currentRoom.id === parsedMsg.room_id) {
+              const newSubscriber = {
+                id: parsedMsg.user_id,
+                username: parsedMsg.username
+              };
+              this.currentRoom.subscribers.push(newSubscriber);
+
+              if (this.onEventTypeUserUnsubscribed) {
+                this.onEventTypeUserUnsubscribed(parsedMsg);
+              }
+            }
+            break;
+          default:
+        }
+      }
+    })
+  }
+
+  joinRoom(roomId) {
+    var msgObj = {
+      type: MessageTypeJoin,
+      room_id: roomId,
+    };
+
+    this.wsClient.send(JSON.stringify(msgObj))
+    this.setCurrentRoom(roomId);
+  }
+
+  leaveRoom(roomId) {
+    var msgObj = {
+      type: MessageTypeLeave,
+      room_id: roomId,
+    };
+
+    this.wsClient.send(JSON.stringify(msgObj))
+    this.clearCurrentRoom();
+  }
+
+  sendMessage(msg) {
+    var msgObj = {
+      type: MessageTypePublish,
+      room_id: this.getCurrentRoom().id,
+      content: msg
+    };
+
+    msg = JSON.stringify(msgObj)
+    this.wsClient.send(msg)
+  }
+
+  setUsername(username) {
+    this.username = username;
+  }
+
+  getUsername() {
+    return this.username;
+  }
+
+  setCurrentRoom(room) {
+    this.currentRoom = room;
+  }
+
+  getCurrentRoom() {
+    return this.currentRoom;
+  }
+
+  clearCurrentRoom() {
+    this.currentRoom = null;
   }
 }
 
@@ -293,7 +278,7 @@ class WSClient {
     }
   }
   close() {
-    if (this.socket) {
+    if (this.socket && this.socket.readyState !== WebSocket.CLOSED) {
       this.socket.close();
       this.socket = null;
     }
@@ -358,22 +343,23 @@ class WSClient {
 
 if (window["WebSocket"]) {
   goChatClient = new GoChatClient(document.location.host);
-  goChatClient.setUsername(localStorage.getItem("username"));
+  wsClient = new GoChatWSClient("ws://" + document.location.host + "/ws");
+  wsClient.setUsername(localStorage.getItem("username"));
 
-  goChatClient.onPublishMessage = function (msg) {
+  wsClient.onPublishMessage = function (msg) {
     var msg = createMsg(msg);
     appendMessage(msg);
   }
 
-  goChatClient.onEventTypeUserPresent = function (msg) {
+  wsClient.onEventTypeUserPresent = function (msg) {
     setPresence(msg.user_id, true);
   }
 
-  goChatClient.onEventTypeUserAbsent = function (msg) {
+  wsClient.onEventTypeUserAbsent = function (msg) {
     setPresence(msg.user_id, false);
   }
 
-  goChatClient.onEventTypeUserSubscribed = function (msg) {
+  wsClient.onEventTypeUserSubscribed = function (msg) {
     const subscribersList = document.querySelector('.subscribers-list');
     if (subscribersList) {
       const newSubscriberItem = createUserListItem(msg.user_id, msg.username);
@@ -381,7 +367,7 @@ if (window["WebSocket"]) {
     }
   }
 
-  goChatClient.onEventTypeUserUnsubscribed = function (msg) {
+  wsClient.onEventTypeUserUnsubscribed = function (msg) {
     const subscribersList = document.querySelector('.subscribers-list');
     if (subscribersList) {
       const subscriberItem = subscribersList.querySelector(`li[data-user-id="${msg.user_id}"]`);
@@ -410,7 +396,7 @@ if (window["WebSocket"]) {
 function handleMessagesScroll() {
   const messages = document.getElementById('chat-area');
   if (messages.scrollTop === 0) {
-    const roomId = goChatClient.getCurrentRoom().external_id;
+    const roomId = wsClient.getCurrentRoom().external_id;
     const firstMessage = messages.firstElementChild;
     if (firstMessage) {
       const firstMessageSeqId = firstMessage.getAttribute('data-message-seq-id');
@@ -495,7 +481,7 @@ function createUserListItem(userId, username) {
 }
 
 function showRoomInfoPanel(event) {
-  if (!goChatClient.getCurrentRoom()) {
+  if (!wsClient.getCurrentRoom()) {
     return
   }
 
@@ -510,12 +496,12 @@ function hideRoomInfoPanel(event) {
 }
 
 function handleUnsubscribe(event) {
-  if (!goChatClient.getcCurrentRoom()) {
+  if (!wsClient.getCurrentRoom()) {
     return
   }
 
-  goChatClient.unsubscribeRoom(goChatClient.getcCurrentRoom().external_id).then(() => {
-    removeRoomFromList(goChatClient.getcCurrentRoom().external_id);
+  goChatClient.unsubscribeRoom(goChatClient.getCurrentRoom().external_id).then(() => {
+    removeRoomFromList(wsClient.getCurrentRoom().external_id);
     clearRoomView();
     clearCurrentRoom();
   }).catch(err => {
@@ -527,7 +513,7 @@ function handleDeleteRoom(event) {
   let yes = confirm("Are you sure you want to delete this room?");
 
   if (yes) {
-    goChatClient.deleteRoom(goChatClient.getcCurrentRoom().external_id).then(() => {
+    goChatClient.deleteRoom(goChatClient.getCurrentRoom().external_id).then(() => {
       removeRoomFromList(currentRoom);
       clearRoomView();
       clearCurrentRoom();
@@ -563,8 +549,8 @@ function updateRoomList(rooms) {
     roomList.appendChild(createRoomElement(room));
   });
 
-  if (currentRoom) {
-    toggleRoomActive(goChatClient.getcCurrentRoom().external_id);
+  if (wsClient.currentRoom) {
+    toggleRoomActive(goChatClient.getCurrentRoom().external_id);
   }
 }
 
@@ -641,12 +627,12 @@ function renderNewRoom(room) {
 }
 
 function switchRoom(room) {
-  if (goChatClient.getCurrentRoom()) {
-    goChatClient.leaveRoom(goChatClient.getCurrentRoom().id)
+  if (wsClient.getCurrentRoom()) {
+    wsClient.leaveRoom(wsClient.getCurrentRoom().id)
   }
 
-  goChatClient.joinRoom(room.id)
-  goChatClient.setCurrentRoom(room)
+  wsClient.joinRoom(room.id)
+  wsClient.setCurrentRoom(room)
 }
 
 function appendMessage(item) {
@@ -674,7 +660,7 @@ function sendMessage(e) {
   const msg = formMsg.value
   formMsg.value = ""
 
-  goChatClient.sendMessage(msg)
+  wsClient.sendMessage(msg)
 
   return true
 }
@@ -684,7 +670,7 @@ function createRoomElement(room) {
   roomDiv.innerHTML = `<div class="room" id="${room.external_id}">${room.name}</div>`;
   roomDiv.onclick = function (event) {
     const roomId = event.target.id;
-    if (currentRoom && roomId === currentRoom.external_id) {
+    if (wsClient.currentRoom && roomId === wsClient.currentRoom.external_id) {
       return false;
     }
 
@@ -730,7 +716,7 @@ function createMsg(rawMsg) {
   msgEl.setAttribute('data-message-id', rawMsg.id);
   msgEl.setAttribute('data-message-seq-id', rawMsg.seq_id);
 
-  const user = goChatClient.getCurrentRoom().subscribers.find(sub => sub.id === rawMsg.user_id);
+  const user = wsClient.getCurrentRoom().subscribers.find(sub => sub.id === rawMsg.user_id);
   const username = user ? user.username : "Unknown";
 
   if (username === localStorage.getItem("username")) {
@@ -1079,15 +1065,12 @@ handleLogout = function (event) {
   logoutBtn.disabled = true;
 
   goChatClient.logout().then(_ => {
-    if (conn.readyState === WebSocket.OPEN) {
-      conn.close()
-    }
-    // clearCurrentRoom();
+    wsClient.clearCurrentRoom();
+    wsClient.close();
     localStorage.removeItem("username");
     window.location.href = "/login";
   }).catch(err => {
     console.error("Error during logout:", err);
-    alert("Failed to log out. Please try again.");
   }).finally(() => {
     logoutBtn.disabled = false;
     logoutBtn.textContent = "Logout";
