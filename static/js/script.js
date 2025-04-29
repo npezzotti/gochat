@@ -496,14 +496,15 @@ function hideRoomInfoPanel(event) {
 }
 
 function handleUnsubscribe(event) {
-  if (!wsClient.getCurrentRoom()) {
+  let room = wsClientClient.getCurrentRoom();
+  if (!room) {
     return
   }
 
-  goChatClient.unsubscribeRoom(wsClient.getCurrentRoom().external_id).then(() => {
-    removeRoomFromList(wsClient.getCurrentRoom().external_id);
+  goChatClient.unsubscribeRoom(room.external_id).then(() => {
+    removeRoomFromList(room.external_id);
     clearRoomView();
-    clearCurrentRoom();
+    wsClient.clearCurrentRoom();
   }).catch(err => {
     console.error("Error unsubscribing from room:", err);
   })
@@ -513,24 +514,15 @@ function handleDeleteRoom(event) {
   let yes = confirm("Are you sure you want to delete this room?");
 
   if (yes) {
-    goChatClient.deleteRoom(wsClient.getCurrentRoom().external_id).then(() => {
-      removeRoomFromList(currentRoom);
+    let room = wsClient.getCurrentRoom();
+    goChatClient.deleteRoom(room.external_id).then(() => {
+      removeRoomFromList(room.external_id);
       clearRoomView();
-      clearCurrentRoom();
+      wsClient.clearCurrentRoom();
     }).catch(err => {
       console.log(err)
     })
   }
-}
-
-function setCurrentRoom(room) {
-  console.log("Setting current room: " + JSON.stringify(room))
-  currentRoom = room
-}
-
-function clearCurrentRoom() {
-  console.log("Clearing current room")
-  currentRoom = null
 }
 
 function updateRoomList(rooms) {
