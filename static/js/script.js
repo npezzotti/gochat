@@ -547,9 +547,9 @@ function renderNewRoom(room) {
           <i class="fa fa-ellipsis-v"></i>
         </button>
         <div id="room-opts-dropdown-content" class="dropdown-content">
-          <a id="roomDetailsBtn">Room Details</a>
-          <a id="leaveRoomBtn" >Leave Room</a>
-          <a id="deleteRoomBtn">Delete Room</a>
+          <a id="room-details-btn">Room Details</a>
+          <a id="leave-rm-btn" >Leave Room</a>
+          <a id="delete-rm-btn">Delete Room</a>
         </div>
       </div>
     </div>
@@ -566,9 +566,9 @@ function renderNewRoom(room) {
     const dropdown = document.getElementById('room-opts-dropdown-content')
     dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block'
   }
-  document.getElementById('leaveRoomBtn').onclick = handleUnsubscribe
-  document.getElementById('deleteRoomBtn').onclick = handleDeleteRoom
-  document.getElementById('roomDetailsBtn').onclick = showRoomInfoPanel
+  document.getElementById('leave-rm-btn').onclick = handleUnsubscribe
+  document.getElementById('delete-rm-btn').onclick = handleDeleteRoom
+  document.getElementById('room-details-btn').onclick = showRoomInfoPanel
   document.getElementById('chat-input').onsubmit = sendMessage
 
   goChatClient.getMessages(room.external_id).then(messages => {
