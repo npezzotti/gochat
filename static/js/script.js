@@ -377,16 +377,7 @@ if (window["WebSocket"]) {
     }
   }
 
-  // goChatClient.listSubscriptions().then(subs => {
-  //   updateRoomList(subs);
-  // }).catch(err => {
-  //   console.error("Error fetching subscriptions:", err);
-  //   document.getElementById('room-list').innerHTML = `
-  //     <p class="error">Failed to load rooms.</p>
-  //   `
-  // });
-
-  renderRoomsList();
+  renderRoomListSidebar();
 } else {
   var item = document.createElement('div');
   item.innerHTML = "<b>Your browser does not support WebSockets.</b>";
@@ -522,27 +513,6 @@ function handleDeleteRoom(event) {
     }).catch(err => {
       console.log(err)
     })
-  }
-}
-
-function updateRoomList(rooms) {
-  const roomList = document.getElementById('room-list');
-  if (!roomList) {
-    console.error("Room list not found");
-    return;
-  }
-
-  if (!rooms || rooms.length === 0) {
-    roomList.innerHTML = "<p class='no-rooms'>Join a Room to get started.</p>";
-    return;
-  }
-
-  rooms.forEach(room => {
-    roomList.appendChild(createRoomElement(room));
-  });
-
-  if (wsClient.currentRoom) {
-    toggleRoomActive(wsClient.getCurrentRoom().external_id);
   }
 }
 
@@ -736,7 +706,7 @@ function renderAddRoom(event) {
   backBtn.className = 'icon-button'
   backBtn.classList.add("fa", "fa-arrow-left")
   backBtn.onclick = event => {
-    renderRoomsList()
+    renderRoomListSidebar()
   }
 
   let headerTitle = document.createElement('h2')
@@ -806,7 +776,7 @@ async function handleCreateRoom(event) {
 
   try {
     const room = await goChatClient.createRoom(roomName.value, roomDesc.value)
-    renderRoomsList();
+    renderRoomListSidebar();
     renderNewRoom(room)
     switchRoom(room)
   } catch (err) {
@@ -892,15 +862,14 @@ function renderAccountEdit(event) {
     `
   }).finally(() => {
     sideBar.querySelector('#close-btn').addEventListener('click', function () {
-      renderRoomsList()
+      renderRoomListSidebar()
     })
   })
 }
 
-async function renderRoomsList(component = '.sidebar') {
-  const container = document.querySelector(component)
+async function renderRoomListSidebar() {
+  const container = document.querySelector('.sidebar')
   if (!container) {
-    console.log(`Container ${component} not found`)
     return
   }
 
@@ -943,16 +912,35 @@ async function renderRoomsList(component = '.sidebar') {
   `;
 
   const loadingText = document.getElementById('loading-text');
+  const roomList = document.getElementById('room-list');
+
   try {
-    const subs = await goChatClient.listSubscriptions();
+    const rooms = await goChatClient.listSubscriptions();
     if (loadingText) {
       loadingText.remove();
     }
-    updateRoomList(subs);
+    
+    if (!roomList) {
+      console.error("Room list not found");
+      return;
+    }
+  
+    if (!rooms || rooms.length === 0) {
+      roomList.innerHTML = "<p class='no-rooms'>Join a Room to get started.</p>";
+      return;
+    }
+  
+    rooms.forEach(room => {
+      roomList.appendChild(createRoomElement(room));
+    });
+  
+    if (wsClient.currentRoom) {
+      toggleRoomActive(wsClient.getCurrentRoom().external_id);
+    }
   } catch (err) {
     loadingText.remove();
-    document.getElementById('room-list').innerHTML = `
-      <p class="error">Failed to load rooms.</p>
+    roomList.innerHTML = `
+      <p class="error">Failed to load rooms: ${err}</p>
     `
     console.error("Error fetching subscriptions:", err);
   }
