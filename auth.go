@@ -197,6 +197,31 @@ func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func session(l *log.Logger, w http.ResponseWriter, r *http.Request) {
+	userId, ok := UserId(r.Context())
+	l.Println("userId:", userId)
+	if !ok {
+		errResp := NewUnauthorizedError()
+		writeJson(l, w, errResp.Code, errResp)
+		return
+	}
+
+	user, err := GetAccount(userId)
+	if err != nil {
+		errResp := NewNotFoundError()
+		writeJson(l, w, errResp.Code, errResp)
+		return
+	}
+
+	u := User{
+		Id:           user.Id,
+		Username:     user.Username,
+		EmailAddress: user.EmailAddress,
+	}
+
+	writeJson(l, w, http.StatusOK, u)
+}
+
 func login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		if err := render(w, "login.html.tmpl"); err != nil {

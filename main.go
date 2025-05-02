@@ -508,6 +508,10 @@ func main() {
 		login(logger, w, r)
 	})
 
+	mux.HandleFunc("GET /api/auth/session", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
+		session(logger, w, r)
+	}))
+
 	mux.Handle("/logout", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
 		logout(w, r)
 	}))
