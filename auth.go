@@ -77,13 +77,6 @@ func authMiddleware(l *log.Logger, next http.HandlerFunc) http.HandlerFunc {
 }
 
 func createAccount(l *log.Logger, w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet {
-		if err := render(w, "signup.html.tmpl"); err != nil {
-			errResp := NewInternalServerError(err)
-			writeJson(l, w, errResp.Code, errResp)
-			return
-		}
-	} else if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
 			errResp := NewInternalServerError(err)
 			writeJson(l, w, errResp.Code, errResp)
@@ -111,11 +104,6 @@ func createAccount(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		}
 
 		http.Redirect(w, r, "/login", http.StatusFound)
-	} else {
-		errResp := NewMethodNotAllowedError()
-		writeJson(l, w, errResp.Code, errResp)
-		return
-	}
 }
 
 func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
@@ -222,12 +210,6 @@ func session(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 }
 
 func login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet {
-		if err := render(w, "login.html.tmpl"); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
-		}
-	} else if r.Method == http.MethodPost {
 		var lr LoginRequest
 		if err := json.NewDecoder(r.Body).Decode(&lr); err != nil {
 			errResp := NewBadRequestError()
@@ -269,10 +251,6 @@ func login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, createJwtCookie(token, defaultExp))
 
 		writeJson(l, w, http.StatusOK, u)
-	} else {
-		errResp := NewMethodNotAllowedError()
-		writeJson(l, w, errResp.Code, errResp)
-	}
 }
 
 func createJwtCookie(tokenString string, exp time.Duration) *http.Cookie {

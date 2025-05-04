@@ -476,7 +476,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 	mux.HandleFunc("/", authMiddleware(logger, http.HandlerFunc(serveHome)))
-	mux.HandleFunc("/account/new", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/auth/register", func(w http.ResponseWriter, r *http.Request) {
 		createAccount(logger, w, r)
 	})
 
@@ -504,7 +504,7 @@ func main() {
 	mux.Handle("GET /messages", authMiddleware(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		getMessages(logger, w, r)
 	})))
-	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/auth/login", func(w http.ResponseWriter, r *http.Request) {
 		login(logger, w, r)
 	})
 
