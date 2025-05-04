@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -131,7 +130,6 @@ func (c *Client) read() {
 		case UserMessageTypePublish:
 			c.log.Println("read:", "publish message")
 			r := c.getRoom(msg.RoomId)
-			fmt.Println("room id", msg.RoomId)
 			if r != nil {
 				r.clientMsgChan <- &msg
 			} else {
