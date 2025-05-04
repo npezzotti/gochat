@@ -46,26 +46,26 @@ func authMiddleware(l *log.Logger, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokenString, err := r.Cookie(tokenCookieKey)
 		if err != nil {
-			http.Redirect(w, r, "/login", http.StatusFound)
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}
 
 		token, err := verifyToken(tokenString.Value)
 		if err != nil {
 			l.Println("token verify failed:", err)
-			http.Redirect(w, r, "/login", http.StatusFound)
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
-			http.Redirect(w, r, "/login", http.StatusFound)
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}
 
 		userId, ok := claims[userIdClaim].(float64)
 		if !ok {
-			http.Redirect(w, r, "/login", http.StatusFound)
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}
 
@@ -199,7 +199,6 @@ func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 
 func session(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	userId, ok := UserId(r.Context())
-	l.Println("userId:", userId)
 	if !ok {
 		errResp := NewUnauthorizedError()
 		writeJson(l, w, errResp.Code, errResp)
