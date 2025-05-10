@@ -42,6 +42,12 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+type RegisterRequest struct {
+	Email    string `json:"email"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 func authMiddleware(l *log.Logger, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokenString, err := r.Cookie(tokenCookieKey)
@@ -77,33 +83,38 @@ func authMiddleware(l *log.Logger, next http.HandlerFunc) http.HandlerFunc {
 }
 
 func createAccount(l *log.Logger, w http.ResponseWriter, r *http.Request) {
-		if err := r.ParseForm(); err != nil {
-			errResp := NewInternalServerError(err)
-			writeJson(l, w, errResp.Code, errResp)
-			return
-		}
+	var req RegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		errResp := NewBadRequestError()
+		writeJson(l, w, errResp.Code, errResp)
+		return
+	}
 
-		pwdHash, err := hashPassword(r.Form.Get("password"))
-		if err != nil {
-			errResp := NewInternalServerError(err)
-			writeJson(l, w, errResp.Code, errResp)
-			return
-		}
+	pwdHash, err := hashPassword(req.Password)
+	if err != nil {
+		errResp := NewInternalServerError(err)
+		writeJson(l, w, errResp.Code, errResp)
+		return
+	}
 
-		params := CreateAccountParams{
-			Username:     r.Form.Get("username"),
-			EmailAddress: r.Form.Get("email"),
-			PasswordHash: pwdHash,
-		}
+	params := CreateAccountParams{
+		Username:     r.Form.Get("username"),
+		EmailAddress: r.Form.Get("email"),
+		PasswordHash: pwdHash,
+	}
 
-		_, err = CreateAccount(params)
-		if err != nil {
-			errResp := NewInternalServerError(err)
-			writeJson(l, w, errResp.Code, errResp)
-			return
-		}
+	newUser, err := CreateAccount(params)
+	if err != nil {
+		errResp := NewInternalServerError(err)
+		writeJson(l, w, errResp.Code, errResp)
+		return
+	}
 
-		http.Redirect(w, r, "/login", http.StatusFound)
+	writeJson(l, w, http.StatusCreated, User{
+		Id:           newUser.Id,
+		Username:     newUser.Username,
+		EmailAddress: newUser.EmailAddress,
+	})
 }
 
 func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
@@ -210,47 +221,47 @@ func session(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 }
 
 func login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
-		var lr LoginRequest
-		if err := json.NewDecoder(r.Body).Decode(&lr); err != nil {
-			errResp := NewBadRequestError()
-			writeJson(l, w, errResp.Code, errResp)
-			return
+	var lr LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&lr); err != nil {
+		errResp := NewBadRequestError()
+		writeJson(l, w, errResp.Code, errResp)
+		return
+	}
+
+	dbUser, err := GetAccountByEmail(lr.Email)
+	if err != nil {
+		var errResp *ApiError
+		if err == sql.ErrNoRows {
+			errResp = NewNotFoundError()
+		} else {
+			errResp = NewInternalServerError(err)
 		}
+		writeJson(l, w, errResp.Code, errResp)
+		return
+	}
 
-		dbUser, err := GetAccountByEmail(lr.Email)
-		if err != nil {
-			var errResp *ApiError
-			if err == sql.ErrNoRows {
-				errResp = NewNotFoundError()
-			} else {
-				errResp = NewInternalServerError(err)
-			}
-			writeJson(l, w, errResp.Code, errResp)
-			return
-		}
+	if !verifyPassword(dbUser.PasswordHash, lr.Password) {
+		errResp := NewUnauthorizedError()
+		writeJson(l, w, errResp.Code, errResp)
+		return
+	}
 
-		if !verifyPassword(dbUser.PasswordHash, lr.Password) {
-			errResp := NewUnauthorizedError()
-			writeJson(l, w, errResp.Code, errResp)
-			return
-		}
+	u := User{
+		Id:           dbUser.Id,
+		Username:     dbUser.Username,
+		EmailAddress: dbUser.EmailAddress,
+	}
 
-		u := User{
-			Id:           dbUser.Id,
-			Username:     dbUser.Username,
-			EmailAddress: dbUser.EmailAddress,
-		}
+	token, err := createJwtForSession(u, defaultExp)
+	if err != nil {
+		errResp := NewInternalServerError(err)
+		writeJson(l, w, errResp.Code, errResp)
+		return
+	}
 
-		token, err := createJwtForSession(u, defaultExp)
-		if err != nil {
-			errResp := NewInternalServerError(err)
-			writeJson(l, w, errResp.Code, errResp)
-			return
-		}
+	http.SetCookie(w, createJwtCookie(token, defaultExp))
 
-		http.SetCookie(w, createJwtCookie(token, defaultExp))
-
-		writeJson(l, w, http.StatusOK, u)
+	writeJson(l, w, http.StatusOK, u)
 }
 
 func createJwtCookie(tokenString string, exp time.Duration) *http.Cookie {
