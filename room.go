@@ -68,32 +68,35 @@ func (r *Room) start() {
 
 			r.addClient(c)
 
-			// notify the client of user presence in the room
+			// // notify the client of user presence in the room
 			for client := range r.clients {
-				if client.user.Id == c.user.Id {
-					continue
+				// 	if client.user.Id == c.user.Id {
+				// 		continue
+				// 	}
+
+				// 	presenceMsg, err := json.Marshal(&SystemMessage{
+				// 		Type:   EventTypeUserPresent,
+				// 		RoomId: r.Id,
+				// 		UserId: client.user.Id,
+				// 	})
+				// 	if err != nil {
+				// 		r.log.Println("failed to marshal presence msg:", err)
+				// 		continue
+				// 	}
+
+				// 	c.send <- presenceMsg
+
+				// }
+
+				// notify all clients user is online
+				if client.user.Id != c.user.Id {
+					r.broadcast(&SystemMessage{
+						Type:   EventTypeUserPresent,
+						RoomId: r.Id,
+						UserId: c.user.Id,
+					})
 				}
-
-				presenceMsg, err := json.Marshal(&SystemMessage{
-					Type:   EventTypeUserPresent,
-					RoomId: r.Id,
-					UserId: client.user.Id,
-				})
-				if err != nil {
-					r.log.Println("failed to marshal presence msg:", err)
-					continue
-				}
-
-				c.send <- presenceMsg
-
 			}
-
-			// notify all clients user is online
-			r.broadcast(&SystemMessage{
-				Type:   EventTypeUserPresent,
-				RoomId: r.Id,
-				UserId: c.user.Id,
-			})
 		case client := <-r.leaveChan:
 			r.log.Printf("removing %q from room %q", client.user.Username, r.ExternalId)
 			r.removeClient(client)
@@ -202,8 +205,9 @@ func (r *Room) removeAllClientsForUser(userId int) {
 }
 
 func (r *Room) saveAndBroadcast(msg *UserMessage) {
+	seq_id := r.seq_id + 1
 	if err := MessageCreate(db.UserMessage{
-		SeqId:     r.seq_id + 1,
+		SeqId:     seq_id,
 		RoomId:    r.Id,
 		UserId:    msg.client.user.Id,
 		Content:   msg.Content,
@@ -215,12 +219,14 @@ func (r *Room) saveAndBroadcast(msg *UserMessage) {
 	r.seq_id++
 
 	data := &SystemMessage{
+		Id:        msg.Id,
 		Type:      EventTypeMessagePublished,
+		RoomId:    r.Id,
+		SeqId:     seq_id,
+		Content:   msg.Content,
 		UserId:    msg.UserId,
 		Username:  msg.Username,
-		Content:   msg.Content,
 		Timestamp: msg.Timestamp,
-		RoomId:    r.Id,
 	}
 	r.broadcast(data)
 }
