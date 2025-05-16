@@ -32,6 +32,7 @@ type SystemMessage struct {
 	Id      int               `json:"id"`
 	Type    SystemMessageType `json:"type"`
 	RoomId  int               `json:"room_id"`
+	Data    map[string]any    `json:"data,omitempty"`
 	SeqId   int               `json:"seq_id,omitempty"`
 	Content string            `json:"content,omitempty"`
 	UserId  int               `json:"user_id,omitempty"`
@@ -50,6 +51,8 @@ const (
 	EventTypeUserPresent SystemMessageType = "user_present"
 	EventTypeUserAbsent  SystemMessageType = "user_absent"
 	EventTypeRoomDeleted SystemMessageType = "room_deleted"
+	EventTypeRoomJoined  SystemMessageType = "joined"
+	EventTypeRoomLeft    SystemMessageType = "left"
 )
 
 type MessageType int
@@ -148,7 +151,7 @@ func (cs *ChatServer) run() {
 			cs.log.Println("received join request")
 			if room, ok := cs.rooms[join.RoomId]; ok {
 				select {
-				case room.joinChan <- join.client:
+				case room.joinChan <- join:
 				default:
 					cs.log.Printf("join channel full on room %d", room.Id)
 				}
@@ -165,7 +168,7 @@ func (cs *ChatServer) run() {
 					Name:          dbRoom.Name,
 					Description:   dbRoom.Description,
 					cs:            cs,
-					joinChan:      make(chan *Client, 256),
+					joinChan:      make(chan *UserMessage, 256),
 					leaveChan:     make(chan *Client, 256),
 					clientMsgChan: make(chan *UserMessage, 256),
 					seq_id:        dbRoom.SeqId,
@@ -177,7 +180,7 @@ func (cs *ChatServer) run() {
 				}
 
 				cs.rooms[room.Id] = room
-				room.joinChan <- join.client
+				room.joinChan <- join
 
 				go room.start()
 

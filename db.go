@@ -1,6 +1,8 @@
 package main
 
 import (
+	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/npezzotti/go-chatroom/db"
@@ -139,6 +141,99 @@ func GetRoomByExternalID(externalId string) (db.Room, error) {
 	)
 
 	return room, err
+}
+
+func FetchRoomWithSubscribers(roomId int) (*db.Room, error) {
+	query := `
+		SELECT 
+				r.id AS room_id,
+				r.external_id,
+				r.name AS room_name,
+				r.description,
+				r.created_at AS room_created_at,
+				r.updated_at AS room_updated_at,
+				s.id,
+				s.account_id,
+				a.username,
+				s.created_at AS subscription_created_at,
+				s.updated_at AS subscription_updated_at
+		FROM rooms r
+		LEFT JOIN subscriptions s ON r.id = s.room_id
+		LEFT JOIN accounts a ON s.account_id = a.id
+		WHERE r.id = $1;
+`
+
+	rows, err := DB.Query(query, roomId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch room with subscribers: %w", err)
+	}
+	defer rows.Close()
+
+	var room *db.Room
+	for rows.Next() {
+		var (
+			roomId                int
+			externalId            string
+			roomName              string
+			description           string
+			roomCreatedAt         time.Time
+			roomUpdatedAt         time.Time
+			subscriptionId        sql.NullInt64
+			accountId             sql.NullInt64
+			username              sql.NullString
+			subscriptionCreatedAt sql.NullTime
+			subscriptionUpdatedAt sql.NullTime
+		)
+
+		err := rows.Scan(
+			&roomId,
+			&externalId,
+			&roomName,
+			&description,
+			&roomCreatedAt,
+			&roomUpdatedAt,
+			&subscriptionId,
+			&accountId,
+			&username,
+			&subscriptionCreatedAt,
+			&subscriptionUpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scan row: %w", err)
+		}
+
+		if room == nil {
+			room = &db.Room{
+				Id:            roomId,
+				ExternalId:    externalId,
+				Name:          roomName,
+				Description:   description,
+				CreatedAt:     roomCreatedAt,
+				UpdatedAt:     roomUpdatedAt,
+				Subscriptions: make([]db.Subscription, 0),
+			}
+		}
+
+		if accountId.Valid && username.Valid {
+			room.Subscriptions = append(room.Subscriptions, db.Subscription{
+				Id:        int(subscriptionId.Int64),
+				AccountId: int(accountId.Int64),
+				Username:  username.String,
+				CreatedAt: subscriptionCreatedAt.Time,
+				UpdatedAt: subscriptionUpdatedAt.Time,
+			})
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	if room == nil {
+		return nil, fmt.Errorf("room with id %d not found", roomId)
+	}
+
+	return room, nil
 }
 
 func CreateRoom(params CreateRoomParams) (db.Room, error) {

@@ -3,14 +3,15 @@ package db
 import "time"
 
 type Room struct {
-	Id          int
-	OwnerId     int
-	Name        string
-	ExternalId  string
-	Description string
-	SeqId       int
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	Id            int
+	OwnerId       int
+	Name          string
+	ExternalId    string
+	Description   string
+	SeqId         int
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	Subscriptions []Subscription
 }
 
 type User struct {
@@ -25,7 +26,10 @@ type User struct {
 type Subscription struct {
 	Id        int
 	AccountId int
+	Username  string
 	RoomId    int
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type UserMessage struct {

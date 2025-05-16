@@ -27,7 +27,7 @@ type Room struct {
 	Description   string `json:"description"`
 	Subscribers   []User `json:"subscribers"`
 	cs            *ChatServer
-	joinChan      chan *Client
+	joinChan      chan *UserMessage
 	leaveChan     chan *Client
 	clientMsgChan chan *UserMessage
 	seq_id        int
@@ -52,10 +52,10 @@ func (r *Room) start() {
 
 	for {
 		select {
-		case c := <-r.joinChan:
+		case join := <-r.joinChan:
+			c := join.client
 			if !SubscriptionExists(c.user.Id, r.Id) {
-				r.log.Println("couldn't find subscription, creating it")
-
+				r.log.Printf("Creating subscription for user %q in room %q", c.user.Username, r.ExternalId)
 				_, err := CreateSubscription(c.user.Id, r.Id)
 				if err != nil {
 					r.log.Println("CreateSubscription:", err)
@@ -63,30 +63,67 @@ func (r *Room) start() {
 				}
 			}
 
+			dbRoom, err := FetchRoomWithSubscribers(r.Id)
+			if err != nil {
+				r.log.Println("FetchRoomWithSubscribers:", err)
+				continue
+			}
+
 			// stop the kill timer if it was running
 			r.killTimer.Stop()
-
 			r.addClient(c)
 
-			// // notify the client of user presence in the room
+			roomInfo := map[string]any{
+				"id":          dbRoom.Id,
+				"name":        dbRoom.Name,
+				"external_id": dbRoom.ExternalId,
+				"description": dbRoom.Description,
+				"subscribers": func() []map[string]any {
+					subscribers := make([]map[string]any, len(dbRoom.Subscriptions))
+					for i, sub := range dbRoom.Subscriptions {
+						subscribers[i] = map[string]any{
+							"id":        sub.Id,
+							"user_id":   sub.AccountId,
+							"username":  sub.Username,
+							"isPresent": r.userMap[sub.AccountId] != nil,
+						}
+					}
+					return subscribers
+				}(),
+			}
+
+			joinResp, err := json.Marshal(&SystemMessage{
+				Id:        join.Id,
+				Type:      EventTypeRoomJoined,
+				RoomId:    r.Id,
+				Data:      roomInfo,
+				UserId:    c.user.Id,
+				Timestamp: time.Now(),
+			})
+			if err != nil {
+				r.log.Println("failed to marshal presence msg:", err)
+				continue
+			}
+
+			c.send <- joinResp
+
+			// notify the client of user presence in the room
 			for client := range r.clients {
-				// 	if client.user.Id == c.user.Id {
-				// 		continue
-				// 	}
-
-				// 	presenceMsg, err := json.Marshal(&SystemMessage{
-				// 		Type:   EventTypeUserPresent,
-				// 		RoomId: r.Id,
-				// 		UserId: client.user.Id,
-				// 	})
-				// 	if err != nil {
-				// 		r.log.Println("failed to marshal presence msg:", err)
-				// 		continue
-				// 	}
-
-				// 	c.send <- presenceMsg
-
+				// if client.user.Id == c.user.Id {
+				// 	continue
 				// }
+
+				// presenceMsg, err := json.Marshal(&SystemMessage{
+				// 	Type:   EventTypeUserPresent,
+				// 	RoomId: r.Id,
+				// 	UserId: client.user.Id,
+				// })
+				// if err != nil {
+				// 	r.log.Println("failed to marshal presence msg:", err)
+				// 	continue
+				// }
+
+				// c.send <- presenceMsg
 
 				// notify all clients user is online
 				if client.user.Id != c.user.Id {
