@@ -22,7 +22,6 @@ import (
 
 var (
 	DB        *sql.DB
-	tc        map[string]*template.Template
 	secretKey []byte
 
 	addr = flag.String("addr", "localhost:8000", "server address")
@@ -39,18 +38,6 @@ func writeJson(l *log.Logger, w http.ResponseWriter, statusCode int, v interface
 	w.WriteHeader(statusCode)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
 		l.Printf("JSON encoding error: %v", err)
-	}
-}
-
-func serveHome(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-		return
-	}
-
-	if err := render(w, "index.html.tmpl"); err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
 	}
 }
 
@@ -107,7 +94,6 @@ func createRoom(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		ExternalId:  newRoom.ExternalId,
 		Name:        newRoom.Name,
 		Description: newRoom.Description,
-		Subscribers: subscribers,
 	}
 
 	writeJson(l, w, http.StatusCreated, room)
@@ -275,7 +261,6 @@ func (cs *ChatServer) subscribeRoom(w http.ResponseWriter, r *http.Request) {
 			ExternalId:  room.ExternalId,
 			Name:        room.Name,
 			Description: room.Description,
-			Subscribers: subscribers,
 		},
 	}
 
@@ -420,9 +405,14 @@ func serveWs(chatServer *ChatServer, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	upgrader := websocket.Upgrader{}
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		chatServer.log.Println("error upgrading connection:", err)
 		return
 	}
 
@@ -442,7 +432,6 @@ func main() {
 	flag.Parse()
 
 	var err error
-	tc, err = NewTemplateCache()
 	if err != nil {
 		logger.Fatalln("unable to create template cache:", err)
 	}
@@ -475,7 +464,6 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
-	mux.HandleFunc("/", authMiddleware(logger, http.HandlerFunc(serveHome)))
 	mux.HandleFunc("POST /api/auth/register", func(w http.ResponseWriter, r *http.Request) {
 		createAccount(logger, w, r)
 	})
@@ -522,7 +510,7 @@ func main() {
 
 	h := handlers.CORS(
 		handlers.MaxAge(3600),
-		handlers.AllowedOrigins([]string{"http://localhost:8000"}),
+		handlers.AllowedOrigins([]string{"http://localhost:8000", "http://localhost:3000"}),
 		handlers.AllowedMethods([]string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions}),
 		handlers.AllowedHeaders([]string{"Origin", "Content-Type", "Accept"}),
 		handlers.AllowCredentials(),
