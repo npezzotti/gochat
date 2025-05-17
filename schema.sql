@@ -9,17 +9,17 @@ CREATE TABLE accounts(
 
 CREATE TABLE rooms (
     id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    description VARCHAR(500),
     external_id VARCHAR(50) UNIQUE NOT NULL,
     owner_id integer,
-    name VARCHAR(50) NOT NULL,
-    description VARCHAR(100) NOT NULL,
     seq_id INT DEFAULT 0 NOT NULL
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     FOREIGN KEY (owner_id) REFERENCES accounts(id);
 );
 
-CREATE TABLE IF NOT EXISTS subscriptions(
+CREATE TABLE subscriptions(
   id         SERIAL PRIMARY KEY,
   account_id INT NOT NULL,
   room_id    INT NOT NULL,
