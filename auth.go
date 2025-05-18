@@ -48,34 +48,39 @@ type RegisterRequest struct {
 	Password string `json:"password"`
 }
 
+func extractUserIdFromToken(r *http.Request) (int, error) {
+	tokenString, err := r.Cookie(tokenCookieKey)
+	if err != nil {
+		return 0, NewUnauthorizedError()
+	}
+
+	token, err := verifyToken(tokenString.Value)
+	if err != nil {
+		return 0, NewUnauthorizedError()
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return 0, NewUnauthorizedError()
+	}
+
+	userId, ok := claims[userIdClaim].(float64)
+	if !ok {
+		return 0, NewUnauthorizedError()
+	}
+
+	return int(userId), nil
+}
+
 func authMiddleware(l *log.Logger, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		tokenString, err := r.Cookie(tokenCookieKey)
+		userId, err := extractUserIdFromToken(r)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			writeJson(l, w, err.(*ApiError).Code, err)
 			return
 		}
 
-		token, err := verifyToken(tokenString.Value)
-		if err != nil {
-			l.Println("token verify failed:", err)
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-			return
-		}
-
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-			return
-		}
-
-		userId, ok := claims[userIdClaim].(float64)
-		if !ok {
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), userIdKey, int(userId))
+		ctx := context.WithValue(r.Context(), userIdKey, userId)
 		w.Header().Add("Cache-Control", "no-store, no-cache, must-revalidate, private")
 
 		next(w, r.WithContext(ctx))
