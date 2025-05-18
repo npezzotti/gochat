@@ -29,7 +29,7 @@ const (
 )
 
 type SystemMessage struct {
-	Id      int               `json:"id"`
+	Id      int               `json:"id,omitempty"`
 	Type    SystemMessageType `json:"type"`
 	RoomId  int               `json:"room_id"`
 	Data    map[string]any    `json:"data,omitempty"`
@@ -65,21 +65,6 @@ const (
 	MessageTypePresence
 	MessageTypeNotification
 )
-
-const (
-	NotificationUserUnsubscribe = "unsubscribe"
-	NotificationUserSubscribe   = "subscribe"
-	PresenceTypeOnline          = "online"
-	PresenceTypeOffline         = "offline"
-)
-
-func (mt MessageType) String() string {
-	return [...]string{
-		"join",
-		"leave",
-		"publish",
-	}[mt]
-}
 
 type subReq struct {
 	subType subReqType
