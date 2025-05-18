@@ -31,10 +31,12 @@ type contextKey string
 const userIdKey contextKey = "user-id"
 
 type User struct {
-	Id           int    `json:"id"`
-	Username     string `json:"username"`
-	EmailAddress string `json:"email_address,omitempty"`
-	Password     string `json:"password,omitempty"`
+	Id           int       `json:"id"`
+	Username     string    `json:"username"`
+	EmailAddress string    `json:"email_address,omitempty"`
+	Password     string    `json:"password,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type LoginRequest struct {
@@ -51,22 +53,22 @@ type RegisterRequest struct {
 func extractUserIdFromToken(r *http.Request) (int, error) {
 	tokenString, err := r.Cookie(tokenCookieKey)
 	if err != nil {
-		return 0, NewUnauthorizedError()
+		return 0, fmt.Errorf("get cookie: %w", err)
 	}
 
 	token, err := verifyToken(tokenString.Value)
 	if err != nil {
-		return 0, NewUnauthorizedError()
+		return 0, fmt.Errorf("verify token: %w", err)
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return 0, NewUnauthorizedError()
+		return 0, fmt.Errorf("invalid token claims")
 	}
 
 	userId, ok := claims[userIdClaim].(float64)
 	if !ok {
-		return 0, NewUnauthorizedError()
+		return 0,fmt.Errorf("invalid user id claim")
 	}
 
 	return int(userId), nil
@@ -76,7 +78,9 @@ func authMiddleware(l *log.Logger, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userId, err := extractUserIdFromToken(r)
 		if err != nil {
-			writeJson(l, w, err.(*ApiError).Code, err)
+			l.Println("failed to extract user id from token:", err)
+			errResp :=  NewUnauthorizedError()
+			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
 
@@ -192,6 +196,8 @@ func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 			Id:           dbUser.Id,
 			Username:     dbUser.Username,
 			EmailAddress: dbUser.EmailAddress,
+			CreatedAt:    dbUser.CreatedAt,
+			UpdatedAt:    dbUser.UpdatedAt,
 		}
 
 		writeJson(l, w, http.StatusOK, userResp)
@@ -220,6 +226,8 @@ func session(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		Id:           user.Id,
 		Username:     user.Username,
 		EmailAddress: user.EmailAddress,
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
 	}
 
 	writeJson(l, w, http.StatusOK, u)
@@ -255,6 +263,8 @@ func login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		Id:           dbUser.Id,
 		Username:     dbUser.Username,
 		EmailAddress: dbUser.EmailAddress,
+		CreatedAt:    dbUser.CreatedAt,
+		UpdatedAt:    dbUser.UpdatedAt,
 	}
 
 	token, err := createJwtForSession(u, defaultExp)

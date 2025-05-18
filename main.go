@@ -455,49 +455,43 @@ func main() {
 	if err != nil {
 		logger.Fatal("new chat server:", err)
 	}
+
 	go chatServer.run()
 
 	mux := http.NewServeMux()
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 	mux.HandleFunc("POST /api/auth/register", func(w http.ResponseWriter, r *http.Request) {
 		createAccount(logger, w, r)
 	})
-
-	mux.Handle("/account", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
-		account(logger, w, r)
-	}))
-
-	mux.Handle("POST /rooms", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
-		createRoom(logger, w, r)
-	}))
-
-	mux.Handle("DELETE /rooms", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
-		deleteRoom(chatServer, w, r)
-	}))
-
-	mux.Handle("GET /rooms", authMiddleware(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		getRoom(logger, w, r)
-	})))
-	mux.Handle("GET /subscriptions", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
-		getUsersRooms(logger, w, r)
-	}))
-
-	mux.Handle("POST /subscriptions", authMiddleware(logger, http.HandlerFunc(chatServer.subscribeRoom)))
-	mux.Handle("DELETE /subscriptions", authMiddleware(logger, http.HandlerFunc(chatServer.unsubscribeRoom)))
-	mux.Handle("GET /messages", authMiddleware(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		getMessages(logger, w, r)
-	})))
 	mux.HandleFunc("POST /api/auth/login", func(w http.ResponseWriter, r *http.Request) {
 		login(logger, w, r)
 	})
-
 	mux.HandleFunc("GET /api/auth/session", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
 		session(logger, w, r)
 	}))
-
-	mux.Handle("/api/auth/logout", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("GET /api/auth/logout", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
 		logout(w, r)
 	}))
+	mux.Handle("/api/account", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
+		account(logger, w, r)
+	}))
+	mux.Handle("POST /api/rooms", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
+		createRoom(logger, w, r)
+	}))
+	mux.Handle("DELETE /api/rooms", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
+		deleteRoom(chatServer, w, r)
+	}))
+	mux.Handle("GET /api/rooms", authMiddleware(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		getRoom(logger, w, r)
+	})))
+	mux.Handle("GET /api/subscriptions", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
+		getUsersRooms(logger, w, r)
+	}))
+
+	mux.Handle("POST /api/subscriptions", authMiddleware(logger, http.HandlerFunc(chatServer.subscribeRoom)))
+	mux.Handle("DELETE /api/subscriptions", authMiddleware(logger, http.HandlerFunc(chatServer.unsubscribeRoom)))
+	mux.Handle("GET /api/messages", authMiddleware(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		getMessages(logger, w, r)
+	})))
 
 	mux.Handle("/ws", authMiddleware(logger, func(w http.ResponseWriter, r *http.Request) {
 		serveWs(chatServer, w, r)
