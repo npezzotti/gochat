@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
@@ -92,7 +91,7 @@ func (r *Room) start() {
 				}(),
 			}
 
-			joinResp, err := json.Marshal(&SystemMessage{
+			c.queueMessage(&SystemMessage{
 				Id:        join.Id,
 				Type:      EventTypeRoomJoined,
 				RoomId:    r.Id,
@@ -100,31 +99,8 @@ func (r *Room) start() {
 				UserId:    c.user.Id,
 				Timestamp: time.Now(),
 			})
-			if err != nil {
-				r.log.Println("failed to marshal presence msg:", err)
-				continue
-			}
 
-			c.send <- joinResp
-
-			// notify the client of user presence in the room
 			for client := range r.clients {
-				// if client.user.Id == c.user.Id {
-				// 	continue
-				// }
-
-				// presenceMsg, err := json.Marshal(&SystemMessage{
-				// 	Type:   EventTypeUserPresent,
-				// 	RoomId: r.Id,
-				// 	UserId: client.user.Id,
-				// })
-				// if err != nil {
-				// 	r.log.Println("failed to marshal presence msg:", err)
-				// 	continue
-				// }
-
-				// c.send <- presenceMsg
-
 				// notify all clients user is online
 				if client.user.Id != c.user.Id {
 					r.broadcast(&SystemMessage{
@@ -139,19 +115,15 @@ func (r *Room) start() {
 			r.log.Printf("removing %q from room %q", c.user.Username, r.ExternalId)
 			r.removeClient(c)
 
-			leaveResp, err := json.Marshal(&SystemMessage{
+			// if this leave message is from a user
+			// send a leave response
+			c.queueMessage(&SystemMessage{
 				Id:        leaveMsg.Id,
 				Type:      EventTypeRoomLeft,
 				RoomId:    r.Id,
 				UserId:    c.user.Id,
 				Timestamp: time.Now(),
 			})
-			if err != nil {
-				r.log.Println("failed to marshal leave msg:", err)
-				continue
-			}
-
-			c.send <- leaveResp
 
 			r.clientLock.Lock()
 			// notify all clients user is offline
@@ -287,20 +259,9 @@ func (r *Room) broadcast(msg *SystemMessage) {
 	msg.RoomId = r.Id
 	msg.Timestamp = time.Now()
 
-	jsonMsg, err := json.Marshal(msg)
-	if err != nil {
-		r.log.Println(":", err)
-		return
-	}
-
-	fmt.Printf("received message to room %q: %s\n", r.ExternalId, string(jsonMsg))
+	fmt.Printf("received message to room %q: %v\n", r.ExternalId, msg)
 	for client := range r.clients {
-		select {
-		case client.send <- jsonMsg:
-			r.log.Printf("broadcasting message: %s", string(jsonMsg))
-		default:
-			r.log.Println("default")
-		}
+		client.queueMessage(msg)
 	}
 }
 

@@ -21,7 +21,7 @@ type Client struct {
 	chatServer *ChatServer
 	log        *log.Logger
 	user       User
-	send       chan []byte
+	send       chan *SystemMessage
 	rooms      map[int]*Room
 	roomsLock  sync.RWMutex
 	stop       chan struct{}
@@ -33,7 +33,7 @@ func NewClient(user User, conn *websocket.Conn, cs *ChatServer, l *log.Logger) *
 		chatServer: cs,
 		log:        l,
 		user:       user,
-		send:       make(chan []byte, 256),
+		send:       make(chan *SystemMessage, 256),
 		rooms:      make(map[int]*Room),
 		stop:       make(chan struct{}),
 	}
@@ -49,33 +49,17 @@ func (c *Client) write() {
 	for {
 		select {
 		case msg, ok := <-c.send:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				return
 			}
 
-			writer, err := c.conn.NextWriter(websocket.TextMessage)
+			bytes, err := c.serializeMessage(msg)
 			if err != nil {
-				c.log.Println("failed to create writer:", err)
-				return
+				c.log.Println("failed to serialize message:", err)
+				continue
 			}
 
-			if _, err := writer.Write(msg); err != nil {
-				c.log.Println("write:", err)
-				return
-			}
-
-			n := len(c.send)
-			for i := 0; i < n; i++ {
-				writer.Write([]byte{'\n'})
-				if _, err := writer.Write(<-c.send); err != nil {
-					c.log.Println("write extras:", err)
-					return
-				}
-			}
-
-			if err := writer.Close(); err != nil {
-				c.log.Println("close writer:", err)
+			if !c.sendMessage(websocket.TextMessage, bytes) {
 				return
 			}
 		case <-c.stop:
@@ -83,8 +67,7 @@ func (c *Client) write() {
 			return
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				c.log.Println("ping:", err)
+			if !c.sendMessage(websocket.PingMessage, nil) {
 				return
 			}
 		}
@@ -140,22 +123,50 @@ func (c *Client) read() {
 	}
 }
 
+func (c *Client) queueMessage(msg *SystemMessage) bool {
+	select {
+	case c.send <- msg:
+	default:
+		c.log.Println("failed to send message to client, channel is full")
+		return false
+	}
+
+	return true
+}
+
+func (c *Client) serializeMessage(msg *SystemMessage) ([]byte, error) {
+	return json.Marshal(msg)
+}
+
+func (c *Client) sendMessage(msgType int, msg []byte) bool {
+	c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+
+	if err := c.conn.WriteMessage(msgType, msg); err != nil {
+		if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure,
+			websocket.CloseNormalClosure) {
+			c.log.Printf("write message: %s", err)
+		}
+		return false
+	}
+
+	return true
+}
+
 func (c *Client) cleanup() {
 	c.chatServer.deRegisterChan <- c
 	c.leaveAllRooms()
 }
 
 func (c *Client) leaveAllRooms() {
-	c.roomsLock.Lock()
-	defer c.roomsLock.Unlock()
+	c.roomsLock.RLock()
+	defer c.roomsLock.RUnlock()
 
 	for _, room := range c.rooms {
 		room.leaveChan <- &UserMessage{
-			Type:      UserMessageTypeLeave,
-			RoomId:    room.Id,
-			UserId:    c.user.Id,
-			Timestamp: time.Now().UTC(),
-			client:    c,
+			Type:   UserMessageTypeLeave,
+			RoomId: room.Id,
+			UserId: c.user.Id,
+			client: c,
 		}
 	}
 }

@@ -105,16 +105,16 @@ func NewChatServer(logger *log.Logger) (*ChatServer, error) {
 func (cs *ChatServer) run() {
 	for {
 		select {
-		case join := <-cs.joinChan:
+		case joinMsg := <-cs.joinChan:
 			cs.log.Println("received join request")
-			if room, ok := cs.rooms[join.RoomId]; ok {
+			if room, ok := cs.rooms[joinMsg.RoomId]; ok {
 				select {
-				case room.joinChan <- join:
+				case room.joinChan <- joinMsg:
 				default:
 					cs.log.Printf("join channel full on room %d", room.Id)
 				}
 			} else {
-				dbRoom, err := GetRoomByID(join.RoomId)
+				dbRoom, err := GetRoomByID(joinMsg.RoomId)
 				if err != nil {
 					cs.log.Println("get room:", err)
 					continue
@@ -138,7 +138,7 @@ func (cs *ChatServer) run() {
 				}
 
 				cs.rooms[room.Id] = room
-				room.joinChan <- join
+				room.joinChan <- joinMsg
 
 				go room.start()
 
