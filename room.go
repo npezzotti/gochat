@@ -28,7 +28,7 @@ type Room struct {
 	Subscribers   []User `json:"subscribers"`
 	cs            *ChatServer
 	joinChan      chan *UserMessage
-	leaveChan     chan *Client
+	leaveChan     chan *UserMessage
 	clientMsgChan chan *UserMessage
 	seq_id        int
 	clients       map[*Client]struct{}
@@ -134,18 +134,33 @@ func (r *Room) start() {
 					})
 				}
 			}
-		case client := <-r.leaveChan:
-			r.log.Printf("removing %q from room %q", client.user.Username, r.ExternalId)
-			r.removeClient(client)
+		case leaveMsg := <-r.leaveChan:
+			c := leaveMsg.client
+			r.log.Printf("removing %q from room %q", c.user.Username, r.ExternalId)
+			r.removeClient(c)
+
+			leaveResp, err := json.Marshal(&SystemMessage{
+				Id:        leaveMsg.Id,
+				Type:      EventTypeRoomLeft,
+				RoomId:    r.Id,
+				UserId:    c.user.Id,
+				Timestamp: time.Now(),
+			})
+			if err != nil {
+				r.log.Println("failed to marshal leave msg:", err)
+				continue
+			}
+
+			c.send <- leaveResp
 
 			r.clientLock.Lock()
 			// notify all clients user is offline
 			// if no sessions for user in the room
-			if r.userMap[client.user.Id] == nil {
+			if r.userMap[c.user.Id] == nil {
 				r.broadcast(&SystemMessage{
 					Type:   EventTypeUserAbsent,
 					RoomId: r.Id,
-					UserId: client.user.Id,
+					UserId: c.user.Id,
 				})
 			}
 			r.clientLock.Unlock()

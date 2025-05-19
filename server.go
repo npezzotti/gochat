@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"time"
 
@@ -55,17 +54,6 @@ const (
 	EventTypeRoomLeft    SystemMessageType = "left"
 )
 
-type MessageType int
-
-const (
-	MessageTypeJoin MessageType = iota
-	MessageTypeLeave
-	MessageTypePublish
-	MessageTypeRoomDeleted
-	MessageTypePresence
-	MessageTypeNotification
-)
-
 type subReq struct {
 	subType subReqType
 	user    User
@@ -79,26 +67,12 @@ const (
 	subReqTypeUnsubscribe subReqType = "unsubscribe"
 )
 
-type Message struct {
-	Id        int               `json:"id"`
-	Type      MessageType       `json:"type,omitempty"`
-	SeqId     int               `json:"seq_id,omitempty"`
-	RoomId    int               `json:"room_id"`
-	Content   string            `json:"content"`
-	EventType SystemMessageType `json:"event_type,omitempty"`
-	UserId    int               `json:"user_id,omitempty"`
-	Username  string            `json:"username,omitempty"`
-	Timestamp time.Time         `json:"timestamp"`
-	client    *Client           `json:"-"`
-}
-
 type ChatServer struct {
 	log            *log.Logger
 	clients        map[*Client]struct{}
 	joinChan       chan *UserMessage
 	registerChan   chan *Client
 	deRegisterChan chan *Client
-	broadcastChan  chan Message
 	subChan        chan subReq
 	rmRoomChan     chan int
 	rooms          map[int]*Room
@@ -119,7 +93,6 @@ func NewChatServer(logger *log.Logger) (*ChatServer, error) {
 		clients:        make(map[*Client]struct{}),
 		registerChan:   make(chan *Client),
 		deRegisterChan: make(chan *Client),
-		broadcastChan:  make(chan Message),
 		subChan:        make(chan subReq),
 		rmRoomChan:     make(chan int),
 		rooms:          make(map[int]*Room),
@@ -154,7 +127,7 @@ func (cs *ChatServer) run() {
 					Description:   dbRoom.Description,
 					cs:            cs,
 					joinChan:      make(chan *UserMessage, 256),
-					leaveChan:     make(chan *Client, 256),
+					leaveChan:     make(chan *UserMessage, 256),
 					clientMsgChan: make(chan *UserMessage, 256),
 					seq_id:        dbRoom.SeqId,
 					clients:       make(map[*Client]struct{}),
@@ -179,8 +152,6 @@ func (cs *ChatServer) run() {
 				delete(cs.clients, client)
 				close(client.send)
 			}
-		case msg := <-cs.broadcastChan:
-			cs.broadcast(msg)
 		case req := <-cs.subChan:
 			switch req.subType {
 			case subReqTypeSubscribe:
@@ -232,23 +203,6 @@ func (cs *ChatServer) unloadRoom(roomId int) {
 	}
 
 	cs.log.Printf("current rooms: %v", cs.rooms)
-}
-
-func (cs *ChatServer) broadcast(msg Message) {
-	jsonMsg, err := json.Marshal(msg)
-	if err != nil {
-		cs.log.Println(":", err)
-		return
-	}
-
-	for client := range cs.clients {
-		select {
-		case client.send <- jsonMsg:
-			cs.log.Printf("broadcasting message: %q", jsonMsg)
-		default:
-			cs.log.Println("default")
-		}
-	}
 }
 
 func (cs *ChatServer) shutdown() {
