@@ -57,6 +57,7 @@ func (c *Client) write() {
 			writer, err := c.conn.NextWriter(websocket.TextMessage)
 			if err != nil {
 				c.log.Println("failed to create writer:", err)
+				return
 			}
 
 			if _, err := writer.Write(msg); err != nil {
@@ -149,7 +150,13 @@ func (c *Client) leaveAllRooms() {
 	defer c.roomsLock.Unlock()
 
 	for _, room := range c.rooms {
-		room.leaveChan <- c
+		room.leaveChan <- &UserMessage{
+			Type:      UserMessageTypeLeave,
+			RoomId:    room.Id,
+			UserId:    c.user.Id,
+			Timestamp: time.Now().UTC(),
+			client:    c,
+		}
 	}
 }
 
@@ -160,7 +167,7 @@ func (c *Client) joinRoom(msg *UserMessage) {
 func (c *Client) leaveRoom(msg *UserMessage) {
 	r := c.getRoom(msg.RoomId)
 	if r != nil {
-		r.leaveChan <- c
+		r.leaveChan <- msg
 	} else {
 		c.log.Println("didn't find room")
 	}
