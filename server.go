@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"sync"
 	"time"
 
 	"github.com/teris-io/shortid"
@@ -70,6 +71,7 @@ const (
 type ChatServer struct {
 	log            *log.Logger
 	clients        map[*Client]struct{}
+	clientsLock    sync.Mutex
 	joinChan       chan *UserMessage
 	registerChan   chan *Client
 	deRegisterChan chan *Client
@@ -144,14 +146,11 @@ func (cs *ChatServer) run() {
 
 			}
 		case client := <-cs.registerChan:
-			cs.log.Printf("registering connection from %q", client.user.Username)
-			cs.clients[client] = struct{}{}
+			cs.log.Printf("adding connection from %q", client.user.Username)
+			cs.addClient(client)
 		case client := <-cs.deRegisterChan:
-			cs.log.Printf("deregistering connection from %q", client.user.Username)
-			if _, ok := cs.clients[client]; ok {
-				delete(cs.clients, client)
-				close(client.send)
-			}
+			cs.log.Printf("removing connection from %q", client.user.Username)
+			cs.removeClient(client)
 		case req := <-cs.subChan:
 			switch req.subType {
 			case subReqTypeSubscribe:
@@ -194,6 +193,18 @@ func (cs *ChatServer) run() {
 			return
 		}
 	}
+}
+
+func (cs *ChatServer) addClient(c *Client) {
+	cs.clientsLock.Lock()
+	defer cs.clientsLock.Unlock()
+	cs.clients[c] = struct{}{}
+}
+
+func (cs *ChatServer) removeClient(c *Client) {
+	cs.clientsLock.Lock()
+	defer cs.clientsLock.Unlock()
+	delete(cs.clients, c)
 }
 
 func (cs *ChatServer) unloadRoom(roomId int) {

@@ -44,6 +44,7 @@ func (c *Client) write() {
 	defer func() {
 		ticker.Stop()
 		c.conn.Close()
+		c.log.Println("write exiting")
 	}()
 
 	for {
@@ -63,7 +64,6 @@ func (c *Client) write() {
 				return
 			}
 		case <-c.stop:
-			c.log.Println("stopping client")
 			return
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
@@ -78,6 +78,7 @@ func (c *Client) read() {
 	defer func() {
 		c.conn.Close()
 		c.cleanup()
+		c.log.Println("read exiting")
 	}()
 
 	c.conn.SetReadLimit(maxMessageSize)
@@ -152,9 +153,14 @@ func (c *Client) sendMessage(msgType int, msg []byte) bool {
 	return true
 }
 
+func (c *Client) stopClient() {
+	close(c.stop)
+}
+
 func (c *Client) cleanup() {
 	c.chatServer.deRegisterChan <- c
 	c.leaveAllRooms()
+	c.stopClient()
 }
 
 func (c *Client) leaveAllRooms() {
