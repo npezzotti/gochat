@@ -4,8 +4,6 @@ import (
 	"log"
 	"sync"
 	"time"
-
-	"github.com/teris-io/shortid"
 )
 
 type UserMessage struct {
@@ -80,15 +78,9 @@ type ChatServer struct {
 	rooms          map[int]*Room
 	stop           chan struct{}
 	done           chan struct{}
-	sid            *shortid.Shortid
 }
 
 func NewChatServer(logger *log.Logger) (*ChatServer, error) {
-	sid, err := shortid.New(1, shortid.DefaultABC, 2342)
-	if err != nil {
-		return nil, err
-	}
-
 	return &ChatServer{
 		log:            logger,
 		joinChan:       make(chan *UserMessage),
@@ -100,7 +92,6 @@ func NewChatServer(logger *log.Logger) (*ChatServer, error) {
 		rooms:          make(map[int]*Room),
 		stop:           make(chan struct{}),
 		done:           make(chan struct{}),
-		sid:            sid,
 	}, nil
 }
 
