@@ -52,64 +52,7 @@ func (r *Room) start() {
 	for {
 		select {
 		case join := <-r.joinChan:
-			c := join.client
-			if !SubscriptionExists(c.user.Id, r.Id) {
-				r.log.Printf("Creating subscription for user %q in room %q", c.user.Username, r.ExternalId)
-				_, err := CreateSubscription(c.user.Id, r.Id)
-				if err != nil {
-					r.log.Println("CreateSubscription:", err)
-					continue
-				}
-			}
-
-			dbRoom, err := FetchRoomWithSubscribers(r.Id)
-			if err != nil {
-				r.log.Println("FetchRoomWithSubscribers:", err)
-				continue
-			}
-
-			// stop the kill timer if it was running
-			r.killTimer.Stop()
-			r.addClient(c)
-
-			roomInfo := map[string]any{
-				"id":          dbRoom.Id,
-				"name":        dbRoom.Name,
-				"external_id": dbRoom.ExternalId,
-				"description": dbRoom.Description,
-				"subscribers": func() []map[string]any {
-					subscribers := make([]map[string]any, len(dbRoom.Subscriptions))
-					for i, sub := range dbRoom.Subscriptions {
-						subscribers[i] = map[string]any{
-							"id":        sub.Id,
-							"user_id":   sub.AccountId,
-							"username":  sub.Username,
-							"isPresent": r.userMap[sub.AccountId] != nil,
-						}
-					}
-					return subscribers
-				}(),
-			}
-
-			c.queueMessage(&SystemMessage{
-				Id:        join.Id,
-				Type:      EventTypeRoomJoined,
-				RoomId:    r.Id,
-				Data:      roomInfo,
-				UserId:    c.user.Id,
-				Timestamp: time.Now(),
-			})
-
-			for client := range r.clients {
-				// notify all clients user is online
-				if client.user.Id != c.user.Id {
-					r.broadcast(&SystemMessage{
-						Type:   EventTypeUserPresent,
-						RoomId: r.Id,
-						UserId: c.user.Id,
-					})
-				}
-			}
+			r.handleAddClient(join)
 		case leaveMsg := <-r.leaveChan:
 			c := leaveMsg.client
 			r.log.Printf("removing %q from room %q", c.user.Username, r.ExternalId)
@@ -152,6 +95,65 @@ func (r *Room) start() {
 
 			close(r.done)
 			return
+		}
+	}
+}
+
+func (r *Room) handleAddClient(join *UserMessage) {
+	c := join.client
+	if !SubscriptionExists(c.user.Id, r.Id) {
+		r.log.Printf("Creating subscription for user %q in room %q", c.user.Username, r.ExternalId)
+		if _, err := CreateSubscription(c.user.Id, r.Id); err != nil {
+			r.log.Println("CreateSubscription:", err)
+			return
+		}
+	}
+
+	dbRoom, err := FetchRoomWithSubscribers(r.Id)
+	if err != nil {
+		r.log.Println("FetchRoomWithSubscribers:", err)
+		return
+	}
+
+	r.addClient(c)
+	r.killTimer.Stop()
+
+	roomInfo := map[string]any{
+		"id":          dbRoom.Id,
+		"name":        dbRoom.Name,
+		"external_id": dbRoom.ExternalId,
+		"description": dbRoom.Description,
+		"subscribers": func() []map[string]any {
+			subscribers := make([]map[string]any, len(dbRoom.Subscriptions))
+			for i, sub := range dbRoom.Subscriptions {
+				subscribers[i] = map[string]any{
+					"id":        sub.Id,
+					"user_id":   sub.AccountId,
+					"username":  sub.Username,
+					"isPresent": r.userMap[sub.AccountId] != nil,
+				}
+			}
+			return subscribers
+		}(),
+	}
+
+	c.queueMessage(&SystemMessage{
+		Id:        join.Id,
+		Type:      EventTypeRoomJoined,
+		RoomId:    r.Id,
+		Data:      roomInfo,
+		UserId:    c.user.Id,
+		Timestamp: time.Now(),
+	})
+
+	for client := range r.clients {
+		// notify all clients user is online
+		if client.user.Id != c.user.Id {
+			r.broadcast(&SystemMessage{
+				Type:   EventTypeUserPresent,
+				RoomId: r.Id,
+				UserId: c.user.Id,
+			})
 		}
 	}
 }
