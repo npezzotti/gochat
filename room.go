@@ -100,10 +100,15 @@ func (r *Room) start() {
 }
 
 func (r *Room) handleAddClient(join *UserMessage) {
+	// stop the kill timer since we have a new client
+	r.killTimer.Stop()
+
 	c := join.client
 	if !SubscriptionExists(c.user.Id, r.Id) {
 		r.log.Printf("Creating subscription for user %q in room %q", c.user.Username, r.ExternalId)
 		if _, err := CreateSubscription(c.user.Id, r.Id); err != nil {
+			// reset timer since client join failed
+			r.killTimer.Reset(idleRoomTimeout)
 			r.log.Println("CreateSubscription:", err)
 			return
 		}
@@ -116,7 +121,6 @@ func (r *Room) handleAddClient(join *UserMessage) {
 	}
 
 	r.addClient(c)
-	r.killTimer.Stop()
 
 	roomInfo := map[string]any{
 		"id":          dbRoom.Id,
