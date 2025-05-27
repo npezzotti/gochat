@@ -108,7 +108,9 @@ func (r *Room) handleAddClient(join *UserMessage) {
 		r.log.Printf("Creating subscription for user %q in room %q", c.user.Username, r.ExternalId)
 		if _, err := CreateSubscription(c.user.Id, r.Id); err != nil {
 			// reset timer since client join failed
-			r.killTimer.Reset(idleRoomTimeout)
+			if len(r.clients) == 0 {
+				r.killTimer.Reset(idleRoomTimeout)
+			}
 			r.log.Println("CreateSubscription:", err)
 			return
 		}
