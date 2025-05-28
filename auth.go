@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt"
+	"github.com/npezzotti/go-chatroom/db"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -68,7 +69,7 @@ func extractUserIdFromToken(r *http.Request) (int, error) {
 
 	userId, ok := claims[userIdClaim].(float64)
 	if !ok {
-		return 0,fmt.Errorf("invalid user id claim")
+		return 0, fmt.Errorf("invalid user id claim")
 	}
 
 	return int(userId), nil
@@ -79,7 +80,7 @@ func authMiddleware(l *log.Logger, next http.HandlerFunc) http.HandlerFunc {
 		userId, err := extractUserIdFromToken(r)
 		if err != nil {
 			l.Println("failed to extract user id from token:", err)
-			errResp :=  NewUnauthorizedError()
+			errResp := NewUnauthorizedError()
 			writeJson(l, w, errResp.Code, errResp)
 			return
 		}
@@ -106,13 +107,13 @@ func createAccount(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	params := CreateAccountParams{
+	params := db.CreateAccountParams{
 		Username:     r.Form.Get("username"),
 		EmailAddress: r.Form.Get("email"),
 		PasswordHash: pwdHash,
 	}
 
-	newUser, err := CreateAccount(params)
+	newUser, err := DB.CreateAccount(params)
 	if err != nil {
 		errResp := NewInternalServerError(err)
 		writeJson(l, w, errResp.Code, errResp)
@@ -135,7 +136,7 @@ func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user, err := GetAccount(userId)
+		user, err := DB.GetAccount(userId)
 		if err != nil {
 			errResp := NewNotFoundError()
 			writeJson(l, w, errResp.Code, errResp)
@@ -157,7 +158,7 @@ func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		curUser, err := GetAccount(userId)
+		curUser, err := DB.GetAccount(userId)
 		if err != nil {
 			errResp := NewNotFoundError()
 			writeJson(l, w, errResp.Code, errResp)
@@ -179,13 +180,13 @@ func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		params := UpdateAccountParams{
+		params := db.UpdateAccountParams{
 			UserId:       curUser.Id,
 			Username:     u.Username,
 			PasswordHash: pwdHash,
 		}
 
-		dbUser, err := UpdateAccount(params)
+		dbUser, err := DB.UpdateAccount(params)
 		if err != nil {
 			errResp := NewInternalServerError(err)
 			writeJson(l, w, errResp.Code, errResp)
@@ -215,7 +216,7 @@ func session(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := GetAccount(userId)
+	user, err := DB.GetAccount(userId)
 	if err != nil {
 		errResp := NewNotFoundError()
 		writeJson(l, w, errResp.Code, errResp)
@@ -241,7 +242,7 @@ func login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbUser, err := GetAccountByEmail(lr.Email)
+	dbUser, err := DB.GetAccountByEmail(lr.Email)
 	if err != nil {
 		var errResp *ApiError
 		if err == sql.ErrNoRows {

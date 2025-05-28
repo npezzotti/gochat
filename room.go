@@ -104,9 +104,9 @@ func (r *Room) handleAddClient(join *UserMessage) {
 	r.killTimer.Stop()
 
 	c := join.client
-	if !SubscriptionExists(c.user.Id, r.Id) {
+	if !DB.SubscriptionExists(c.user.Id, r.Id) {
 		r.log.Printf("Creating subscription for user %q in room %q", c.user.Username, r.ExternalId)
-		if _, err := CreateSubscription(c.user.Id, r.Id); err != nil {
+		if _, err := DB.CreateSubscription(c.user.Id, r.Id); err != nil {
 			// reset timer since client join failed
 			if len(r.clients) == 0 {
 				r.killTimer.Reset(idleRoomTimeout)
@@ -116,7 +116,7 @@ func (r *Room) handleAddClient(join *UserMessage) {
 		}
 	}
 
-	dbRoom, err := FetchRoomWithSubscribers(r.Id)
+	dbRoom, err := DB.FetchRoomWithSubscribers(r.Id)
 	if err != nil {
 		r.log.Println("FetchRoomWithSubscribers:", err)
 		return
@@ -238,7 +238,7 @@ func (r *Room) removeAllClientsForUser(userId int) {
 
 func (r *Room) saveAndBroadcast(msg *UserMessage) {
 	seq_id := r.seq_id + 1
-	if err := MessageCreate(db.UserMessage{
+	if err := DB.MessageCreate(db.UserMessage{
 		SeqId:     seq_id,
 		RoomId:    r.Id,
 		UserId:    msg.client.user.Id,

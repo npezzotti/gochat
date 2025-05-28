@@ -41,3 +41,22 @@ type UserMessage struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
+
+type CreateAccountParams struct {
+	Username     string
+	EmailAddress string
+	PasswordHash string
+}
+
+type UpdateAccountParams struct {
+	UserId       int
+	Username     string
+	PasswordHash string
+}
+
+type CreateRoomParams struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	OwnerId     int    `json:"-"`
+	ExternalId  string `json:"external_id"`
+}

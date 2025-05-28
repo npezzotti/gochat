@@ -107,7 +107,7 @@ func (cs *ChatServer) run() {
 					cs.log.Printf("join channel full on room %d", room.Id)
 				}
 			} else {
-				dbRoom, err := GetRoomByID(joinMsg.RoomId)
+				dbRoom, err := DB.GetRoomByID(joinMsg.RoomId)
 				if err != nil {
 					cs.log.Println("get room:", err)
 					continue

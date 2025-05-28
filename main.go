@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"flag"
 	"log"
@@ -16,11 +15,12 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/websocket"
 	_ "github.com/lib/pq"
+	"github.com/npezzotti/go-chatroom/db"
 	"github.com/teris-io/shortid"
 )
 
 var (
-	DB        *sql.DB
+	DB        *db.DB
 	secretKey []byte
 
 	addr = flag.String("addr", "localhost:8000", "server address")
@@ -41,7 +41,7 @@ func writeJson(l *log.Logger, w http.ResponseWriter, statusCode int, v interface
 }
 
 func createRoom(l *log.Logger, w http.ResponseWriter, r *http.Request) {
-	var params CreateRoomParams
+	var params db.CreateRoomParams
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
 		errResp := NewBadRequestError()
 		writeJson(l, w, errResp.Code, errResp)
@@ -66,14 +66,14 @@ func createRoom(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	params.ExternalId = sid
 	params.OwnerId = userId
 
-	newRoom, err := CreateRoom(params)
+	newRoom, err := DB.CreateRoom(params)
 	if err != nil {
 		errResp := NewBadRequestError()
 		writeJson(l, w, errResp.Code, errResp)
 		return
 	}
 
-	subs, err := GetSubscribersForRoom(newRoom.Id)
+	subs, err := DB.GetSubscribersForRoom(newRoom.Id)
 	if err != nil {
 		errResp := NewInternalServerError(err)
 		writeJson(l, w, errResp.Code, errResp)
@@ -106,14 +106,14 @@ func getRoom(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbRoom, err := GetRoomByExternalID(externalId)
+	dbRoom, err := DB.GetRoomByExternalID(externalId)
 	if err != nil {
 		errResp := NewNotFoundError()
 		writeJson(l, w, errResp.Code, errResp)
 		return
 	}
 
-	dbSubs, err := GetSubscribersForRoom(dbRoom.Id)
+	dbSubs, err := DB.GetSubscribersForRoom(dbRoom.Id)
 	var subscribers []User
 	for _, dbSub := range dbSubs {
 		var u User
@@ -142,14 +142,14 @@ func deleteRoom(cs *ChatServer, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	room, err := GetRoomByExternalID(externalId)
+	room, err := DB.GetRoomByExternalID(externalId)
 	if err != nil {
 		errResp := NewNotFoundError()
 		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
-	err = DeleteRoom(room.Id)
+	err = DB.DeleteRoom(room.Id)
 	if err != nil {
 		cs.log.Println("delete room:", err)
 		errResp := NewInternalServerError(err)
@@ -169,7 +169,7 @@ func getUsersRooms(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbRooms, err := ListSubscriptions(userId)
+	dbRooms, err := DB.ListSubscriptions(userId)
 	if err != nil {
 		l.Println("list subscriptions:", err)
 		errResp := NewInternalServerError(err)
@@ -205,21 +205,21 @@ func (cs *ChatServer) subscribeRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := GetAccount(userId)
+	user, err := DB.GetAccount(userId)
 	if err != nil {
 		errResp := NewNotFoundError()
 		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
-	room, err := GetRoomByExternalID(roomExternalId)
+	room, err := DB.GetRoomByExternalID(roomExternalId)
 	if err != nil {
 		errResp := NewNotFoundError()
 		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
-	dbSub, err := CreateSubscription(user.Id, room.Id)
+	dbSub, err := DB.CreateSubscription(user.Id, room.Id)
 	if err != nil {
 		errResp := NewBadRequestError()
 		writeJson(cs.log, w, errResp.Code, errResp)
@@ -232,7 +232,7 @@ func (cs *ChatServer) subscribeRoom(w http.ResponseWriter, r *http.Request) {
 		roomId:  room.Id,
 	}
 
-	dbSubs, err := GetSubscribersForRoom(room.Id)
+	dbSubs, err := DB.GetSubscribersForRoom(room.Id)
 	if err != nil {
 		errResp := NewInternalServerError(err)
 		writeJson(cs.log, w, errResp.Code, errResp)
@@ -281,21 +281,21 @@ func (cs *ChatServer) unsubscribeRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := GetAccount(userId)
+	user, err := DB.GetAccount(userId)
 	if err != nil {
 		errResp := NewNotFoundError()
 		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
-	room, err := GetRoomByExternalID(externalId)
+	room, err := DB.GetRoomByExternalID(externalId)
 	if err != nil {
 		errResp := NewNotFoundError()
 		writeJson(cs.log, w, errResp.Code, errResp)
 		return
 	}
 
-	err = DeleteSubscription(userId, room.Id)
+	err = DB.DeleteSubscription(userId, room.Id)
 	if err != nil {
 		cs.log.Println("delete subscription:", err)
 		errResp := NewInternalServerError(err)
@@ -320,7 +320,7 @@ func getMessages(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	room, err := GetRoomByExternalID(externalId)
+	room, err := DB.GetRoomByExternalID(externalId)
 	if err != nil {
 		errResp := NewNotFoundError()
 		writeJson(l, w, errResp.Code, errResp)
@@ -359,7 +359,7 @@ func getMessages(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	messages, err := MessageGetAll(room.Id, after, before, limit)
+	messages, err := DB.MessageGetAll(room.Id, after, before, limit)
 	if err != nil {
 		errResp := NewInternalServerError(err)
 		writeJson(l, w, errResp.Code, errResp)
@@ -397,7 +397,7 @@ func serveWs(chatServer *ChatServer, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := GetAccount(username)
+	user, err := DB.GetAccount(username)
 	if err != nil {
 		errResp := NewNotFoundError()
 		writeJson(chatServer.log, w, errResp.Code, errResp)
@@ -436,13 +436,9 @@ func main() {
 		logger.Fatal("get signing secret: %w", err)
 	}
 
-	DB, err = sql.Open("postgres", "host=localhost user=postgres password=postgres dbname=postgres sslmode=disable")
+	DB, err = db.NewDatabaseConnection("host=localhost user=postgres password=postgres dbname=postgres sslmode=disable")
 	if err != nil {
 		logger.Fatal("db open:", err)
-	}
-
-	if err := DB.Ping(); err != nil {
-		logger.Fatal("db ping:", err)
 	}
 
 	defer func() {
