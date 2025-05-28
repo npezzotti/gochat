@@ -11,10 +11,6 @@ import (
 
 var idleRoomTimeout = time.Second * 5
 
-type leaveReq struct {
-	c *Client
-}
-
 type exitReq struct {
 	deleted bool
 }
