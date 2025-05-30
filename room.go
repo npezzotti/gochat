@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"sync"
 	"time"
 
@@ -22,9 +23,9 @@ type Room struct {
 	Description   string `json:"description"`
 	Subscribers   []User `json:"subscribers"`
 	cs            *ChatServer
-	joinChan      chan *UserMessage
-	leaveChan     chan *UserMessage
-	clientMsgChan chan *UserMessage
+	joinChan      chan *ClientMessage
+	leaveChan     chan *ClientMessage
+	clientMsgChan chan *ClientMessage
 	seq_id        int
 	clients       map[*Client]struct{}
 	userMap       map[int]map[*Client]struct{}
@@ -56,20 +57,25 @@ func (r *Room) start() {
 
 			// if this leave message is from a user
 			// send a leave response
-			c.queueMessage(&SystemMessage{
-				Id:        leaveMsg.Id,
-				Type:      EventTypeRoomLeft,
-				RoomId:    r.Id,
-				UserId:    c.user.Id,
-				Timestamp: time.Now(),
-			})
+			resp := &ServerMessage{
+				Response: &Response{
+					Status: http.StatusOK,
+				},
+				RoomId: r.Id,
+				UserId: c.user.Id,
+			}
+			resp.Id = leaveMsg.Id
+			resp.Timestamp = time.Now()
+			c.queueMessage(resp)
 
 			r.clientLock.Lock()
 			// notify all clients user is offline
 			// if no sessions for user in the room
 			if r.userMap[c.user.Id] == nil {
-				r.broadcast(&SystemMessage{
-					Type:   EventTypeUserAbsent,
+				r.broadcast(&ServerMessage{
+					Notification: &Notification{
+						Presence: &Presence{Present: false},
+					},
 					RoomId: r.Id,
 					UserId: c.user.Id,
 				})
@@ -95,7 +101,7 @@ func (r *Room) start() {
 	}
 }
 
-func (r *Room) handleAddClient(join *UserMessage) {
+func (r *Room) handleAddClient(join *ClientMessage) {
 	// stop the kill timer since we have a new client
 	r.killTimer.Stop()
 
@@ -139,23 +145,30 @@ func (r *Room) handleAddClient(join *UserMessage) {
 		}(),
 	}
 
-	c.queueMessage(&SystemMessage{
-		Id:        join.Id,
-		Type:      EventTypeRoomJoined,
-		RoomId:    r.Id,
-		Data:      roomInfo,
-		UserId:    c.user.Id,
-		Timestamp: time.Now(),
-	})
+	resp := &ServerMessage{
+		Response: &Response{
+			Status: http.StatusOK,
+			Data:   roomInfo,
+		},
+		RoomId: r.Id,
+		UserId: c.user.Id,
+	}
+	resp.Id = join.Id
+	resp.Timestamp = time.Now()
 
+	c.queueMessage(resp)
+
+	data := &ServerMessage{
+		Notification: &Notification{
+			Presence: &Presence{Present: true},
+		},
+		RoomId: r.Id,
+		UserId: c.user.Id,
+	}
 	for client := range r.clients {
 		// notify all clients user is online
 		if client.user.Id != c.user.Id {
-			r.broadcast(&SystemMessage{
-				Type:   EventTypeUserPresent,
-				RoomId: r.Id,
-				UserId: c.user.Id,
-			})
+			r.broadcast(data)
 		}
 	}
 }
@@ -232,13 +245,13 @@ func (r *Room) removeAllClientsForUser(userId int) {
 	}
 }
 
-func (r *Room) saveAndBroadcast(msg *UserMessage) {
+func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 	seq_id := r.seq_id + 1
 	if err := DB.MessageCreate(db.UserMessage{
 		SeqId:     seq_id,
 		RoomId:    r.Id,
 		UserId:    msg.client.user.Id,
-		Content:   msg.Content,
+		Content:   msg.Publish.Content,
 		CreatedAt: msg.Timestamp,
 	}); err != nil {
 		r.log.Println("error saving message:", err)
@@ -246,20 +259,22 @@ func (r *Room) saveAndBroadcast(msg *UserMessage) {
 
 	r.seq_id++
 
-	data := &SystemMessage{
-		Id:        msg.Id,
-		Type:      EventTypeMessagePublished,
-		RoomId:    r.Id,
-		SeqId:     seq_id,
-		Content:   msg.Content,
-		UserId:    msg.UserId,
-		Username:  msg.Username,
-		Timestamp: msg.Timestamp,
+	data := &ServerMessage{
+		Message: &Message{
+			SeqId:    seq_id,
+			Content:  msg.Publish.Content,
+			Username: msg.client.user.Username,
+		},
+		RoomId: r.Id,
+		UserId: msg.UserId,
 	}
+	data.Id = msg.Id
+	data.Timestamp = msg.Timestamp
+
 	r.broadcast(data)
 }
 
-func (r *Room) broadcast(msg *SystemMessage) {
+func (r *Room) broadcast(msg *ServerMessage) {
 	msg.RoomId = r.Id
 	msg.Timestamp = time.Now()
 
@@ -270,8 +285,10 @@ func (r *Room) broadcast(msg *SystemMessage) {
 }
 
 func (r *Room) notifyDeleted() {
-	msg := &SystemMessage{
-		Type:   EventTypeRoomDeleted,
+	msg := &ServerMessage{
+		Notification: &Notification{
+			RoomDeleted: &RoomDeleted{RoomId: r.Id},
+		},
 		RoomId: r.Id,
 	}
 

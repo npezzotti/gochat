@@ -70,7 +70,7 @@ type ChatServer struct {
 	log            *log.Logger
 	clients        map[*Client]struct{}
 	clientsLock    sync.Mutex
-	joinChan       chan *UserMessage
+	joinChan       chan *ClientMessage
 	registerChan   chan *Client
 	deRegisterChan chan *Client
 	subChan        chan subReq
@@ -83,7 +83,7 @@ type ChatServer struct {
 func NewChatServer(logger *log.Logger) (*ChatServer, error) {
 	return &ChatServer{
 		log:            logger,
-		joinChan:       make(chan *UserMessage),
+		joinChan:       make(chan *ClientMessage),
 		clients:        make(map[*Client]struct{}),
 		registerChan:   make(chan *Client),
 		deRegisterChan: make(chan *Client),
@@ -119,9 +119,9 @@ func (cs *ChatServer) run() {
 					Name:          dbRoom.Name,
 					Description:   dbRoom.Description,
 					cs:            cs,
-					joinChan:      make(chan *UserMessage, 256),
-					leaveChan:     make(chan *UserMessage, 256),
-					clientMsgChan: make(chan *UserMessage, 256),
+					joinChan:      make(chan *ClientMessage, 256),
+					leaveChan:     make(chan *ClientMessage, 256),
+					clientMsgChan: make(chan *ClientMessage, 256),
 					seq_id:        dbRoom.SeqId,
 					clients:       make(map[*Client]struct{}),
 					userMap:       make(map[int]map[*Client]struct{}),
@@ -147,18 +147,33 @@ func (cs *ChatServer) run() {
 			case subReqTypeSubscribe:
 				// notify other users in the room
 				if room, ok := cs.rooms[req.roomId]; ok {
-					room.broadcast(&SystemMessage{
-						Type:     EventTypeUserSubscribe,
-						UserId:   req.user.Id,
-						Username: req.user.Username,
+					room.broadcast(&ServerMessage{
+						Notification: &Notification{
+							SubscriptionChange: &SubscriptionChange{
+								Subscribed: true,
+								User: User{
+									Id:       req.user.Id,
+									Username: req.user.Username,
+								},
+							},
+						},
+						UserId: req.user.Id,
 					})
 				}
 			case subReqTypeUnsubscribe:
 				cs.log.Printf("unsubscribing user %q from room %d", req.user.Username, req.roomId)
 				if room, ok := cs.rooms[req.roomId]; ok {
 					room.removeAllClientsForUser(req.user.Id)
-					room.broadcast(&SystemMessage{
-						Type:   EventTypeUserUnSubscribe,
+					room.broadcast(&ServerMessage{
+						Notification: &Notification{
+							SubscriptionChange: &SubscriptionChange{
+								Subscribed: false,
+								User: User{
+									Id:       req.user.Id,
+									Username: req.user.Username,
+								},
+							},
+						},
 						RoomId: room.Id,
 						UserId: req.user.Id,
 					})

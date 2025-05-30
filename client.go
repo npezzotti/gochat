@@ -21,7 +21,7 @@ type Client struct {
 	chatServer *ChatServer
 	log        *log.Logger
 	user       User
-	send       chan *SystemMessage
+	send       chan *ServerMessage
 	rooms      map[int]*Room
 	roomsLock  sync.RWMutex
 	stop       chan struct{}
@@ -33,7 +33,7 @@ func NewClient(user User, conn *websocket.Conn, cs *ChatServer, l *log.Logger) *
 		chatServer: cs,
 		log:        l,
 		user:       user,
-		send:       make(chan *SystemMessage, 256),
+		send:       make(chan *ServerMessage, 256),
 		rooms:      make(map[int]*Room),
 		stop:       make(chan struct{}),
 	}
@@ -95,7 +95,7 @@ func (c *Client) read() {
 		}
 
 		c.log.Println("Received message:", string(raw))
-		var msg UserMessage
+		var msg ClientMessage
 		if err := json.Unmarshal(raw, &msg); err != nil {
 			c.log.Println("error parsing message:", err)
 			continue
@@ -105,14 +105,14 @@ func (c *Client) read() {
 		msg.UserId = c.user.Id
 		msg.Timestamp = time.Now().UTC()
 
-		switch msg.Type {
-		case UserMessageTypeJoin:
+		switch {
+		case msg.Join != nil:
 			c.log.Println("read:", "join message")
 			c.joinRoom(&msg)
-		case UserMessageTypeLeave:
+		case msg.Leave != nil:
 			c.log.Println("read:", "leave message")
 			c.leaveRoom(&msg)
-		case UserMessageTypePublish:
+		case msg.Publish != nil:
 			c.log.Println("read:", "publish message")
 			r := c.getRoom(msg.RoomId)
 			if r != nil {
@@ -124,7 +124,7 @@ func (c *Client) read() {
 	}
 }
 
-func (c *Client) queueMessage(msg *SystemMessage) bool {
+func (c *Client) queueMessage(msg *ServerMessage) bool {
 	select {
 	case c.send <- msg:
 	default:
@@ -135,7 +135,7 @@ func (c *Client) queueMessage(msg *SystemMessage) bool {
 	return true
 }
 
-func (c *Client) serializeMessage(msg *SystemMessage) ([]byte, error) {
+func (c *Client) serializeMessage(msg *ServerMessage) ([]byte, error) {
 	return json.Marshal(msg)
 }
 
@@ -168,8 +168,8 @@ func (c *Client) leaveAllRooms() {
 	defer c.roomsLock.RUnlock()
 
 	for _, room := range c.rooms {
-		room.leaveChan <- &UserMessage{
-			Type:   UserMessageTypeLeave,
+		room.leaveChan <- &ClientMessage{
+			Leave:  &MessageLeave{RoomId: room.Id},
 			RoomId: room.Id,
 			UserId: c.user.Id,
 			client: c,
@@ -177,11 +177,11 @@ func (c *Client) leaveAllRooms() {
 	}
 }
 
-func (c *Client) joinRoom(msg *UserMessage) {
+func (c *Client) joinRoom(msg *ClientMessage) {
 	c.chatServer.joinChan <- msg
 }
 
-func (c *Client) leaveRoom(msg *UserMessage) {
+func (c *Client) leaveRoom(msg *ClientMessage) {
 	r := c.getRoom(msg.RoomId)
 	if r != nil {
 		r.leaveChan <- msg
