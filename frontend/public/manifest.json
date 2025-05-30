@@ -1,0 +1,10 @@
+{
+  "short_name": "GoChat",
+  "name": "GoChat Chat Room Application Writtten in Golang",
+  "icons": [
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
+}
