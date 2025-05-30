@@ -169,7 +169,7 @@ func (c *Client) leaveAllRooms() {
 
 	for _, room := range c.rooms {
 		room.leaveChan <- &ClientMessage{
-			Leave:  &MessageLeave{RoomId: room.Id},
+			Leave:  &Leave{RoomId: room.Id},
 			RoomId: room.Id,
 			UserId: c.user.Id,
 			client: c,

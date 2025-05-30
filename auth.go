@@ -35,9 +35,9 @@ type User struct {
 	Id           int       `json:"id"`
 	Username     string    `json:"username"`
 	EmailAddress string    `json:"email_address,omitempty"`
-	Password     string    `json:"password,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	Password     string    `json:"-"`
+	CreatedAt    time.Time `json:"created_at,omitempty"`
+	UpdatedAt    time.Time `json:"updated_at,omitempty"`
 }
 
 type LoginRequest struct {

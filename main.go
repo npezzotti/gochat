@@ -366,11 +366,10 @@ func getMessages(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var userMessages []SystemMessage
+	var userMessages []Message
 
 	for _, msg := range messages {
-		msg := SystemMessage{
-			Id:        msg.Id,
+		msg := Message{
 			SeqId:     msg.SeqId,
 			UserId:    msg.UserId,
 			RoomId:    msg.RoomId,

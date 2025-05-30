@@ -3,54 +3,6 @@ package main
 import (
 	"log"
 	"sync"
-	"time"
-)
-
-type UserMessage struct {
-	Id        int             `json:"id"`
-	Type      UserMessageType `json:"type"`
-	SeqId     int             `json:"seq_id,omitempty"`
-	RoomId    int             `json:"room_id,"`
-	Content   string          `json:"content,omitempty"`
-	UserId    int             `json:"user_id,omitempty"`
-	Username  string          `json:"username,omitempty"`
-	Timestamp time.Time       `json:"timestamp"`
-	client    *Client         `json:"-"`
-}
-
-type UserMessageType string
-
-const (
-	UserMessageTypeJoin    UserMessageType = "join"
-	UserMessageTypeLeave   UserMessageType = "leave"
-	UserMessageTypePublish UserMessageType = "publish"
-)
-
-type SystemMessage struct {
-	Id      int               `json:"id,omitempty"`
-	Type    SystemMessageType `json:"type"`
-	RoomId  int               `json:"room_id"`
-	Data    map[string]any    `json:"data,omitempty"`
-	SeqId   int               `json:"seq_id,omitempty"`
-	Content string            `json:"content,omitempty"`
-	UserId  int               `json:"user_id,omitempty"`
-	// todo can username be removed?
-	Username  string    `json:"username,omitempty"`
-	Timestamp time.Time `json:"timestamp"`
-}
-
-type SystemMessageType string
-
-const (
-	EventTypeMessagePublished SystemMessageType = "publish"
-	EventTypeUserSubscribe    SystemMessageType = "subscribe"
-	EventTypeUserUnSubscribe  SystemMessageType = "unsubscribe"
-
-	EventTypeUserPresent SystemMessageType = "user_present"
-	EventTypeUserAbsent  SystemMessageType = "user_absent"
-	EventTypeRoomDeleted SystemMessageType = "room_deleted"
-	EventTypeRoomJoined  SystemMessageType = "joined"
-	EventTypeRoomLeft    SystemMessageType = "left"
 )
 
 type subReq struct {
@@ -150,6 +102,7 @@ func (cs *ChatServer) run() {
 					room.broadcast(&ServerMessage{
 						Notification: &Notification{
 							SubscriptionChange: &SubscriptionChange{
+								RoomId:     room.Id,
 								Subscribed: true,
 								User: User{
 									Id:       req.user.Id,
@@ -157,7 +110,6 @@ func (cs *ChatServer) run() {
 								},
 							},
 						},
-						UserId: req.user.Id,
 					})
 				}
 			case subReqTypeUnsubscribe:
@@ -167,6 +119,7 @@ func (cs *ChatServer) run() {
 					room.broadcast(&ServerMessage{
 						Notification: &Notification{
 							SubscriptionChange: &SubscriptionChange{
+								RoomId:     room.Id,
 								Subscribed: false,
 								User: User{
 									Id:       req.user.Id,
@@ -174,8 +127,6 @@ func (cs *ChatServer) run() {
 								},
 							},
 						},
-						RoomId: room.Id,
-						UserId: req.user.Id,
 					})
 				}
 			}

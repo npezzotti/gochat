@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/http"
 	"sync"
 	"time"
 
@@ -59,10 +58,8 @@ func (r *Room) start() {
 			// send a leave response
 			resp := &ServerMessage{
 				Response: &Response{
-					Status: http.StatusOK,
+					ResponseCode: StatusCodeOK,
 				},
-				RoomId: r.Id,
-				UserId: c.user.Id,
 			}
 			resp.Id = leaveMsg.Id
 			resp.Timestamp = time.Now()
@@ -74,10 +71,12 @@ func (r *Room) start() {
 			if r.userMap[c.user.Id] == nil {
 				r.broadcast(&ServerMessage{
 					Notification: &Notification{
-						Presence: &Presence{Present: false},
+						Presence: &Presence{
+							Present: false,
+							RoomId:  r.Id,
+							UserId:  c.user.Id,
+						},
 					},
-					RoomId: r.Id,
-					UserId: c.user.Id,
 				})
 			}
 			r.clientLock.Unlock()
@@ -147,11 +146,9 @@ func (r *Room) handleAddClient(join *ClientMessage) {
 
 	resp := &ServerMessage{
 		Response: &Response{
-			Status: http.StatusOK,
-			Data:   roomInfo,
+			ResponseCode: StatusCodeOK,
+			Data:         roomInfo,
 		},
-		RoomId: r.Id,
-		UserId: c.user.Id,
 	}
 	resp.Id = join.Id
 	resp.Timestamp = time.Now()
@@ -160,10 +157,12 @@ func (r *Room) handleAddClient(join *ClientMessage) {
 
 	data := &ServerMessage{
 		Notification: &Notification{
-			Presence: &Presence{Present: true},
+			Presence: &Presence{
+				Present: true,
+				RoomId:  r.Id,
+				UserId:  c.user.Id,
+			},
 		},
-		RoomId: r.Id,
-		UserId: c.user.Id,
 	}
 	for client := range r.clients {
 		// notify all clients user is online
@@ -261,12 +260,12 @@ func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 
 	data := &ServerMessage{
 		Message: &Message{
-			SeqId:    seq_id,
-			Content:  msg.Publish.Content,
-			Username: msg.client.user.Username,
+			SeqId:     seq_id,
+			RoomId:    r.Id,
+			UserId:    msg.UserId,
+			Content:   msg.Publish.Content,
+			Timestamp: msg.Timestamp,
 		},
-		RoomId: r.Id,
-		UserId: msg.UserId,
 	}
 	data.Id = msg.Id
 	data.Timestamp = msg.Timestamp
@@ -275,7 +274,6 @@ func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 }
 
 func (r *Room) broadcast(msg *ServerMessage) {
-	msg.RoomId = r.Id
 	msg.Timestamp = time.Now()
 
 	fmt.Printf("received message to room %q: %v\n", r.ExternalId, msg)
@@ -289,7 +287,6 @@ func (r *Room) notifyDeleted() {
 		Notification: &Notification{
 			RoomDeleted: &RoomDeleted{RoomId: r.Id},
 		},
-		RoomId: r.Id,
 	}
 
 	r.broadcast(msg)

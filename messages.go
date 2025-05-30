@@ -12,25 +12,25 @@ type BaseMessage struct {
 
 type ClientMessage struct {
 	BaseMessage
-	Publish *MessagePublish `json:"publish,omitempty"`
-	Join    *MessageJoin    `json:"join,omitempty"`
-	Leave   *MessageLeave   `json:"leave,omitempty"`
-	UserId  int             `json:"-"`
-	RoomId  int             `json:"room_id"`
-	client  *Client         `json:"-"`
+	Publish *Publish `json:"publish,omitempty"`
+	Join    *Join    `json:"join,omitempty"`
+	Leave   *Leave   `json:"leave,omitempty"`
+	UserId  int      `json:"-"`
+	RoomId  int      `json:"room_id"`
+	client  *Client  `json:"-"`
 }
 
-type MessagePublish struct {
+type Publish struct {
 	Content  string `json:"content"`
 	Username string `json:"username"`
 	SeqId    int    `json:"seq_id"`
 }
 
-type MessageJoin struct {
+type Join struct {
 	RoomId int `json:"room_id"`
 }
 
-type MessageLeave struct {
+type Leave struct {
 	RoomId int `json:"room_id"`
 }
 
@@ -39,22 +39,20 @@ type ServerMessage struct {
 	Response     *Response     `json:"response,omitempty"`
 	Message      *Message      `json:"message,omitempty"`
 	Notification *Notification `json:"notification,omitempty"`
-	RoomId       int           `json:"room_id,omitempty"`
-	UserId       int           `json:"user_id,omitempty"`
 }
 
 type Message struct {
-	SeqId    int    `json:"seq_id"`
-	RoomId   int    `json:"room_id"`
-	Username string `json:"username"`
-	Content  string `json:"content"`
+	SeqId     int       `json:"seq_id"`
+	RoomId    int       `json:"room_id"`
+	UserId    int       `json:"user_id"`
+	Content   string    `json:"content"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 type Response struct {
-	Status    int            `json:"status"`
-	ErrorCode int            `json:"error_code,omitempty"`
-	Error     string         `json:"error,omitempty"`
-	Data      map[string]any `json:"data,omitempty"`
+	ResponseCode MessageStatusCode `json:"response_code"`
+	Error        string            `json:"error,omitempty"`
+	Data         map[string]any    `json:"data,omitempty"`
 }
 
 type Notification struct {
@@ -65,9 +63,12 @@ type Notification struct {
 
 type Presence struct {
 	Present bool `json:"present"`
+	UserId  int  `json:"user_id"`
+	RoomId  int  `json:"room_id"`
 }
 
 type SubscriptionChange struct {
+	RoomId     int  `json:"room_id"`
 	Subscribed bool `json:"subscribed"`
 	User       User `json:"user"`
 }
@@ -76,6 +77,10 @@ type RoomDeleted struct {
 	RoomId int `json:"room_id"`
 }
 
+type MessageStatusCode int
+
 const (
-	ErrCodeNotFound = http.StatusNotFound
+	StatusCodeNotFound  MessageStatusCode = http.StatusNotFound
+	StatusInternalError MessageStatusCode = http.StatusInternalServerError
+	StatusCodeOK        MessageStatusCode = http.StatusOK
 )
