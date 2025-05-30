@@ -77,6 +77,7 @@ func (r *Room) start() {
 							UserId:  c.user.Id,
 						},
 					},
+					SkipClient: c,
 				})
 			}
 			r.clientLock.Unlock()
@@ -87,7 +88,11 @@ func (r *Room) start() {
 			r.cs.unloadRoom(r.Id)
 		case e := <-r.exit:
 			if e.deleted {
-				r.notifyDeleted()
+				r.broadcast(&ServerMessage{
+					Notification: &Notification{
+						RoomDeleted: &RoomDeleted{RoomId: r.Id},
+					},
+				})
 			}
 
 			for c := range r.clients {
@@ -163,13 +168,9 @@ func (r *Room) handleAddClient(join *ClientMessage) {
 				UserId:  c.user.Id,
 			},
 		},
+		SkipClient: c,
 	}
-	for client := range r.clients {
-		// notify all clients user is online
-		if client.user.Id != c.user.Id {
-			r.broadcast(data)
-		}
-	}
+	r.broadcast(data)
 }
 
 func (r *Room) addClient(c *Client) {
@@ -278,16 +279,10 @@ func (r *Room) broadcast(msg *ServerMessage) {
 
 	fmt.Printf("received message to room %q: %v\n", r.ExternalId, msg)
 	for client := range r.clients {
+		if client == msg.SkipClient {
+			continue
+		}
+
 		client.queueMessage(msg)
 	}
-}
-
-func (r *Room) notifyDeleted() {
-	msg := &ServerMessage{
-		Notification: &Notification{
-			RoomDeleted: &RoomDeleted{RoomId: r.Id},
-		},
-	}
-
-	r.broadcast(msg)
 }

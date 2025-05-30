@@ -114,7 +114,7 @@ func (c *Client) read() {
 			c.leaveRoom(&msg)
 		case msg.Publish != nil:
 			c.log.Println("read:", "publish message")
-			r := c.getRoom(msg.RoomId)
+			r := c.getRoom(msg.Publish.RoomId)
 			if r != nil {
 				r.clientMsgChan <- &msg
 			} else {
@@ -170,7 +170,6 @@ func (c *Client) leaveAllRooms() {
 	for _, room := range c.rooms {
 		room.leaveChan <- &ClientMessage{
 			Leave:  &Leave{RoomId: room.Id},
-			RoomId: room.Id,
 			UserId: c.user.Id,
 			client: c,
 		}
@@ -182,7 +181,7 @@ func (c *Client) joinRoom(msg *ClientMessage) {
 }
 
 func (c *Client) leaveRoom(msg *ClientMessage) {
-	r := c.getRoom(msg.RoomId)
+	r := c.getRoom(msg.Leave.RoomId)
 	if r != nil {
 		r.leaveChan <- msg
 	} else {

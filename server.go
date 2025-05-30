@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"sync"
 )
@@ -52,14 +53,15 @@ func (cs *ChatServer) run() {
 		select {
 		case joinMsg := <-cs.joinChan:
 			cs.log.Println("received join request")
-			if room, ok := cs.rooms[joinMsg.RoomId]; ok {
+			if room, ok := cs.rooms[joinMsg.Join.RoomId]; ok {
 				select {
 				case room.joinChan <- joinMsg:
 				default:
 					cs.log.Printf("join channel full on room %d", room.Id)
 				}
 			} else {
-				dbRoom, err := DB.GetRoomByID(joinMsg.RoomId)
+				fmt.Println(joinMsg.Join.RoomId)
+				dbRoom, err := DB.GetRoomByID(joinMsg.Join.RoomId)
 				if err != nil {
 					cs.log.Println("get room:", err)
 					continue

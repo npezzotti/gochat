@@ -16,11 +16,11 @@ type ClientMessage struct {
 	Join    *Join    `json:"join,omitempty"`
 	Leave   *Leave   `json:"leave,omitempty"`
 	UserId  int      `json:"-"`
-	RoomId  int      `json:"room_id"`
 	client  *Client  `json:"-"`
 }
 
 type Publish struct {
+	RoomId   int    `json:"room_id"`
 	Content  string `json:"content"`
 	Username string `json:"username"`
 	SeqId    int    `json:"seq_id"`
@@ -39,6 +39,7 @@ type ServerMessage struct {
 	Response     *Response     `json:"response,omitempty"`
 	Message      *Message      `json:"message,omitempty"`
 	Notification *Notification `json:"notification,omitempty"`
+	SkipClient   *Client       `json:"-"`
 }
 
 type Message struct {
