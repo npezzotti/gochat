@@ -1,21 +1,10 @@
 class GoChatWSClient {
   wsClient;
 
-  static MessageTypeJoin = 'join'
-  static MessageTypeLeave = 'leave'
-  static MessageTypePublish = 'publish'
-
-  static EventTypeUserSubscribed = 'subscribe'
-  static EventTypeUserUnsubscribed = 'unsubscribe'
-  static EventTypeRoomDeleted = 'room_deleted'
-  static EventTypeUserPresent = 'user_present'
-  static EventTypeUserAbsent = 'user_absent'
-  static EventTypeRoomJoined = 'joined'
-  static EventTypeRoomLeft = 'left'
-
   onPublishMessage;
   onEventTypePresence;
   onEventTypeUserAbsent;
+  onEventTypeSubscriptionChange
   onEventTypeUserSubscribed;
   onEventTypeRoomDeleted;
   onEventTypeUserUnsubscribed;
@@ -43,31 +32,9 @@ class GoChatWSClient {
             this.onPublishMessage(parsedMsg);
           }
         } else if (parsedMsg.response) {
-          if (this.pendingResponses.has(parsedMsg.id)) {
-            const resolve = this.pendingResponses.get(parsedMsg.id).resolve;
-            this.pendingResponses.delete(parsedMsg.id);
-            resolve(parsedMsg);
-          }
+          this.handleServerResponse(parsedMsg)
         } else if (parsedMsg.notification) {
-          if (parsedMsg.notification.room_deleted) {
-            if (this.onEventTypeRoomDeleted) {
-              this.onEventTypeRoomDeleted(parsedMsg);
-            }
-          } else if (parsedMsg.notification.presence) {
-            if (this.onEventTypePresence) {
-              this.onEventTypePresence(parsedMsg);
-            }
-          } else if (parsedMsg.notification.subscription_change) {
-            if (parsedMsg.notification.subscription_change.subscribed) {
-              if (this.onEventTypeUserSubscribed) {
-                this.onEventTypeUserSubscribed(parsedMsg);
-              }
-            } else {
-              if (this.onEventTypeUserUnsubscribed) {
-                this.onEventTypeUserUnsubscribed(parsedMsg);
-              }
-            }
-          }
+          this.handleServerNotification(parsedMsg)
         } else {
           console.log("Unknown server message type")
         }
@@ -77,6 +44,38 @@ class GoChatWSClient {
     this.wsClient.onClose(() => {
       console.log("WebSocket connection closed");
     })
+  }
+
+  handleServerResponse(msg) {
+    if (this.pendingResponses.has(msg.id)) {
+      if (msg.response.response_code < 200 || msg.response.response_code > 299) {
+        const error = msg.response.error
+        const reject = this.pendingResponses.get(msg.id).reject;
+        reject(error)
+      } else {
+        const resolve = this.pendingResponses.get(msg.id).resolve;
+        this.pendingResponses.delete(msg.id);
+        resolve(msg);
+      }
+    }
+  }
+
+  handleServerNotification(msg) {
+    if (msg.notification.room_deleted) {
+      if (this.onEventTypeRoomDeleted) {
+        this.onEventTypeRoomDeleted(msg);
+      }
+    } else if (msg.notification.presence) {
+      if (this.onEventTypePresence) {
+        this.onEventTypePresence(msg);
+      }
+    } else if (msg.notification.subscription_change) {
+      if (this.onEventTypeSubscriptionChange) {
+        this.onEventTypeSubscriptionChange(msg);
+      }
+    } else {
+      console.log("Unknown notification type");
+    }
   }
 
   generateMessageId() {

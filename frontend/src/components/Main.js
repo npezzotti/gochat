@@ -25,6 +25,23 @@ export default function Main({ currentUser, setCurrentUser }) {
     }
   }
 
+  function addSubscriber(user) {
+    const updatedSubscribers = currentRoomRef.current.subscribers
+    updatedSubscribers.push({
+      user_id: user.id,
+      username: user.username,
+    });
+
+    setCurrentRoom({ ...currentRoomRef.current, subscribers: updatedSubscribers });
+  }
+
+  function removeSubscriber(userId) {
+    currentRoomRef.current.subscribers = currentRoomRef.current.subscribers.filter(
+      subscriber => subscriber.user_id !== userId
+    );
+    setCurrentRoom({ ...currentRoomRef.current });
+  }
+
   useEffect(() => {
     console.log("Initializing WebSocket client...");
     const wsConn = new GoChatWSClient("ws://localhost:8000/ws");
@@ -34,26 +51,18 @@ export default function Main({ currentUser, setCurrentUser }) {
       setMessages((prevMessages) => [...prevMessages, msg.message]);
     };
     wsConn.onEventTypePresence = (msg) => {
-      const {user_id, present} = msg.notification.presence
+      const { user_id, present } = msg.notification.presence
       handlePresenceEvent(user_id, present);
     };
     wsConn.onEventTypeRoomDeleted = (msg) => {
       console.log("Room deleted event:", msg);
     };
-    wsConn.onEventTypeUserSubscribed = (msg) => {
-      const updatedSubscribers = currentRoomRef.current.subscribers
-      updatedSubscribers.push({
-        user_id: msg.notification.subscription_change.user.id,
-        username: msg.notification.subscription_change.user.username,
-      });
-
-      setCurrentRoom({ ...currentRoomRef.current, subscribers: updatedSubscribers });
-    };
-    wsConn.onEventTypeUserUnsubscribed = (msg) => {
-      currentRoomRef.current.subscribers = currentRoomRef.current.subscribers.filter(
-        subscriber => subscriber.user_id !== msg.notification.subscription_change.user.id
-      );
-      setCurrentRoom({ ...currentRoomRef.current });
+    wsConn.onEventTypeSubscriptionChange = (msg) => {
+      if (msg.notification.subscription_change.subscribed) {
+        addSubscriber(msg.notification.subscription_change.user)
+      } else {
+        removeSubscriber(msg.notification.subscription_change.user.id)
+      }
     };
     return () => {
       wsConn.close();
