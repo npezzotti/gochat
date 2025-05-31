@@ -81,7 +81,20 @@ type RoomDeleted struct {
 type MessageStatusCode int
 
 const (
-	StatusCodeNotFound  MessageStatusCode = http.StatusNotFound
-	StatusInternalError MessageStatusCode = http.StatusInternalServerError
-	StatusCodeOK        MessageStatusCode = http.StatusOK
+	ResponseCodeNotFound      MessageStatusCode = http.StatusNotFound
+	ResponseCodeInternalError MessageStatusCode = http.StatusInternalServerError
+	ResponseCodeOK            MessageStatusCode = http.StatusOK
 )
+
+func ErrRoomNotFound(id int) *ServerMessage {
+	return &ServerMessage{
+		BaseMessage: BaseMessage{
+			Id:        id,
+			Timestamp: time.Now().Round(time.Millisecond),
+		},
+		Response: &Response{
+			ResponseCode: ResponseCodeNotFound,
+			Error:        "room not found",
+		},
+	}
+}

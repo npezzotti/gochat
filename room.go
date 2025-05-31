@@ -58,7 +58,7 @@ func (r *Room) start() {
 			// send a leave response
 			resp := &ServerMessage{
 				Response: &Response{
-					ResponseCode: StatusCodeOK,
+					ResponseCode: ResponseCodeOK,
 				},
 			}
 			resp.Id = leaveMsg.Id
@@ -151,7 +151,7 @@ func (r *Room) handleAddClient(join *ClientMessage) {
 
 	resp := &ServerMessage{
 		Response: &Response{
-			ResponseCode: StatusCodeOK,
+			ResponseCode: ResponseCodeOK,
 			Data:         roomInfo,
 		},
 	}

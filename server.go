@@ -63,7 +63,7 @@ func (cs *ChatServer) run() {
 				fmt.Println(joinMsg.Join.RoomId)
 				dbRoom, err := DB.GetRoomByID(joinMsg.Join.RoomId)
 				if err != nil {
-					cs.log.Println("get room:", err)
+					joinMsg.client.queueMessage(ErrRoomNotFound(joinMsg.Id))
 					continue
 				}
 
