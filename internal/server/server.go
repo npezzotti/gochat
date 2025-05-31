@@ -1,33 +1,36 @@
-package main
+package server
 
 import (
 	"fmt"
 	"log"
 	"sync"
+
+	"github.com/npezzotti/go-chatroom/internal/database"
+	"github.com/npezzotti/go-chatroom/internal/types"
 )
 
-type subReq struct {
-	subType subReqType
-	user    User
-	roomId  int
+type SubReq struct {
+	SubType subReqType
+	User    types.User
+	RoomId  int
 }
 
 type subReqType string
 
 const (
-	subReqTypeSubscribe   subReqType = "subscribe"
-	subReqTypeUnsubscribe subReqType = "unsubscribe"
+	SubReqTypeSubscribe   subReqType = "subscribe"
+	SubReqTypeUnsubscribe subReqType = "unsubscribe"
 )
 
 type ChatServer struct {
-	log            *log.Logger
+	Log            *log.Logger
 	clients        map[*Client]struct{}
 	clientsLock    sync.Mutex
 	joinChan       chan *ClientMessage
-	registerChan   chan *Client
+	RegisterChan   chan *Client
 	deRegisterChan chan *Client
-	subChan        chan subReq
-	rmRoomChan     chan int
+	SubChan        chan SubReq
+	RmRoomChan     chan int
 	rooms          map[int]*Room
 	stop           chan struct{}
 	done           chan struct{}
@@ -35,33 +38,33 @@ type ChatServer struct {
 
 func NewChatServer(logger *log.Logger) (*ChatServer, error) {
 	return &ChatServer{
-		log:            logger,
+		Log:            logger,
 		joinChan:       make(chan *ClientMessage),
 		clients:        make(map[*Client]struct{}),
-		registerChan:   make(chan *Client),
+		RegisterChan:   make(chan *Client),
 		deRegisterChan: make(chan *Client),
-		subChan:        make(chan subReq),
-		rmRoomChan:     make(chan int),
+		SubChan:        make(chan SubReq),
+		RmRoomChan:     make(chan int),
 		rooms:          make(map[int]*Room),
 		stop:           make(chan struct{}),
 		done:           make(chan struct{}),
 	}, nil
 }
 
-func (cs *ChatServer) run() {
+func (cs *ChatServer) Run() {
 	for {
 		select {
 		case joinMsg := <-cs.joinChan:
-			cs.log.Println("received join request")
+			cs.Log.Println("received join request")
 			if room, ok := cs.rooms[joinMsg.Join.RoomId]; ok {
 				select {
 				case room.joinChan <- joinMsg:
 				default:
-					cs.log.Printf("join channel full on room %d", room.Id)
+					cs.Log.Printf("join channel full on room %d", room.Id)
 				}
 			} else {
 				fmt.Println(joinMsg.Join.RoomId)
-				dbRoom, err := DB.GetRoomByID(joinMsg.Join.RoomId)
+				dbRoom, err := database.DB.GetRoomByID(joinMsg.Join.RoomId)
 				if err != nil {
 					joinMsg.client.queueMessage(ErrRoomNotFound(joinMsg.Id))
 					continue
@@ -79,7 +82,7 @@ func (cs *ChatServer) run() {
 					seq_id:        dbRoom.SeqId,
 					clients:       make(map[*Client]struct{}),
 					userMap:       make(map[int]map[*Client]struct{}),
-					log:           cs.log,
+					log:           cs.Log,
 					exit:          make(chan exitReq),
 					done:          make(chan struct{}),
 				}
@@ -90,49 +93,49 @@ func (cs *ChatServer) run() {
 				go room.start()
 
 			}
-		case client := <-cs.registerChan:
-			cs.log.Printf("adding connection from %q", client.user.Username)
+		case client := <-cs.RegisterChan:
+			cs.Log.Printf("adding connection from %q", client.user.Username)
 			cs.addClient(client)
 		case client := <-cs.deRegisterChan:
-			cs.log.Printf("removing connection from %q", client.user.Username)
+			cs.Log.Printf("removing connection from %q", client.user.Username)
 			cs.removeClient(client)
-		case req := <-cs.subChan:
-			switch req.subType {
-			case subReqTypeSubscribe:
+		case req := <-cs.SubChan:
+			switch req.SubType {
+			case SubReqTypeSubscribe:
 				// notify other users in the room
-				if room, ok := cs.rooms[req.roomId]; ok {
+				if room, ok := cs.rooms[req.RoomId]; ok {
 					room.broadcast(&ServerMessage{
 						Notification: &Notification{
 							SubscriptionChange: &SubscriptionChange{
 								RoomId:     room.Id,
 								Subscribed: true,
-								User: User{
-									Id:       req.user.Id,
-									Username: req.user.Username,
+								User: types.User{
+									Id:       req.User.Id,
+									Username: req.User.Username,
 								},
 							},
 						},
 					})
 				}
-			case subReqTypeUnsubscribe:
-				cs.log.Printf("unsubscribing user %q from room %d", req.user.Username, req.roomId)
-				if room, ok := cs.rooms[req.roomId]; ok {
-					room.removeAllClientsForUser(req.user.Id)
+			case SubReqTypeUnsubscribe:
+				cs.Log.Printf("unsubscribing user %q from room %d", req.User.Username, req.RoomId)
+				if room, ok := cs.rooms[req.RoomId]; ok {
+					room.removeAllClientsForUser(req.User.Id)
 					room.broadcast(&ServerMessage{
 						Notification: &Notification{
 							SubscriptionChange: &SubscriptionChange{
 								RoomId:     room.Id,
 								Subscribed: false,
-								User: User{
-									Id:       req.user.Id,
-									Username: req.user.Username,
+								User: types.User{
+									Id:       req.User.Id,
+									Username: req.User.Username,
 								},
 							},
 						},
 					})
 				}
 			}
-		case id := <-cs.rmRoomChan:
+		case id := <-cs.RmRoomChan:
 			r, ok := cs.rooms[id]
 			if ok {
 				cs.unloadRoom(r.Id)
@@ -140,9 +143,9 @@ func (cs *ChatServer) run() {
 				<-r.done
 			}
 		case <-cs.stop:
-			cs.log.Println("shutting down rooms")
+			cs.Log.Println("shutting down rooms")
 			for _, r := range cs.rooms {
-				cs.log.Println("shutting down room", r.ExternalId)
+				cs.Log.Println("shutting down room", r.ExternalId)
 				close(r.exit)
 
 				<-r.done
@@ -168,15 +171,15 @@ func (cs *ChatServer) removeClient(c *Client) {
 
 func (cs *ChatServer) unloadRoom(roomId int) {
 	if r, ok := cs.rooms[roomId]; ok {
-		cs.log.Printf("removing room %q", r.ExternalId)
+		cs.Log.Printf("removing room %q", r.ExternalId)
 		delete(cs.rooms, roomId)
 	}
 
-	cs.log.Printf("current rooms: %v", cs.rooms)
+	cs.Log.Printf("current rooms: %v", cs.rooms)
 }
 
-func (cs *ChatServer) shutdown() {
-	cs.log.Println("received shutdown signal")
+func (cs *ChatServer) Shutdown() {
+	cs.Log.Println("received shutdown signal")
 	for c := range cs.clients {
 		close(c.stop)
 	}

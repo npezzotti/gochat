@@ -1,9 +1,8 @@
-package main
+package api
 
 import (
 	"context"
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,14 +10,22 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt"
-	"github.com/npezzotti/go-chatroom/db"
+	"github.com/npezzotti/go-chatroom/internal/database"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var (
+	SecretKey []byte
+
 	defaultExp     = time.Hour * 24
 	tokenCookieKey = "token"
 )
+
+func UserId(ctx context.Context) (int, bool) {
+	userId, ok := ctx.Value(userIdKey).(int)
+
+	return userId, ok
+}
 
 type jwtClaim string
 
@@ -75,7 +82,7 @@ func extractUserIdFromToken(r *http.Request) (int, error) {
 	return int(userId), nil
 }
 
-func authMiddleware(l *log.Logger, next http.HandlerFunc) http.HandlerFunc {
+func AuthMiddleware(l *log.Logger, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userId, err := extractUserIdFromToken(r)
 		if err != nil {
@@ -92,7 +99,7 @@ func authMiddleware(l *log.Logger, next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func createAccount(l *log.Logger, w http.ResponseWriter, r *http.Request) {
+func CreateAccount(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		errResp := NewBadRequestError()
@@ -107,13 +114,13 @@ func createAccount(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	params := db.CreateAccountParams{
+	params := database.CreateAccountParams{
 		Username:     r.Form.Get("username"),
 		EmailAddress: r.Form.Get("email"),
 		PasswordHash: pwdHash,
 	}
 
-	newUser, err := DB.CreateAccount(params)
+	newUser, err := database.DB.CreateAccount(params)
 	if err != nil {
 		errResp := NewInternalServerError(err)
 		writeJson(l, w, errResp.Code, errResp)
@@ -127,7 +134,7 @@ func createAccount(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
+func Account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		userId, ok := UserId(r.Context())
 		if !ok {
@@ -136,7 +143,7 @@ func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user, err := DB.GetAccount(userId)
+		user, err := database.DB.GetAccount(userId)
 		if err != nil {
 			errResp := NewNotFoundError()
 			writeJson(l, w, errResp.Code, errResp)
@@ -158,7 +165,7 @@ func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		curUser, err := DB.GetAccount(userId)
+		curUser, err := database.DB.GetAccount(userId)
 		if err != nil {
 			errResp := NewNotFoundError()
 			writeJson(l, w, errResp.Code, errResp)
@@ -180,13 +187,13 @@ func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		params := db.UpdateAccountParams{
+		params := database.UpdateAccountParams{
 			UserId:       curUser.Id,
 			Username:     u.Username,
 			PasswordHash: pwdHash,
 		}
 
-		dbUser, err := DB.UpdateAccount(params)
+		dbUser, err := database.DB.UpdateAccount(params)
 		if err != nil {
 			errResp := NewInternalServerError(err)
 			writeJson(l, w, errResp.Code, errResp)
@@ -208,7 +215,7 @@ func account(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func session(l *log.Logger, w http.ResponseWriter, r *http.Request) {
+func Session(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	userId, ok := UserId(r.Context())
 	if !ok {
 		errResp := NewUnauthorizedError()
@@ -216,7 +223,7 @@ func session(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := DB.GetAccount(userId)
+	user, err := database.DB.GetAccount(userId)
 	if err != nil {
 		errResp := NewNotFoundError()
 		writeJson(l, w, errResp.Code, errResp)
@@ -234,7 +241,7 @@ func session(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	writeJson(l, w, http.StatusOK, u)
 }
 
-func login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
+func Login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 	var lr LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&lr); err != nil {
 		errResp := NewBadRequestError()
@@ -242,7 +249,7 @@ func login(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbUser, err := DB.GetAccountByEmail(lr.Email)
+	dbUser, err := database.DB.GetAccountByEmail(lr.Email)
 	if err != nil {
 		var errResp *ApiError
 		if err == sql.ErrNoRows {
@@ -291,7 +298,7 @@ func createJwtCookie(tokenString string, exp time.Duration) *http.Cookie {
 	}
 }
 
-func logout(w http.ResponseWriter, _ *http.Request) {
+func Logout(w http.ResponseWriter, _ *http.Request) {
 	// instruct browser to delete cookie by overwriting it with an expired token
 	http.SetCookie(w, createJwtCookie("", time.Duration(time.Unix(0, 0).Unix())))
 	w.WriteHeader(http.StatusNoContent)
@@ -313,12 +320,12 @@ func createJwtForSession(user User, exp time.Duration) (string, error) {
 		expClaim:    time.Now().Add(exp).Unix(),
 	})
 
-	return token.SignedString(secretKey)
+	return token.SignedString(SecretKey)
 }
 
 func verifyToken(tokenString string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
-		return secretKey, nil
+		return SecretKey, nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("parse token: %w", err)
@@ -329,8 +336,4 @@ func verifyToken(tokenString string) (*jwt.Token, error) {
 	}
 
 	return token, nil
-}
-
-func decodeSigningSecret() ([]byte, error) {
-	return base64.StdEncoding.DecodeString("wT0phFUusHZIrDhL9bUKPUhwaxKhpi/SaI6PtgB+MgU=")
 }

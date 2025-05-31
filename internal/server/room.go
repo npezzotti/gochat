@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"fmt"
@@ -6,7 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/npezzotti/go-chatroom/db"
+	"github.com/npezzotti/go-chatroom/internal/database"
+	"github.com/npezzotti/go-chatroom/internal/types"
 )
 
 var idleRoomTimeout = time.Second * 5
@@ -16,11 +17,11 @@ type exitReq struct {
 }
 
 type Room struct {
-	Id            int    `json:"id"`
-	Name          string `json:"name"`
-	ExternalId    string `json:"external_id"`
-	Description   string `json:"description"`
-	Subscribers   []User `json:"subscribers"`
+	Id            int          `json:"id"`
+	Name          string       `json:"name"`
+	ExternalId    string       `json:"external_id"`
+	Description   string       `json:"description"`
+	Subscribers   []types.User `json:"subscribers"`
 	cs            *ChatServer
 	joinChan      chan *ClientMessage
 	leaveChan     chan *ClientMessage
@@ -110,9 +111,9 @@ func (r *Room) handleAddClient(join *ClientMessage) {
 	r.killTimer.Stop()
 
 	c := join.client
-	if !DB.SubscriptionExists(c.user.Id, r.Id) {
+	if !database.DB.SubscriptionExists(c.user.Id, r.Id) {
 		r.log.Printf("Creating subscription for user %q in room %q", c.user.Username, r.ExternalId)
-		if _, err := DB.CreateSubscription(c.user.Id, r.Id); err != nil {
+		if _, err := database.DB.CreateSubscription(c.user.Id, r.Id); err != nil {
 			// reset timer since client join failed
 			if len(r.clients) == 0 {
 				r.killTimer.Reset(idleRoomTimeout)
@@ -122,7 +123,7 @@ func (r *Room) handleAddClient(join *ClientMessage) {
 		}
 	}
 
-	dbRoom, err := DB.FetchRoomWithSubscribers(r.Id)
+	dbRoom, err := database.DB.FetchRoomWithSubscribers(r.Id)
 	if err != nil {
 		r.log.Println("FetchRoomWithSubscribers:", err)
 		return
@@ -247,7 +248,7 @@ func (r *Room) removeAllClientsForUser(userId int) {
 
 func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 	seq_id := r.seq_id + 1
-	if err := DB.MessageCreate(db.UserMessage{
+	if err := database.DB.MessageCreate(database.UserMessage{
 		SeqId:     seq_id,
 		RoomId:    r.Id,
 		UserId:    msg.client.user.Id,

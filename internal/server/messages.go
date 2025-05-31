@@ -1,8 +1,10 @@
-package main
+package server
 
 import (
 	"net/http"
 	"time"
+
+	"github.com/npezzotti/go-chatroom/internal/types"
 )
 
 type BaseMessage struct {
@@ -69,9 +71,9 @@ type Presence struct {
 }
 
 type SubscriptionChange struct {
-	RoomId     int  `json:"room_id"`
-	Subscribed bool `json:"subscribed"`
-	User       User `json:"user"`
+	RoomId     int        `json:"room_id"`
+	Subscribed bool       `json:"subscribed"`
+	User       types.User `json:"user"`
 }
 
 type RoomDeleted struct {

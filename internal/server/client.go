@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"encoding/json"
@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/npezzotti/go-chatroom/internal/types"
 )
 
 const (
@@ -20,14 +21,14 @@ type Client struct {
 	conn       *websocket.Conn
 	chatServer *ChatServer
 	log        *log.Logger
-	user       User
+	user       types.User
 	send       chan *ServerMessage
 	rooms      map[int]*Room
 	roomsLock  sync.RWMutex
 	stop       chan struct{}
 }
 
-func NewClient(user User, conn *websocket.Conn, cs *ChatServer, l *log.Logger) *Client {
+func NewClient(user types.User, conn *websocket.Conn, cs *ChatServer, l *log.Logger) *Client {
 	return &Client{
 		conn:       conn,
 		chatServer: cs,
@@ -39,7 +40,7 @@ func NewClient(user User, conn *websocket.Conn, cs *ChatServer, l *log.Logger) *
 	}
 }
 
-func (c *Client) write() {
+func (c *Client) Write() {
 	ticker := time.NewTicker(time.Duration(pingInterval))
 	defer func() {
 		ticker.Stop()
@@ -74,7 +75,7 @@ func (c *Client) write() {
 	}
 }
 
-func (c *Client) read() {
+func (c *Client) Read() {
 	defer func() {
 		c.conn.Close()
 		c.cleanup()
