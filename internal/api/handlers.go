@@ -27,43 +27,43 @@ func writeJson(l *log.Logger, w http.ResponseWriter, statusCode int, v interface
 	}
 }
 
-func CreateRoom(l *log.Logger, w http.ResponseWriter, r *http.Request) {
+func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 	var params database.CreateRoomParams
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
 		errResp := NewBadRequestError()
-		writeJson(l, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
 	userId, ok := UserId(r.Context())
 	if !ok {
 		errResp := NewUnauthorizedError()
-		writeJson(l, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
 	sid, err := shortid.Generate()
 	if err != nil {
-		l.Print("generate shortid:", err)
+		s.log.Print("generate shortid:", err)
 		errResp := NewInternalServerError(err)
-		writeJson(l, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
 	params.ExternalId = sid
 	params.OwnerId = userId
 
-	newRoom, err := database.DB.CreateRoom(params)
+	newRoom, err := s.db.CreateRoom(params)
 	if err != nil {
 		errResp := NewBadRequestError()
-		writeJson(l, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	subs, err := database.DB.GetSubscribersForRoom(newRoom.Id)
+	subs, err := s.db.GetSubscribersForRoom(newRoom.Id)
 	if err != nil {
 		errResp := NewInternalServerError(err)
-		writeJson(l, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
@@ -82,25 +82,25 @@ func CreateRoom(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		Description: newRoom.Description,
 	}
 
-	writeJson(l, w, http.StatusCreated, room)
+	writeJson(s.log, w, http.StatusCreated, room)
 }
 
-func GetRoom(l *log.Logger, w http.ResponseWriter, r *http.Request) {
+func (s *Server) getRoom(w http.ResponseWriter, r *http.Request) {
 	externalId := r.URL.Query().Get("id")
 	if externalId == "" {
 		errResp := NewBadRequestError()
-		writeJson(l, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	dbRoom, err := database.DB.GetRoomByExternalID(externalId)
+	dbRoom, err := s.db.GetRoomByExternalID(externalId)
 	if err != nil {
 		errResp := NewNotFoundError()
-		writeJson(l, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	dbSubs, err := database.DB.GetSubscribersForRoom(dbRoom.Id)
+	dbSubs, err := s.db.GetSubscribersForRoom(dbRoom.Id)
 	var subscribers []types.User
 	for _, dbSub := range dbSubs {
 		var u types.User
@@ -118,49 +118,49 @@ func GetRoom(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		Subscribers: subscribers,
 	}
 
-	writeJson(l, w, http.StatusOK, room)
+	writeJson(s.log, w, http.StatusOK, room)
 }
 
-func DeleteRoom(cs *server.ChatServer, w http.ResponseWriter, r *http.Request) {
+func (s *Server) deleteRoom(w http.ResponseWriter, r *http.Request) {
 	externalId := r.URL.Query().Get("id")
 	if externalId == "" {
 		errResp := NewBadRequestError()
-		writeJson(cs.Log, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	room, err := database.DB.GetRoomByExternalID(externalId)
+	room, err := s.db.GetRoomByExternalID(externalId)
 	if err != nil {
 		errResp := NewNotFoundError()
-		writeJson(cs.Log, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	err = database.DB.DeleteRoom(room.Id)
+	err = s.db.DeleteRoom(room.Id)
 	if err != nil {
-		cs.Log.Println("delete room:", err)
+		s.log.Println("delete room:", err)
 		errResp := NewInternalServerError(err)
-		writeJson(cs.Log, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	cs.RmRoomChan <- room.Id
-	writeJson(cs.Log, w, http.StatusNoContent, nil)
+	s.cs.RmRoomChan <- room.Id
+	writeJson(s.log, w, http.StatusNoContent, nil)
 }
 
-func GetUsersRooms(l *log.Logger, w http.ResponseWriter, r *http.Request) {
+func (s *Server) getUsersRooms(w http.ResponseWriter, r *http.Request) {
 	userId, ok := UserId(r.Context())
 	if !ok {
 		errResp := NewUnauthorizedError()
-		writeJson(l, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	dbRooms, err := database.DB.ListSubscriptions(userId)
+	dbRooms, err := s.db.ListSubscriptions(userId)
 	if err != nil {
-		l.Println("list subscriptions:", err)
+		s.log.Println("list subscriptions:", err)
 		errResp := NewInternalServerError(err)
-		writeJson(l, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
@@ -174,55 +174,55 @@ func GetUsersRooms(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	writeJson(l, w, http.StatusOK, rooms)
+	writeJson(s.log, w, http.StatusOK, rooms)
 }
 
-func SubscribeRoom(cs *server.ChatServer, w http.ResponseWriter, r *http.Request) {
+func (s *Server) subscribeRoom(w http.ResponseWriter, r *http.Request) {
 	roomExternalId := r.URL.Query().Get("room_id")
 	if roomExternalId == "" {
 		errResp := NewBadRequestError()
-		writeJson(cs.Log, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
 	userId, ok := UserId(r.Context())
 	if !ok {
 		errResp := NewUnauthorizedError()
-		writeJson(cs.Log, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	user, err := database.DB.GetAccount(userId)
+	user, err := s.db.GetAccount(userId)
 	if err != nil {
 		errResp := NewNotFoundError()
-		writeJson(cs.Log, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	room, err := database.DB.GetRoomByExternalID(roomExternalId)
+	room, err := s.db.GetRoomByExternalID(roomExternalId)
 	if err != nil {
 		errResp := NewNotFoundError()
-		writeJson(cs.Log, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	dbSub, err := database.DB.CreateSubscription(user.Id, room.Id)
+	dbSub, err := s.db.CreateSubscription(user.Id, room.Id)
 	if err != nil {
 		errResp := NewBadRequestError()
-		writeJson(cs.Log, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	cs.SubChan <- server.SubReq{
+	s.cs.SubChan <- server.SubReq{
 		SubType: server.SubReqTypeSubscribe,
 		User:    types.User{Id: user.Id, Username: user.Username},
 		RoomId:  room.Id,
 	}
 
-	dbSubs, err := database.DB.GetSubscribersForRoom(room.Id)
+	dbSubs, err := s.db.GetSubscribersForRoom(room.Id)
 	if err != nil {
 		errResp := NewInternalServerError(err)
-		writeJson(cs.Log, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
@@ -250,67 +250,67 @@ func SubscribeRoom(cs *server.ChatServer, w http.ResponseWriter, r *http.Request
 		},
 	}
 
-	writeJson(cs.Log, w, http.StatusCreated, sub)
+	writeJson(s.log, w, http.StatusCreated, sub)
 }
 
-func UnsubscribeRoom(cs *server.ChatServer, w http.ResponseWriter, r *http.Request) {
+func (s *Server) unsubscribeRoom(w http.ResponseWriter, r *http.Request) {
 	externalId := r.URL.Query().Get("room_id")
 	if externalId == "" {
 		errResp := NewBadRequestError()
-		writeJson(cs.Log, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
 	userId, ok := UserId(r.Context())
 	if !ok {
 		errResp := NewUnauthorizedError()
-		writeJson(cs.Log, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	user, err := database.DB.GetAccount(userId)
+	user, err := s.db.GetAccount(userId)
 	if err != nil {
 		errResp := NewNotFoundError()
-		writeJson(cs.Log, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	room, err := database.DB.GetRoomByExternalID(externalId)
+	room, err := s.db.GetRoomByExternalID(externalId)
 	if err != nil {
 		errResp := NewNotFoundError()
-		writeJson(cs.Log, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	err = database.DB.DeleteSubscription(userId, room.Id)
+	err = s.db.DeleteSubscription(userId, room.Id)
 	if err != nil {
-		cs.Log.Println("delete subscription:", err)
+		s.log.Println("delete subscription:", err)
 		errResp := NewInternalServerError(err)
-		writeJson(cs.Log, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	cs.SubChan <- server.SubReq{
+	s.cs.SubChan <- server.SubReq{
 		SubType: server.SubReqTypeUnsubscribe,
 		User:    types.User{Id: user.Id, Username: user.Username},
 		RoomId:  room.Id,
 	}
 
-	writeJson(cs.Log, w, http.StatusNoContent, nil)
+	writeJson(s.log, w, http.StatusNoContent, nil)
 }
 
-func GetMessages(l *log.Logger, w http.ResponseWriter, r *http.Request) {
+func (s *Server) getMessages(w http.ResponseWriter, r *http.Request) {
 	externalId := r.URL.Query().Get("room_id")
 	if externalId == "" {
 		errResp := NewBadRequestError()
-		writeJson(l, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	room, err := database.DB.GetRoomByExternalID(externalId)
+	room, err := s.db.GetRoomByExternalID(externalId)
 	if err != nil {
 		errResp := NewNotFoundError()
-		writeJson(l, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
@@ -321,7 +321,7 @@ func GetMessages(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		before, err = strconv.Atoi(beforeStr)
 		if err != nil {
 			errResp := NewBadRequestError()
-			writeJson(l, w, errResp.Code, errResp)
+			writeJson(s.log, w, errResp.Code, errResp)
 			return
 		}
 	}
@@ -331,7 +331,7 @@ func GetMessages(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		after, err = strconv.Atoi(afterStr)
 		if err != nil {
 			errResp := NewBadRequestError()
-			writeJson(l, w, errResp.Code, errResp)
+			writeJson(s.log, w, errResp.Code, errResp)
 			return
 		}
 	}
@@ -341,15 +341,15 @@ func GetMessages(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		limit, err = strconv.Atoi(limitStr)
 		if err != nil {
 			errResp := NewBadRequestError()
-			writeJson(l, w, errResp.Code, errResp)
+			writeJson(s.log, w, errResp.Code, errResp)
 			return
 		}
 	}
 
-	messages, err := database.DB.MessageGetAll(room.Id, after, before, limit)
+	messages, err := s.db.MessageGetAll(room.Id, after, before, limit)
 	if err != nil {
 		errResp := NewInternalServerError(err)
-		writeJson(l, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
@@ -367,26 +367,21 @@ func GetMessages(l *log.Logger, w http.ResponseWriter, r *http.Request) {
 		userMessages = append(userMessages, msg)
 	}
 
-	writeJson(l, w, http.StatusOK, userMessages)
+	writeJson(s.log, w, http.StatusOK, userMessages)
 }
 
-func ServeWs(chatServer *server.ChatServer, w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
+func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 	username, ok := UserId(r.Context())
 	if !ok {
 		errResp := NewUnauthorizedError()
-		writeJson(chatServer.Log, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	user, err := database.DB.GetAccount(username)
+	user, err := s.db.GetAccount(username)
 	if err != nil {
 		errResp := NewNotFoundError()
-		writeJson(chatServer.Log, w, errResp.Code, errResp)
+		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
@@ -397,7 +392,7 @@ func ServeWs(chatServer *server.ChatServer, w http.ResponseWriter, r *http.Reque
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		chatServer.Log.Println("error upgrading connection:", err)
+		s.log.Println("error upgrading connection:", err)
 		return
 	}
 
@@ -405,8 +400,8 @@ func ServeWs(chatServer *server.ChatServer, w http.ResponseWriter, r *http.Reque
 		Id:           user.Id,
 		Username:     user.Username,
 		EmailAddress: user.EmailAddress,
-	}, conn, chatServer, chatServer.Log)
-	chatServer.RegisterChan <- client
+	}, conn, s.cs, s.log)
+	s.cs.RegisterChan <- client
 
 	go client.Write()
 	go client.Read()

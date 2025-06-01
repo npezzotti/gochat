@@ -4,8 +4,6 @@ import (
 	"database/sql"
 )
 
-var DB *DBConn
-
 type DBConn struct {
 	conn *sql.DB
 }
