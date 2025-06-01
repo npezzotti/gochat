@@ -12,17 +12,19 @@ import (
 )
 
 type Server struct {
-	log *log.Logger
-	db  *database.DBConn
-	mux *http.Server
-	cs  *server.ChatServer
+	log        *log.Logger
+	db         *database.DBConn
+	mux        *http.Server
+	cs         *server.ChatServer
+	signingKey []byte
 }
 
-func NewServer(addr string, logger *log.Logger, cs *server.ChatServer, db *database.DBConn) *Server {
+func NewServer(addr string, logger *log.Logger, cs *server.ChatServer, db *database.DBConn, signingKey []byte) *Server {
 	s := &Server{
-		log: logger,
-		db:  db,
-		cs:  cs,
+		log:        logger,
+		db:         db,
+		cs:         cs,
+		signingKey: signingKey,
 	}
 
 	mux := http.NewServeMux()

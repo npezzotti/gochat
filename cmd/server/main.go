@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"flag"
 	"log"
 	"os"
@@ -12,33 +11,30 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/npezzotti/go-chatroom/internal/api"
+	"github.com/npezzotti/go-chatroom/internal/config"
 	"github.com/npezzotti/go-chatroom/internal/database"
 	"github.com/npezzotti/go-chatroom/internal/server"
 )
 
 var (
-	addr = flag.String("addr", "localhost:8000", "server address")
+	addr       = flag.String("addr", "localhost:8000", "server address")
+	dsn        = flag.String("dsn", "host=localhost user=postgres password=postgres dbname=postgres sslmode=disable", "database connection string")
+	signingKey = flag.String("signing-key", "wT0phFUusHZIrDhL9bUKPUhwaxKhpi/SaI6PtgB+MgU=", "base64 encoded signing key")
 )
-
-func decodeSigningSecret() ([]byte, error) {
-	return base64.StdEncoding.DecodeString("wT0phFUusHZIrDhL9bUKPUhwaxKhpi/SaI6PtgB+MgU=")
-}
 
 func main() {
 	logger := log.New(os.Stderr, "", 0)
 	flag.Parse()
 
-	var err error
-	api.SecretKey, err = decodeSigningSecret()
+	cfg, err := config.NewConfig(*addr, *dsn, *signingKey)
 	if err != nil {
-		logger.Fatal("get signing secret: %w", err)
+		logger.Fatal("config:", err)
 	}
 
-	dbConn, err := database.NewDatabaseConnection("host=localhost user=postgres password=postgres dbname=postgres sslmode=disable")
+	dbConn, err := database.NewDatabaseConnection(cfg.DatabaseDSN)
 	if err != nil {
 		logger.Fatal("db open:", err)
 	}
-
 	defer func() {
 		if err := dbConn.Close(); err != nil {
 			logger.Fatal("db close:", err)
@@ -50,7 +46,8 @@ func main() {
 		logger.Fatal("new chat server:", err)
 	}
 
-	srv := api.NewServer(*addr, logger, chatServer, dbConn)
+	srv := api.NewServer(cfg.ServerAddr, logger, chatServer, dbConn, cfg.SigningKey)
+
 	go chatServer.Run()
 
 	errCh := make(chan error, 1)

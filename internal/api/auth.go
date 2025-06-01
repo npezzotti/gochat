@@ -13,11 +13,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var (
-	SecretKey []byte
-
-	defaultExp     = time.Hour * 24
-	tokenCookieKey = "token"
+const (
+	defaultJwtExpiration = time.Hour * 24
+	tokenCookieKey       = "token"
 )
 
 func UserId(ctx context.Context) (int, bool) {
@@ -25,8 +23,6 @@ func UserId(ctx context.Context) (int, bool) {
 
 	return userId, ok
 }
-
-type jwtClaim string
 
 const (
 	userIdClaim = "user-id"
@@ -57,13 +53,13 @@ type RegisterRequest struct {
 	Password string `json:"password"`
 }
 
-func extractUserIdFromToken(r *http.Request) (int, error) {
+func (s *Server) extractUserIdFromToken(r *http.Request) (int, error) {
 	tokenString, err := r.Cookie(tokenCookieKey)
 	if err != nil {
 		return 0, fmt.Errorf("get cookie: %w", err)
 	}
 
-	token, err := verifyToken(tokenString.Value)
+	token, err := s.verifyToken(tokenString.Value)
 	if err != nil {
 		return 0, fmt.Errorf("verify token: %w", err)
 	}
@@ -83,7 +79,7 @@ func extractUserIdFromToken(r *http.Request) (int, error) {
 
 func (s *Server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userId, err := extractUserIdFromToken(r)
+		userId, err := s.extractUserIdFromToken(r)
 		if err != nil {
 			s.log.Println("failed to extract user id from token:", err)
 			errResp := NewUnauthorizedError()
@@ -274,14 +270,14 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:    dbUser.UpdatedAt,
 	}
 
-	token, err := createJwtForSession(u, defaultExp)
+	token, err := s.createJwtForSession(u, defaultJwtExpiration)
 	if err != nil {
 		errResp := NewInternalServerError(err)
 		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}
 
-	http.SetCookie(w, createJwtCookie(token, defaultExp))
+	http.SetCookie(w, createJwtCookie(token, defaultJwtExpiration))
 
 	writeJson(s.log, w, http.StatusOK, u)
 }
@@ -313,18 +309,18 @@ func verifyPassword(passwdHash, passwd string) bool {
 	return err == nil
 }
 
-func createJwtForSession(user User, exp time.Duration) (string, error) {
+func (s *Server) createJwtForSession(user User, exp time.Duration) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		userIdClaim: user.Id,
 		expClaim:    time.Now().Add(exp).Unix(),
 	})
 
-	return token.SignedString(SecretKey)
+	return token.SignedString(s.signingKey)
 }
 
-func verifyToken(tokenString string) (*jwt.Token, error) {
+func (s *Server) verifyToken(tokenString string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
-		return SecretKey, nil
+		return s.signingKey, nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("parse token: %w", err)
