@@ -13,6 +13,9 @@ type Config struct {
 }
 
 func decodeSigningSecret(base64Secret string) ([]byte, error) {
+	if base64Secret == "" {
+		return nil, fmt.Errorf("signing secret cannot be empty")
+	}
 	return base64.StdEncoding.DecodeString(base64Secret)
 }
 
