@@ -46,7 +46,7 @@ func main() {
 
 	logger := log.New(os.Stderr, "", 0)
 
-	cfg, err := config.NewConfig(addr, dsn, signingKey, []string(allowedOrigins))
+	cfg, err := config.NewConfig(addr, dsn, signingKey, allowedOrigins)
 	if err != nil {
 		logger.Fatal("config:", err)
 	}
