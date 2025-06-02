@@ -7,3 +7,5 @@ build:
 	go build -o bin/gochat cmd/server/main.go
 clean:
 	rm -rf bin/**
+test:
+	go test -v ./...
