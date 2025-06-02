@@ -6,16 +6,17 @@ import (
 )
 
 type Config struct {
-	DatabaseDSN string
-	ServerAddr  string
-	SigningKey  []byte
+	DatabaseDSN    string
+	ServerAddr     string
+	SigningKey     []byte
+	AllowedOrigins []string
 }
 
 func decodeSigningSecret(base64Secret string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(base64Secret)
 }
 
-func NewConfig(serverAddr, databaseDSN, base64Secret string) (*Config, error) {
+func NewConfig(serverAddr, databaseDSN, base64Secret string, allowedOrigins []string) (*Config, error) {
 	if serverAddr == "" {
 		return nil, fmt.Errorf("server address cannot be empty")
 	}
@@ -33,8 +34,9 @@ func NewConfig(serverAddr, databaseDSN, base64Secret string) (*Config, error) {
 	}
 
 	return &Config{
-		DatabaseDSN: databaseDSN,
-		ServerAddr:  ":8000",
-		SigningKey:  signingKey,
+		DatabaseDSN:    databaseDSN,
+		ServerAddr:     serverAddr,
+		SigningKey:     signingKey,
+		AllowedOrigins: allowedOrigins,
 	}, nil
 }

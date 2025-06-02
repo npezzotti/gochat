@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gorilla/handlers"
+	"github.com/npezzotti/go-chatroom/internal/config"
 	"github.com/npezzotti/go-chatroom/internal/database"
 	"github.com/npezzotti/go-chatroom/internal/server"
 )
@@ -19,12 +20,12 @@ type Server struct {
 	signingKey []byte
 }
 
-func NewServer(addr string, logger *log.Logger, cs *server.ChatServer, db *database.DBConn, signingKey []byte) *Server {
+func NewServer(logger *log.Logger, cs *server.ChatServer, db *database.DBConn, cfg *config.Config) *Server {
 	s := &Server{
 		log:        logger,
 		db:         db,
 		cs:         cs,
-		signingKey: signingKey,
+		signingKey: cfg.SigningKey,
 	}
 
 	mux := http.NewServeMux()
@@ -44,7 +45,7 @@ func NewServer(addr string, logger *log.Logger, cs *server.ChatServer, db *datab
 
 	h := handlers.CORS(
 		handlers.MaxAge(3600),
-		handlers.AllowedOrigins([]string{"http://localhost:8000", "http://localhost:3000"}),
+		handlers.AllowedOrigins(cfg.AllowedOrigins),
 		handlers.AllowedMethods([]string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions}),
 		handlers.AllowedHeaders([]string{"Origin", "Content-Type", "Accept"}),
 		handlers.AllowCredentials(),
@@ -53,7 +54,7 @@ func NewServer(addr string, logger *log.Logger, cs *server.ChatServer, db *datab
 	h = s.errorHandler(h)
 
 	srv := &http.Server{
-		Addr:    addr,
+		Addr:    cfg.ServerAddr,
 		Handler: h,
 	}
 
