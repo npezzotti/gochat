@@ -17,7 +17,7 @@ import (
 	"github.com/npezzotti/go-chatroom/internal/server"
 )
 
-const defaultSigniningKey = "wT0phFUusHZIrDhL9bUKPUhwaxKhpi/SaI6PtgB+MgU="
+const defaultSigningKey = "wT0phFUusHZIrDhL9bUKPUhwaxKhpi/SaI6PtgB+MgU="
 
 type stringSliceFlag []string
 
@@ -40,7 +40,7 @@ var (
 func main() {
 	flag.StringVar(&addr, "addr", "localhost:8000", "server address")
 	flag.StringVar(&dsn, "dsn", "host=localhost user=postgres password=postgres dbname=postgres sslmode=disable", "database connection string")
-	flag.StringVar(&signingKey, "signing-key", defaultSigniningKey, "base64 encoded signing key")
+	flag.StringVar(&signingKey, "signing-key", defaultSigningKey, "base64 encoded signing key")
 	flag.Var(&allowedOrigins, "allowed-origins", "comma-separated list of allowed origins for CORS")
 	flag.Parse()
 
