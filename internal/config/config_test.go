@@ -26,7 +26,7 @@ func TestNewConfig(t *testing.T) {
 	}
 }
 
-func Test_decodeSigningSecret(t *testing.T) {
+func Test_decodeSigningKey(t *testing.T) {
 	base64Secret := "c29tZV9zZWNyZXQ="
 	expectedKey := []byte("some_secret")
 	key, err := decodeSigningSecret(base64Secret)
