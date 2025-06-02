@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang-jwt/jwt"
 	"github.com/npezzotti/go-chatroom/internal/database"
+	"github.com/npezzotti/go-chatroom/internal/types"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -32,15 +33,6 @@ const (
 type contextKey string
 
 const userIdKey contextKey = "user-id"
-
-type User struct {
-	Id           int       `json:"id"`
-	Username     string    `json:"username"`
-	EmailAddress string    `json:"email_address,omitempty"`
-	Password     string    `json:"-"`
-	CreatedAt    time.Time `json:"created_at,omitempty"`
-	UpdatedAt    time.Time `json:"updated_at,omitempty"`
-}
 
 type LoginRequest struct {
 	Email    string `json:"email"`
@@ -122,7 +114,7 @@ func (s *Server) createAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJson(s.log, w, http.StatusCreated, User{
+	writeJson(s.log, w, http.StatusCreated, types.User{
 		Id:           newUser.Id,
 		Username:     newUser.Username,
 		EmailAddress: newUser.EmailAddress,
@@ -145,7 +137,7 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		u := User{
+		u := types.User{
 			Id:           user.Id,
 			Username:     user.Username,
 			EmailAddress: user.EmailAddress,
@@ -167,7 +159,7 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		var u User
+		var u types.User
 		err = json.NewDecoder(r.Body).Decode(&u)
 		if err != nil {
 			errResp := NewBadRequestError()
@@ -195,7 +187,7 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		userResp := User{
+		userResp := types.User{
 			Id:           dbUser.Id,
 			Username:     dbUser.Username,
 			EmailAddress: dbUser.EmailAddress,
@@ -225,7 +217,7 @@ func (s *Server) session(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u := User{
+	u := types.User{
 		Id:           user.Id,
 		Username:     user.Username,
 		EmailAddress: user.EmailAddress,
@@ -262,7 +254,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u := User{
+	u := types.User{
 		Id:           dbUser.Id,
 		Username:     dbUser.Username,
 		EmailAddress: dbUser.EmailAddress,
@@ -309,7 +301,7 @@ func verifyPassword(passwdHash, passwd string) bool {
 	return err == nil
 }
 
-func (s *Server) createJwtForSession(user User, exp time.Duration) (string, error) {
+func (s *Server) createJwtForSession(user types.User, exp time.Duration) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		userIdClaim: user.Id,
 		expClaim:    time.Now().Add(exp).Unix(),

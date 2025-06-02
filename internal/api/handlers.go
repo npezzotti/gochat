@@ -15,7 +15,7 @@ import (
 
 type Subscription struct {
 	Id   int          `json:"id"`
-	User User         `json:"user"`
+	User types.User   `json:"user"`
 	Room *server.Room `json:"room"`
 }
 
@@ -67,9 +67,9 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var subscribers []User
+	var subscribers []types.User
 	for _, dbSub := range subs {
-		var u User
+		var u types.User
 		u.Id = dbSub.Id
 		u.Username = dbSub.Username
 		subscribers = append(subscribers, u)
@@ -237,7 +237,7 @@ func (s *Server) subscribeRoom(w http.ResponseWriter, r *http.Request) {
 
 	sub := Subscription{
 		Id: dbSub.Id,
-		User: User{
+		User: types.User{
 			Id:           user.Id,
 			Username:     user.Username,
 			EmailAddress: user.EmailAddress,
