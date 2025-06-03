@@ -118,6 +118,8 @@ func (s *Server) createAccount(w http.ResponseWriter, r *http.Request) {
 		Id:           newUser.Id,
 		Username:     newUser.Username,
 		EmailAddress: newUser.EmailAddress,
+		CreatedAt:    newUser.CreatedAt,
+		UpdatedAt:    newUser.UpdatedAt,
 	})
 }
 
@@ -141,6 +143,8 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request) {
 			Id:           user.Id,
 			Username:     user.Username,
 			EmailAddress: user.EmailAddress,
+			CreatedAt:    user.CreatedAt,
+			UpdatedAt:    user.UpdatedAt,
 		}
 
 		writeJson(s.log, w, http.StatusOK, u)

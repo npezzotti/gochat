@@ -363,7 +363,7 @@ func (db *DBConn) DeleteSubscription(accountId, roomId int) error {
 	return err
 }
 
-func (db *DBConn) MessageCreate(msg UserMessage) error {
+func (db *DBConn) MessageCreate(msg Message) error {
 	err := db.RoomUpdateOnMessage(msg)
 	if err != nil {
 		return err
@@ -383,7 +383,7 @@ func (db *DBConn) MessageCreate(msg UserMessage) error {
 	return err
 }
 
-func (db *DBConn) RoomUpdateOnMessage(msg UserMessage) error {
+func (db *DBConn) RoomUpdateOnMessage(msg Message) error {
 	_, err := db.conn.Exec("UPDATE rooms SET seq_id = $1 WHERE id = $2", msg.SeqId, msg.RoomId)
 
 	return err
@@ -409,7 +409,7 @@ func (db *DBConn) GetSubscribersForRoom(roomId int) ([]User, error) {
 	return subs, err
 }
 
-func (db *DBConn) MessageGetAll(roomId, since, before, limit int) ([]UserMessage, error) {
+func (db *DBConn) MessageGetAll(roomId, since, before, limit int) ([]Message, error) {
 	var upper, lower int = 1<<31 - 1, 0
 	if before > 0 {
 		upper = before - 1
@@ -436,9 +436,9 @@ func (db *DBConn) MessageGetAll(roomId, since, before, limit int) ([]UserMessage
 		return nil, err
 	}
 
-	var messages = make([]UserMessage, 0, limit)
+	var messages = make([]Message, 0, limit)
 	for rows.Next() {
-		var msg UserMessage
+		var msg Message
 		if err = rows.Scan(&msg.Id, &msg.SeqId, &msg.RoomId, &msg.UserId, &msg.Content, &msg.CreatedAt); err != nil {
 			break
 		}

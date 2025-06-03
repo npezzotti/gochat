@@ -13,12 +13,6 @@ import (
 	"github.com/teris-io/shortid"
 )
 
-type Subscription struct {
-	Id   int          `json:"id"`
-	User types.User   `json:"user"`
-	Room *server.Room `json:"room"`
-}
-
 func writeJson(l *log.Logger, w http.ResponseWriter, statusCode int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
@@ -60,26 +54,13 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	subs, err := s.db.GetSubscribersForRoom(newRoom.Id)
-	if err != nil {
-		errResp := NewInternalServerError(err)
-		writeJson(s.log, w, errResp.Code, errResp)
-		return
-	}
-
-	var subscribers []types.User
-	for _, dbSub := range subs {
-		var u types.User
-		u.Id = dbSub.Id
-		u.Username = dbSub.Username
-		subscribers = append(subscribers, u)
-	}
-
-	room := &server.Room{
+	room := &types.Room{
 		Id:          newRoom.Id,
 		ExternalId:  newRoom.ExternalId,
 		Name:        newRoom.Name,
 		Description: newRoom.Description,
+		CreatedAt:   newRoom.CreatedAt,
+		UpdatedAt:   newRoom.UpdatedAt,
 	}
 
 	writeJson(s.log, w, http.StatusCreated, room)
@@ -110,12 +91,14 @@ func (s *Server) getRoom(w http.ResponseWriter, r *http.Request) {
 		subscribers = append(subscribers, u)
 	}
 
-	room := &server.Room{
+	room := &types.Room{
 		Id:          dbRoom.Id,
 		ExternalId:  dbRoom.ExternalId,
 		Name:        dbRoom.Name,
 		Description: dbRoom.Description,
 		Subscribers: subscribers,
+		CreatedAt:   dbRoom.CreatedAt,
+		UpdatedAt:   dbRoom.UpdatedAt,
 	}
 
 	writeJson(s.log, w, http.StatusOK, room)
@@ -164,13 +147,15 @@ func (s *Server) getUsersRooms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var rooms []server.Room
+	var rooms []types.Room
 	for _, dbRoom := range dbRooms {
-		rooms = append(rooms, server.Room{
+		rooms = append(rooms, types.Room{
 			Id:          dbRoom.Id,
 			ExternalId:  dbRoom.ExternalId,
 			Name:        dbRoom.Name,
 			Description: dbRoom.Description,
+			CreatedAt:   dbRoom.CreatedAt,
+			UpdatedAt:   dbRoom.UpdatedAt,
 		})
 	}
 
@@ -219,35 +204,25 @@ func (s *Server) subscribeRoom(w http.ResponseWriter, r *http.Request) {
 		RoomId:  room.Id,
 	}
 
-	dbSubs, err := s.db.GetSubscribersForRoom(room.Id)
-	if err != nil {
-		errResp := NewInternalServerError(err)
-		writeJson(s.log, w, errResp.Code, errResp)
-		return
-	}
-
-	var subscribers []types.User
-	for _, dbSub := range dbSubs {
-		var u types.User
-		u.Id = dbSub.Id
-		u.Username = dbSub.Username
-
-		subscribers = append(subscribers, u)
-	}
-
-	sub := Subscription{
+	sub := types.Subscription{
 		Id: dbSub.Id,
 		User: types.User{
 			Id:           user.Id,
 			Username:     user.Username,
 			EmailAddress: user.EmailAddress,
+			CreatedAt:    user.CreatedAt,
+			UpdatedAt:    user.UpdatedAt,
 		},
-		Room: &server.Room{
+		Room: types.Room{
 			Id:          room.Id,
 			ExternalId:  room.ExternalId,
 			Name:        room.Name,
 			Description: room.Description,
+			CreatedAt:   room.CreatedAt,
+			UpdatedAt:   room.UpdatedAt,
 		},
+		CreatedAt: dbSub.CreatedAt,
+		UpdatedAt: dbSub.UpdatedAt,
 	}
 
 	writeJson(s.log, w, http.StatusCreated, sub)
@@ -353,10 +328,10 @@ func (s *Server) getMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var userMessages []server.Message
+	var userMessages []types.Message
 
 	for _, msg := range messages {
-		msg := server.Message{
+		msg := types.Message{
 			SeqId:     msg.SeqId,
 			UserId:    msg.UserId,
 			RoomId:    msg.RoomId,
@@ -400,6 +375,8 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 		Id:           user.Id,
 		Username:     user.Username,
 		EmailAddress: user.EmailAddress,
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
 	}, conn, s.cs, s.log)
 	s.cs.RegisterChan <- client
 

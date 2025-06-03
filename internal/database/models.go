@@ -32,7 +32,7 @@ type Subscription struct {
 	UpdatedAt time.Time
 }
 
-type UserMessage struct {
+type Message struct {
 	Id        int
 	SeqId     int
 	RoomId    int

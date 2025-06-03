@@ -1,6 +1,8 @@
 package types
 
-import "time"
+import (
+	"time"
+)
 
 type User struct {
 	Id           int       `json:"id"`
@@ -9,4 +11,30 @@ type User struct {
 	Password     string    `json:"-"`
 	CreatedAt    time.Time `json:"created_at,omitempty"`
 	UpdatedAt    time.Time `json:"updated_at,omitempty"`
+}
+
+type Room struct {
+	Id          int       `json:"id"`
+	Name        string    `json:"name"`
+	ExternalId  string    `json:"external_id"`
+	Description string    `json:"description"`
+	Subscribers []User    `json:"subscribers"`
+	CreatedAt   time.Time `json:"created_at,omitempty"`
+	UpdatedAt   time.Time `json:"updated_at,omitempty"`
+}
+
+type Subscription struct {
+	Id        int       `json:"id"`
+	User      User      `json:"user"`
+	Room      Room      `json:"room"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
+}
+
+type Message struct {
+	SeqId     int       `json:"seq_id"`
+	RoomId    int       `json:"room_id"`
+	UserId    int       `json:"user_id"`
+	Content   string    `json:"content"`
+	Timestamp time.Time `json:"timestamp"`
 }

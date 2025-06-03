@@ -170,7 +170,7 @@ func (c *Client) leaveAllRooms() {
 
 	for _, room := range c.rooms {
 		room.leaveChan <- &ClientMessage{
-			Leave:  &Leave{RoomId: room.Id},
+			Leave:  &Leave{RoomId: room.id},
 			UserId: c.user.Id,
 			client: c,
 		}
@@ -195,8 +195,8 @@ func (c *Client) delRoom(id int) {
 	defer c.roomsLock.Unlock()
 
 	if r, ok := c.rooms[id]; ok {
-		delete(c.rooms, r.Id)
-		c.log.Printf("removed room %q from rooms, current rooms: %v", r.ExternalId, c.rooms)
+		delete(c.rooms, r.id)
+		c.log.Printf("removed room %d from rooms, current rooms: %v", r.id, c.rooms)
 	}
 }
 
@@ -204,8 +204,8 @@ func (c *Client) addRoom(r *Room) {
 	c.roomsLock.Lock()
 	defer c.roomsLock.Unlock()
 
-	c.rooms[r.Id] = r
-	c.log.Printf("added user %q to room %q, client's current rooms: %+v\n", c.user.Username, r.ExternalId, c.rooms)
+	c.rooms[r.id] = r
+	c.log.Printf("added user %s to room %d, client's current rooms: %+v\n", c.user.Username, r.id, c.rooms)
 }
 
 func (c *Client) getRoom(id int) *Room {

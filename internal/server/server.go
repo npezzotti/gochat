@@ -62,7 +62,7 @@ func (cs *ChatServer) Run() {
 				select {
 				case room.joinChan <- joinMsg:
 				default:
-					cs.log.Printf("join channel full on room %d", room.Id)
+					cs.log.Printf("join channel full on room %d", room.id)
 				}
 			} else {
 				fmt.Println(joinMsg.Join.RoomId)
@@ -73,10 +73,7 @@ func (cs *ChatServer) Run() {
 				}
 
 				room := &Room{
-					Id:            dbRoom.Id,
-					ExternalId:    dbRoom.ExternalId,
-					Name:          dbRoom.Name,
-					Description:   dbRoom.Description,
+					id:            dbRoom.Id,
 					cs:            cs,
 					joinChan:      make(chan *ClientMessage, 256),
 					leaveChan:     make(chan *ClientMessage, 256),
@@ -89,7 +86,7 @@ func (cs *ChatServer) Run() {
 					done:          make(chan struct{}),
 				}
 
-				cs.rooms[room.Id] = room
+				cs.rooms[room.id] = room
 				room.joinChan <- joinMsg
 
 				go room.start()
@@ -109,7 +106,7 @@ func (cs *ChatServer) Run() {
 					room.broadcast(&ServerMessage{
 						Notification: &Notification{
 							SubscriptionChange: &SubscriptionChange{
-								RoomId:     room.Id,
+								RoomId:     room.id,
 								Subscribed: true,
 								User: types.User{
 									Id:       req.User.Id,
@@ -126,7 +123,7 @@ func (cs *ChatServer) Run() {
 					room.broadcast(&ServerMessage{
 						Notification: &Notification{
 							SubscriptionChange: &SubscriptionChange{
-								RoomId:     room.Id,
+								RoomId:     room.id,
 								Subscribed: false,
 								User: types.User{
 									Id:       req.User.Id,
@@ -140,14 +137,14 @@ func (cs *ChatServer) Run() {
 		case id := <-cs.RmRoomChan:
 			r, ok := cs.rooms[id]
 			if ok {
-				cs.unloadRoom(r.Id)
+				cs.unloadRoom(r.id)
 				r.exit <- exitReq{deleted: true}
 				<-r.done
 			}
 		case <-cs.stop:
 			cs.log.Println("shutting down rooms")
 			for _, r := range cs.rooms {
-				cs.log.Println("shutting down room", r.ExternalId)
+				cs.log.Println("shutting down room", r.id)
 				close(r.exit)
 
 				<-r.done
@@ -173,7 +170,7 @@ func (cs *ChatServer) removeClient(c *Client) {
 
 func (cs *ChatServer) unloadRoom(roomId int) {
 	if r, ok := cs.rooms[roomId]; ok {
-		cs.log.Printf("removing room %q", r.ExternalId)
+		cs.log.Printf("removing room %d", r.id)
 		delete(cs.rooms, roomId)
 	}
 

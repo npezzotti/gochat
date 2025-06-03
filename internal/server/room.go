@@ -17,11 +17,7 @@ type exitReq struct {
 }
 
 type Room struct {
-	Id            int          `json:"id"`
-	Name          string       `json:"name"`
-	ExternalId    string       `json:"external_id"`
-	Description   string       `json:"description"`
-	Subscribers   []types.User `json:"subscribers"`
+	id            int
 	cs            *ChatServer
 	joinChan      chan *ClientMessage
 	leaveChan     chan *ClientMessage
@@ -41,7 +37,7 @@ func (r *Room) start() {
 		r.log.Println("room exiting")
 	}()
 
-	r.log.Printf("starting room %q", r.ExternalId)
+	r.log.Printf("starting room %d", r.id)
 
 	r.killTimer = time.NewTimer(time.Second * 10)
 	r.killTimer.Stop()
@@ -52,7 +48,7 @@ func (r *Room) start() {
 			r.handleAddClient(join)
 		case leaveMsg := <-r.leaveChan:
 			c := leaveMsg.client
-			r.log.Printf("removing %q from room %q", c.user.Username, r.ExternalId)
+			r.log.Printf("removing %q from room %d", c.user.Username, r.id)
 			r.removeClient(c)
 
 			// if this leave message is from a user
@@ -74,7 +70,7 @@ func (r *Room) start() {
 					Notification: &Notification{
 						Presence: &Presence{
 							Present: false,
-							RoomId:  r.Id,
+							RoomId:  r.id,
 							UserId:  c.user.Id,
 						},
 					},
@@ -85,19 +81,19 @@ func (r *Room) start() {
 		case msg := <-r.clientMsgChan:
 			r.saveAndBroadcast(msg)
 		case <-r.killTimer.C:
-			r.log.Printf("room %q timed out", r.ExternalId)
-			r.cs.unloadRoom(r.Id)
+			r.log.Printf("room %d timed out", r.id)
+			r.cs.unloadRoom(r.id)
 		case e := <-r.exit:
 			if e.deleted {
 				r.broadcast(&ServerMessage{
 					Notification: &Notification{
-						RoomDeleted: &RoomDeleted{RoomId: r.Id},
+						RoomDeleted: &RoomDeleted{RoomId: r.id},
 					},
 				})
 			}
 
 			for c := range r.clients {
-				c.delRoom(r.Id)
+				c.delRoom(r.id)
 			}
 
 			close(r.done)
@@ -111,9 +107,9 @@ func (r *Room) handleAddClient(join *ClientMessage) {
 	r.killTimer.Stop()
 
 	c := join.client
-	if !r.cs.db.SubscriptionExists(c.user.Id, r.Id) {
-		r.log.Printf("Creating subscription for user %q in room %q", c.user.Username, r.ExternalId)
-		if _, err := r.cs.db.CreateSubscription(c.user.Id, r.Id); err != nil {
+	if !r.cs.db.SubscriptionExists(c.user.Id, r.id) {
+		r.log.Printf("Creating subscription for user %q in room %d", c.user.Username, r.id)
+		if _, err := r.cs.db.CreateSubscription(c.user.Id, r.id); err != nil {
 			// reset timer since client join failed
 			if len(r.clients) == 0 {
 				r.killTimer.Reset(idleRoomTimeout)
@@ -123,7 +119,7 @@ func (r *Room) handleAddClient(join *ClientMessage) {
 		}
 	}
 
-	dbRoom, err := r.cs.db.FetchRoomWithSubscribers(r.Id)
+	dbRoom, err := r.cs.db.FetchRoomWithSubscribers(r.id)
 	if err != nil {
 		r.log.Println("FetchRoomWithSubscribers:", err)
 		return
@@ -165,7 +161,7 @@ func (r *Room) handleAddClient(join *ClientMessage) {
 		Notification: &Notification{
 			Presence: &Presence{
 				Present: true,
-				RoomId:  r.Id,
+				RoomId:  r.id,
 				UserId:  c.user.Id,
 			},
 		},
@@ -186,9 +182,9 @@ func (r *Room) addClient(c *Client) {
 	r.userMap[c.user.Id][c] = struct{}{}
 
 	if len(r.userMap[c.user.Id]) > 1 {
-		r.log.Printf("user %q has multiple clients in room %q", c.user.Username, r.ExternalId)
+		r.log.Printf("user %q has multiple clients in room %d", c.user.Username, r.id)
 	}
-	r.log.Printf("added %q to room %q, current clients %v", c.user.Username, r.ExternalId, r.clients)
+	r.log.Printf("added %q to room %d, current clients %v", c.user.Username, r.id, r.clients)
 	r.clientLock.Unlock()
 
 	c.addRoom(r)
@@ -200,13 +196,13 @@ func (r *Room) removeClient(c *Client) {
 
 	// check if the client is in the room
 	if _, ok := r.clients[c]; !ok {
-		r.log.Printf("client %q not found in room %q", c.user.Username, r.ExternalId)
+		r.log.Printf("client %q not found in room %d", c.user.Username, r.id)
 		return
 	}
 
-	r.log.Printf("removing client %q from room %q", c.user.Username, r.ExternalId)
+	r.log.Printf("removing client %q from room %d", c.user.Username, r.id)
 	delete(r.clients, c)
-	c.delRoom(r.Id)
+	c.delRoom(r.id)
 
 	// remove the client from the userMap
 	if userClients, ok := r.userMap[c.user.Id]; ok {
@@ -216,11 +212,11 @@ func (r *Room) removeClient(c *Client) {
 		}
 	}
 
-	r.log.Printf("removed client %q from room %q, current clients %v", c.user.Username, r.ExternalId, r.clients)
+	r.log.Printf("removed client %q from room %d, current clients %v", c.user.Username, r.id, r.clients)
 
 	// if the client is the last one in the room, start the kill timer
 	if len(r.clients) == 0 {
-		r.log.Printf("no clients in %q, starting kill timer", r.ExternalId)
+		r.log.Printf("no clients in %d, starting kill timer", r.id)
 		r.killTimer.Reset(idleRoomTimeout)
 	}
 }
@@ -232,25 +228,25 @@ func (r *Room) removeAllClientsForUser(userId int) {
 	if userClients, ok := r.userMap[userId]; ok {
 		for client := range userClients {
 			delete(r.clients, client)
-			client.delRoom(r.Id)
+			client.delRoom(r.id)
 		}
 		delete(r.userMap, userId)
 	}
 
-	r.log.Printf("removed all clients for user %d from room %q", userId, r.ExternalId)
+	r.log.Printf("removed all clients for user %d from room %d", userId, r.id)
 
 	// if the user is the last one in the room, start the kill timer
 	if len(r.clients) == 0 {
-		r.log.Printf("no clients in %q, starting kill timer", r.ExternalId)
+		r.log.Printf("no clients in %d, starting kill timer", r.id)
 		r.killTimer.Reset(idleRoomTimeout)
 	}
 }
 
 func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 	seq_id := r.seq_id + 1
-	if err := r.cs.db.MessageCreate(database.UserMessage{
+	if err := r.cs.db.MessageCreate(database.Message{
 		SeqId:     seq_id,
-		RoomId:    r.Id,
+		RoomId:    r.id,
 		UserId:    msg.client.user.Id,
 		Content:   msg.Publish.Content,
 		CreatedAt: msg.Timestamp,
@@ -261,9 +257,9 @@ func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 	r.seq_id++
 
 	data := &ServerMessage{
-		Message: &Message{
+		Message: &types.Message{
 			SeqId:     seq_id,
-			RoomId:    r.Id,
+			RoomId:    r.id,
 			UserId:    msg.UserId,
 			Content:   msg.Publish.Content,
 			Timestamp: msg.Timestamp,
@@ -278,7 +274,7 @@ func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 func (r *Room) broadcast(msg *ServerMessage) {
 	msg.Timestamp = time.Now()
 
-	fmt.Printf("received message to room %q: %v\n", r.ExternalId, msg)
+	fmt.Printf("received message to room %d: %v\n", r.id, msg)
 	for client := range r.clients {
 		if client == msg.SkipClient {
 			continue

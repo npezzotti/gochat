@@ -39,17 +39,9 @@ type Leave struct {
 type ServerMessage struct {
 	BaseMessage
 	Response     *Response     `json:"response,omitempty"`
-	Message      *Message      `json:"message,omitempty"`
+	Message      *types.Message      `json:"message,omitempty"`
 	Notification *Notification `json:"notification,omitempty"`
 	SkipClient   *Client       `json:"-"`
-}
-
-type Message struct {
-	SeqId     int       `json:"seq_id"`
-	RoomId    int       `json:"room_id"`
-	UserId    int       `json:"user_id"`
-	Content   string    `json:"content"`
-	Timestamp time.Time `json:"timestamp"`
 }
 
 type Response struct {
