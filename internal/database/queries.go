@@ -84,25 +84,6 @@ func (db *DBConn) GetAccountByEmail(email string) (User, error) {
 	return user, err
 }
 
-func (db *DBConn) GetRoomByID(id int) (Room, error) {
-	row := db.conn.QueryRow(
-		"SELECT id, external_id, name, description, seq_id FROM rooms "+
-			"WHERE id = $1 LIMIT 1",
-		id,
-	)
-
-	var room Room
-	err := row.Scan(
-		&room.Id,
-		&room.ExternalId,
-		&room.Name,
-		&room.Description,
-		&room.SeqId,
-	)
-
-	return room, err
-}
-
 func (db *DBConn) GetRoomByExternalID(externalId string) (Room, error) {
 	row := db.conn.QueryRow(
 		"SELECT id, external_id, name, description, seq_id FROM rooms "+
