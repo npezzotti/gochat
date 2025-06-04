@@ -23,7 +23,7 @@ type Client struct {
 	log        *log.Logger
 	user       types.User
 	send       chan *ServerMessage
-	rooms      map[int]*Room
+	rooms      map[string]*Room
 	roomsLock  sync.RWMutex
 	stop       chan struct{}
 }
@@ -35,7 +35,7 @@ func NewClient(user types.User, conn *websocket.Conn, cs *ChatServer, l *log.Log
 		log:        l,
 		user:       user,
 		send:       make(chan *ServerMessage, 256),
-		rooms:      make(map[int]*Room),
+		rooms:      make(map[string]*Room),
 		stop:       make(chan struct{}),
 	}
 }
@@ -170,7 +170,7 @@ func (c *Client) leaveAllRooms() {
 
 	for _, room := range c.rooms {
 		room.leaveChan <- &ClientMessage{
-			Leave:  &Leave{RoomId: room.id},
+			Leave:  &Leave{RoomId: room.externalId},
 			UserId: c.user.Id,
 			client: c,
 		}
@@ -190,13 +190,13 @@ func (c *Client) leaveRoom(msg *ClientMessage) {
 	}
 }
 
-func (c *Client) delRoom(id int) {
+func (c *Client) delRoom(id string) {
 	c.roomsLock.Lock()
 	defer c.roomsLock.Unlock()
 
-	if r, ok := c.rooms[id]; ok {
-		delete(c.rooms, r.id)
-		c.log.Printf("removed room %d from rooms, current rooms: %v", r.id, c.rooms)
+	if _, ok := c.rooms[id]; ok {
+		delete(c.rooms, id)
+		c.log.Printf("removed room %q from rooms, current rooms: %v", id, c.rooms)
 	}
 }
 
@@ -204,11 +204,11 @@ func (c *Client) addRoom(r *Room) {
 	c.roomsLock.Lock()
 	defer c.roomsLock.Unlock()
 
-	c.rooms[r.id] = r
-	c.log.Printf("added user %s to room %d, client's current rooms: %+v\n", c.user.Username, r.id, c.rooms)
+	c.rooms[r.externalId] = r
+	c.log.Printf("added user %s to room %q, client's current rooms: %+v\n", c.user.Username, r.externalId, c.rooms)
 }
 
-func (c *Client) getRoom(id int) *Room {
+func (c *Client) getRoom(id string) *Room {
 	if room, ok := c.rooms[id]; ok {
 		return room
 	}

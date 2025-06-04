@@ -6,20 +6,6 @@ import (
 	"sync"
 
 	"github.com/npezzotti/go-chatroom/internal/database"
-	"github.com/npezzotti/go-chatroom/internal/types"
-)
-
-type SubReq struct {
-	SubType subReqType
-	User    types.User
-	RoomId  int
-}
-
-type subReqType string
-
-const (
-	SubReqTypeSubscribe   subReqType = "subscribe"
-	SubReqTypeUnsubscribe subReqType = "unsubscribe"
 )
 
 type ChatServer struct {
@@ -30,9 +16,8 @@ type ChatServer struct {
 	joinChan       chan *ClientMessage
 	RegisterChan   chan *Client
 	deRegisterChan chan *Client
-	SubChan        chan SubReq
-	RmRoomChan     chan int
-	rooms          map[int]*Room
+	RmRoomChan     chan string
+	rooms          map[string]*Room
 	stop           chan struct{}
 	done           chan struct{}
 }
@@ -45,11 +30,10 @@ func NewChatServer(logger *log.Logger, db *database.DBConn) (*ChatServer, error)
 		clients:        make(map[*Client]struct{}),
 		RegisterChan:   make(chan *Client),
 		deRegisterChan: make(chan *Client),
-		SubChan:        make(chan SubReq),
-		RmRoomChan:     make(chan int),
-		rooms:          make(map[int]*Room),
+		RmRoomChan:     make(chan string),
 		stop:           make(chan struct{}),
 		done:           make(chan struct{}),
+		rooms:          make(map[string]*Room),
 	}, nil
 }
 
@@ -62,11 +46,11 @@ func (cs *ChatServer) Run() {
 				select {
 				case room.joinChan <- joinMsg:
 				default:
-					cs.log.Printf("join channel full on room %d", room.id)
+					cs.log.Printf("join channel full on room %q", room.externalId)
 				}
 			} else {
 				fmt.Println(joinMsg.Join.RoomId)
-				dbRoom, err := cs.db.GetRoomByID(joinMsg.Join.RoomId)
+				dbRoom, err := cs.db.GetRoomByExternalID(joinMsg.Join.RoomId)
 				if err != nil {
 					joinMsg.client.queueMessage(ErrRoomNotFound(joinMsg.Id))
 					continue
@@ -74,6 +58,7 @@ func (cs *ChatServer) Run() {
 
 				room := &Room{
 					id:            dbRoom.Id,
+					externalId:    dbRoom.ExternalId,
 					cs:            cs,
 					joinChan:      make(chan *ClientMessage, 256),
 					leaveChan:     make(chan *ClientMessage, 256),
@@ -86,7 +71,7 @@ func (cs *ChatServer) Run() {
 					done:          make(chan struct{}),
 				}
 
-				cs.rooms[room.id] = room
+				cs.rooms[room.externalId] = room
 				room.joinChan <- joinMsg
 
 				go room.start()
@@ -98,53 +83,17 @@ func (cs *ChatServer) Run() {
 		case client := <-cs.deRegisterChan:
 			cs.log.Printf("removing connection from %q", client.user.Username)
 			cs.removeClient(client)
-		case req := <-cs.SubChan:
-			switch req.SubType {
-			case SubReqTypeSubscribe:
-				// notify other users in the room
-				if room, ok := cs.rooms[req.RoomId]; ok {
-					room.broadcast(&ServerMessage{
-						Notification: &Notification{
-							SubscriptionChange: &SubscriptionChange{
-								RoomId:     room.id,
-								Subscribed: true,
-								User: types.User{
-									Id:       req.User.Id,
-									Username: req.User.Username,
-								},
-							},
-						},
-					})
-				}
-			case SubReqTypeUnsubscribe:
-				cs.log.Printf("unsubscribing user %q from room %d", req.User.Username, req.RoomId)
-				if room, ok := cs.rooms[req.RoomId]; ok {
-					room.removeAllClientsForUser(req.User.Id)
-					room.broadcast(&ServerMessage{
-						Notification: &Notification{
-							SubscriptionChange: &SubscriptionChange{
-								RoomId:     room.id,
-								Subscribed: false,
-								User: types.User{
-									Id:       req.User.Id,
-									Username: req.User.Username,
-								},
-							},
-						},
-					})
-				}
-			}
 		case id := <-cs.RmRoomChan:
 			r, ok := cs.rooms[id]
 			if ok {
-				cs.unloadRoom(r.id)
+				cs.unloadRoom(r.externalId)
 				r.exit <- exitReq{deleted: true}
 				<-r.done
 			}
 		case <-cs.stop:
 			cs.log.Println("shutting down rooms")
 			for _, r := range cs.rooms {
-				cs.log.Println("shutting down room", r.id)
+				cs.log.Println("shutting down room", r.externalId)
 				close(r.exit)
 
 				<-r.done
@@ -168,9 +117,9 @@ func (cs *ChatServer) removeClient(c *Client) {
 	delete(cs.clients, c)
 }
 
-func (cs *ChatServer) unloadRoom(roomId int) {
+func (cs *ChatServer) unloadRoom(roomId string) {
 	if r, ok := cs.rooms[roomId]; ok {
-		cs.log.Printf("removing room %d", r.id)
+		cs.log.Printf("removing room %q", r.externalId)
 		delete(cs.rooms, roomId)
 	}
 

@@ -22,26 +22,27 @@ type ClientMessage struct {
 }
 
 type Publish struct {
-	RoomId   int    `json:"room_id"`
+	RoomId   string `json:"room_id"`
 	Content  string `json:"content"`
 	Username string `json:"username"`
 	SeqId    int    `json:"seq_id"`
 }
 
 type Join struct {
-	RoomId int `json:"room_id"`
+	RoomId string `json:"room_id"`
 }
 
 type Leave struct {
-	RoomId int `json:"room_id"`
+	Unsubscribe bool   `json:"unsubscribe,omitempty"`
+	RoomId      string `json:"room_id"`
 }
 
 type ServerMessage struct {
 	BaseMessage
-	Response     *Response     `json:"response,omitempty"`
-	Message      *types.Message      `json:"message,omitempty"`
-	Notification *Notification `json:"notification,omitempty"`
-	SkipClient   *Client       `json:"-"`
+	Response     *Response      `json:"response,omitempty"`
+	Message      *types.Message `json:"message,omitempty"`
+	Notification *Notification  `json:"notification,omitempty"`
+	SkipClient   *Client        `json:"-"`
 }
 
 type Response struct {
@@ -57,19 +58,19 @@ type Notification struct {
 }
 
 type Presence struct {
-	Present bool `json:"present"`
-	UserId  int  `json:"user_id"`
-	RoomId  int  `json:"room_id"`
+	Present bool   `json:"present"`
+	UserId  int    `json:"user_id"`
+	RoomId  string `json:"room_id"`
 }
 
 type SubscriptionChange struct {
-	RoomId     int        `json:"room_id"`
+	RoomId     string     `json:"room_id"`
 	Subscribed bool       `json:"subscribed"`
 	User       types.User `json:"user"`
 }
 
 type RoomDeleted struct {
-	RoomId int `json:"room_id"`
+	RoomId string `json:"room_id"`
 }
 
 type MessageStatusCode int

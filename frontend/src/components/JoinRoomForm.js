@@ -23,11 +23,10 @@ export default function JoinRoomForm({ rooms, setRooms, currentRoom, setCurrentR
     }
 
     if (rooms.some(room => room.external_id === roomId)) {
-      const id = rooms.find(room => room.external_id === roomId).id;
       if (currentRoom) {
-        wsClient.leaveRoom(currentRoom.id)
+        wsClient.leaveRoom(currentRoom.external_id)
           .then(_ => {
-            wsClient.joinRoom(id)
+            wsClient.joinRoom(roomId)
               .then(joinedMsg => {
                 setCurrentRoom(joinedMsg.response.data);
                 setRoomId('');
@@ -37,7 +36,7 @@ export default function JoinRoomForm({ rooms, setRooms, currentRoom, setCurrentR
               })
           })
       } else {
-        wsClient.joinRoom(id)
+        wsClient.joinRoom(roomId)
         .then(joinedMsg => {
           setCurrentRoom(joinedMsg.response.data);
           setRoomId('');
@@ -47,11 +46,17 @@ export default function JoinRoomForm({ rooms, setRooms, currentRoom, setCurrentR
         })
       }
     } else {
-      goChatClient.subscribeRoom(roomId)
-        .then(sub => {
-          setRooms([...rooms, sub.room]);
-          wsClient.joinRoom(sub.room.id)
-            .then(joinedMsg => {
+      // goChatClient.subscribeRoom(roomId)
+        // .then(sub => {
+          wsClient.joinRoom(roomId)
+          .then(joinedMsg => {
+              setRooms([...rooms, {
+                id: joinedMsg.response.data.id,
+                external_id: joinedMsg.response.data.external_id,
+                name: joinedMsg.response.data.name,
+                created_at: joinedMsg.response.data.created_at,
+                updated_at: joinedMsg.response.data.updated_at,
+              }]);
               setCurrentRoom(joinedMsg.response.data);
               setRoomId('');
             })
@@ -60,10 +65,10 @@ export default function JoinRoomForm({ rooms, setRooms, currentRoom, setCurrentR
             });
           e.target.roomId.value = '';
           setError(null);
-        })
-        .catch(err => {
-          setError("Failed to subscribe to room: " + err);
-        });
+        // })
+        // .catch(err => {
+        //   setError("Failed to subscribe to room: " + err);
+        // });
     }
   }
 

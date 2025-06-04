@@ -8,13 +8,13 @@ export default function RoomList({ currentRoom, setCurrentRoom, rooms, wsClient 
       setError(null);
     }
 
-    const roomId = parseInt(e.target.id);
-    if (roomId === currentRoom?.id) {
+    const roomId = e.currentTarget.dataset.roomExternalId;
+    if (roomId === currentRoom?.external_id) {
       return; // Already in this room, do nothing
     }
 
     if (currentRoom) {
-      wsClient.leaveRoom(currentRoom.id)
+      wsClient.leaveRoom(currentRoom.external_id)
         .then(_ => {
           setCurrentRoom(null)
           wsClient.joinRoom(roomId)

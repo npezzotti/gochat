@@ -97,16 +97,16 @@ export default function Chat({ currentUser, currentRoom, setCurrentRoom, rooms, 
   }
 
   const handleLeaveRoom = () => {
-    goChatClient.unsubscribeRoom(currentRoom.external_id)
-      .then(() => {
-        setCurrentRoom(null);
-        setMessages([]);
-        setBefore(0);
-        setRooms(rooms.filter(room => room.external_id !== currentRoom.external_id));
-      })
-      .catch(err => {
-        console.error('Error leaving room:', err)
-      });
+    wsClient.leaveRoom(currentRoom.external_id, true)
+    .then(_ => {
+      setCurrentRoom(null)
+      setMessages([]);
+      setBefore(0);
+      setRooms(rooms.filter(room => room.external_id !== currentRoom.external_id));
+    })
+    .catch(err => {
+      console.log("Failed to leave room: " + err);
+    });
   }
 
   const handleDeleteRoom = () => {

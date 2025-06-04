@@ -100,10 +100,11 @@ class GoChatWSClient {
     });
   }
 
-  leaveRoom(roomId) {
+  leaveRoom(roomId, unsub = false) {
     var msgObj = {
       id: this.generateMessageId(),
       leave: {
+        unsubscribe: unsub,
         room_id: roomId,
       },
     };
