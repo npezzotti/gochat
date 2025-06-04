@@ -132,7 +132,7 @@ export default function Chat({ currentUser, currentRoom, setCurrentRoom, rooms, 
       return;
     }
 
-    wsClient.publishMessage(currentRoom.id, message)
+    wsClient.publishMessage(currentRoom.external_id, message)
     setMessage('');
   }
 
