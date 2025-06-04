@@ -119,7 +119,7 @@ func (c *Client) Read() {
 			if r != nil {
 				r.clientMsgChan <- &msg
 			} else {
-				c.log.Println("user not subscribed to room")
+				c.queueMessage(ErrRoomNotFound(msg.Id))
 			}
 		}
 	}
