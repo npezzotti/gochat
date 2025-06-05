@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"log"
 	"sync"
 
@@ -49,7 +48,6 @@ func (cs *ChatServer) Run() {
 					cs.log.Printf("join channel full on room %q", room.externalId)
 				}
 			} else {
-				fmt.Println(joinMsg.Join.RoomId)
 				dbRoom, err := cs.db.GetRoomByExternalID(joinMsg.Join.RoomId)
 				if err != nil {
 					joinMsg.client.queueMessage(ErrRoomNotFound(joinMsg.Id))
