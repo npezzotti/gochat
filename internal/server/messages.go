@@ -111,7 +111,7 @@ func ErrRoomNotFound(id int) *ServerMessage {
 	}
 }
 
-func ErrInternalError(id int, errMsg string) *ServerMessage {
+func ErrInternalError(id int) *ServerMessage {
 	return &ServerMessage{
 		BaseMessage: BaseMessage{
 			Id:        id,
@@ -119,9 +119,39 @@ func ErrInternalError(id int, errMsg string) *ServerMessage {
 		},
 		Response: &Response{
 			ResponseCode: http.StatusInternalServerError,
-			Error:        errMsg,
+			Error:        "internal server error",
 		},
 	}
+}
+
+func ErrServiceUnavailable(id int) *ServerMessage {
+	return &ServerMessage{
+		BaseMessage: BaseMessage{
+			Id:        id,
+			Timestamp: Now(),
+		},
+		Response: &Response{
+			ResponseCode: http.StatusServiceUnavailable,
+			Error:        "service unavailable",
+		},
+	}
+}
+
+func ErrInvalidMessage(id int) *ServerMessage {
+	msg := &ServerMessage{
+		BaseMessage: BaseMessage{
+			Timestamp: Now(),
+		},
+		Response: &Response{
+			ResponseCode: http.StatusBadRequest,
+			Error:        "invalid message format",
+		},
+	}
+
+	if id > 0 {
+		msg.Id = id
+	}
+	return msg
 }
 
 func Now() time.Time {

@@ -99,25 +99,28 @@ func (c *Client) Read() {
 		var msg ClientMessage
 		if err := json.Unmarshal(raw, &msg); err != nil {
 			c.log.Println("error parsing message:", err)
+			c.queueMessage(ErrInvalidMessage(-1))
 			continue
 		}
 
 		msg.client = c
 		msg.UserId = c.user.Id
-		msg.Timestamp = time.Now().UTC()
+		msg.Timestamp = Now()
 
 		switch {
 		case msg.Join != nil:
-			c.log.Println("read:", "join message")
 			c.joinRoom(&msg)
 		case msg.Leave != nil:
-			c.log.Println("read:", "leave message")
 			c.leaveRoom(&msg)
 		case msg.Publish != nil:
-			c.log.Println("read:", "publish message")
 			r := c.getRoom(msg.Publish.RoomId)
 			if r != nil {
-				r.clientMsgChan <- &msg
+				select {
+				case r.clientMsgChan <- &msg:
+				default:
+					c.queueMessage(ErrServiceUnavailable(msg.Id))
+					c.log.Printf("clientMsgChan full for room %q", r.externalId)
+				}
 			} else {
 				c.queueMessage(ErrRoomNotFound(msg.Id))
 			}
@@ -178,13 +181,25 @@ func (c *Client) leaveAllRooms() {
 }
 
 func (c *Client) joinRoom(msg *ClientMessage) {
-	c.chatServer.joinChan <- msg
+	select {
+	case c.chatServer.joinChan <- msg:
+	default:
+		c.log.Printf("joinChan full")
+		c.queueMessage(ErrServiceUnavailable(msg.Id))
+		return
+	}
 }
 
 func (c *Client) leaveRoom(msg *ClientMessage) {
 	r := c.getRoom(msg.Leave.RoomId)
 	if r != nil {
-		r.leaveChan <- msg
+		select {
+		case r.leaveChan <- msg:
+		default:
+			c.log.Printf("leaveChan full for room %q", r.externalId)
+			c.queueMessage(ErrServiceUnavailable(msg.Id))
+			return
+		}
 	} else {
 		c.log.Println("didn't find room")
 	}

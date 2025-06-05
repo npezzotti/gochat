@@ -45,7 +45,9 @@ func (cs *ChatServer) Run() {
 				select {
 				case room.joinChan <- joinMsg:
 				default:
-					cs.log.Printf("join channel full on room %q", room.externalId)
+					joinMsg.client.queueMessage(ErrServiceUnavailable(joinMsg.Id))
+					cs.log.Printf("joinChan full for room %q ", room.externalId)
+					continue
 				}
 			} else {
 				dbRoom, err := cs.db.GetRoomByExternalID(joinMsg.Join.RoomId)

@@ -52,7 +52,7 @@ func (r *Room) start() {
 				err := r.cs.db.DeleteSubscription(leaveMsg.UserId, r.id)
 				if err != nil {
 					r.log.Println("DeleteSubscription:", err)
-					leaveMsg.client.queueMessage(ErrInternalError(leaveMsg.Id, "failed to unsubscribe from room"))
+					leaveMsg.client.queueMessage(ErrInternalError(leaveMsg.Id))
 					continue
 				}
 
@@ -275,7 +275,7 @@ func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 		CreatedAt: msg.Timestamp,
 	}); err != nil {
 		r.log.Println("error saving message:", err)
-		msg.client.queueMessage(ErrInternalError(msg.Id, "failed to persist message"))
+		msg.client.queueMessage(ErrInternalError(msg.Id))
 	}
 	r.seq_id++
 	msg.client.queueMessage(NoErrAccepted(msg.Id))
