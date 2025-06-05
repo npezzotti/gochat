@@ -16,7 +16,6 @@ export default function RoomList({ currentRoom, setCurrentRoom, rooms, wsClient 
     if (currentRoom) {
       wsClient.leaveRoom(currentRoom.external_id)
         .then(_ => {
-          setCurrentRoom(null)
           wsClient.joinRoom(roomId)
             .then(joinedMsg => {
               setCurrentRoom(joinedMsg.response.data);
