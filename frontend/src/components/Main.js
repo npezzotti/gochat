@@ -47,17 +47,17 @@ export default function Main({ currentUser, setCurrentUser }) {
     const wsConn = new GoChatWSClient("ws://localhost:8000/ws");
     setWsClient(wsConn);
 
-    wsConn.onPublishMessage = (msg) => {
+    wsConn.onServerMessageMessage = (msg) => {
       setMessages((prevMessages) => [...prevMessages, msg.message]);
     };
-    wsConn.onEventTypePresence = (msg) => {
+    wsConn.onServerMessagePresence = (msg) => {
       const { user_id, present } = msg.notification.presence
       handlePresenceEvent(user_id, present);
     };
-    wsConn.onEventTypeRoomDeleted = (msg) => {
+    wsConn.onServerMessageRoomDeleted = (msg) => {
       console.log("Room deleted event:", msg);
     };
-    wsConn.onEventTypeSubscriptionChange = (msg) => {
+    wsConn.onServerMessageSubscriptionChange = (msg) => {
       if (msg.notification.subscription_change.subscribed) {
         addSubscriber(msg.notification.subscription_change.user)
       } else {

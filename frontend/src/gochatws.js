@@ -1,10 +1,10 @@
 class GoChatWSClient {
   wsClient;
 
-  onSystemMessageMessage;
-  onSystemMessagePresence;
-  onSystemMessageSubscriptionChange
-  onSystemMessageRoomDeleted;
+  onServerMessageMessage;
+  onServerMessagePresence;
+  onServerMessageSubscriptionChange
+  onServerMessageRoomDeleted;
 
   pendingPromises;
   _messageId = 1;
@@ -24,8 +24,8 @@ class GoChatWSClient {
         const parsedMsg = JSON.parse(msgs[i]);
 
         if (parsedMsg.message) {
-          if (this.onSystemMessageMessage) {
-            this.onSystemMessageMessage(parsedMsg);
+          if (this.onServerMessageMessage) {
+            this.onServerMessageMessage(parsedMsg);
           }
         } else if (parsedMsg.response) {
           this.handleServerResponse(parsedMsg)
@@ -58,16 +58,16 @@ class GoChatWSClient {
 
   handleServerNotification(msg) {
     if (msg.notification.room_deleted) {
-      if (this.onSystemMessageRoomDeleted) {
-        this.onSystemMessageRoomDeleted(msg);
+      if (this.onServerMessageRoomDeleted) {
+        this.onServerMessageRoomDeleted(msg);
       }
     } else if (msg.notification.presence) {
-      if (this.onSystemMessagePresence) {
-        this.onSystemMessagePresence(msg);
+      if (this.onServerMessagePresence) {
+        this.onServerMessagePresence(msg);
       }
     } else if (msg.notification.subscription_change) {
-      if (this.onSystemMessageSubscriptionChange) {
-        this.onSystemMessageSubscriptionChange(msg);
+      if (this.onServerMessageSubscriptionChange) {
+        this.onServerMessageSubscriptionChange(msg);
       }
     } else {
       console.log("Unknown notification type");
