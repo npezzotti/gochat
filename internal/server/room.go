@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -53,16 +52,7 @@ func (r *Room) start() {
 				err := r.cs.db.DeleteSubscription(leaveMsg.UserId, r.id)
 				if err != nil {
 					r.log.Println("DeleteSubscription:", err)
-					leaveMsg.client.queueMessage(&ServerMessage{
-						BaseMessage: BaseMessage{
-							Id:        leaveMsg.Id,
-							Timestamp: time.Now(),
-						},
-						Response: &Response{
-							ResponseCode: ResponseCodeInternalError,
-							Error:        "Failed to unsubscribe from room",
-						},
-					})
+					leaveMsg.client.queueMessage(ErrInternalError(leaveMsg.Id, "failed to unsubscribe from room"))
 					continue
 				}
 
@@ -70,15 +60,7 @@ func (r *Room) start() {
 
 				// if this leave message is from a user
 				// send a leave response
-				leaveMsg.client.queueMessage(&ServerMessage{
-					BaseMessage: BaseMessage{
-						Id:        leaveMsg.Id,
-						Timestamp: time.Now(),
-					},
-					Response: &Response{
-						ResponseCode: ResponseCodeOK,
-					},
-				})
+				leaveMsg.client.queueMessage(NoErrOK(leaveMsg.Id, nil))
 
 				r.broadcast(&ServerMessage{
 					Notification: &Notification{
@@ -97,15 +79,7 @@ func (r *Room) start() {
 
 			c := leaveMsg.client
 			r.removeClient(c)
-			c.queueMessage(&ServerMessage{
-				BaseMessage: BaseMessage{
-					Id:        leaveMsg.Id,
-					Timestamp: time.Now(),
-				},
-				Response: &Response{
-					ResponseCode: ResponseCodeOK,
-				},
-			})
+			c.queueMessage(NoErrOK(leaveMsg.Id, nil))
 
 			// notify all clients user is offline
 			// if no sessions for user in the room
@@ -204,16 +178,7 @@ func (r *Room) handleAddClient(join *ClientMessage) {
 		}(),
 	}
 
-	resp := &ServerMessage{
-		Response: &Response{
-			ResponseCode: ResponseCodeOK,
-			Data:         roomInfo,
-		},
-	}
-	resp.Id = join.Id
-	resp.Timestamp = time.Now()
-
-	c.queueMessage(resp)
+	c.queueMessage(NoErrOK(join.Id, roomInfo))
 
 	data := &ServerMessage{
 		Notification: &Notification{
@@ -310,11 +275,16 @@ func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 		CreatedAt: msg.Timestamp,
 	}); err != nil {
 		r.log.Println("error saving message:", err)
+		msg.client.queueMessage(ErrInternalError(msg.Id, "failed to persist message"))
 	}
-
 	r.seq_id++
+	msg.client.queueMessage(NoErrAccepted(msg.Id))
 
 	data := &ServerMessage{
+		BaseMessage: BaseMessage{
+			Id:        msg.Id,
+			Timestamp: msg.Timestamp,
+		},
 		Message: &types.Message{
 			SeqId:     seq_id,
 			RoomId:    r.id,
@@ -323,8 +293,6 @@ func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 			Timestamp: msg.Timestamp,
 		},
 	}
-	data.Id = msg.Id
-	data.Timestamp = msg.Timestamp
 
 	r.broadcast(data)
 }
@@ -332,7 +300,7 @@ func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 func (r *Room) broadcast(msg *ServerMessage) {
 	msg.Timestamp = time.Now()
 
-	fmt.Printf("received message to room %q: %v\n", r.externalId, msg)
+	r.log.Printf("broadcast message to room %q: %v\n", r.externalId, msg)
 	for client := range r.clients {
 		if client == msg.SkipClient {
 			continue

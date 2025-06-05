@@ -133,7 +133,12 @@ export default function Chat({ currentUser, currentRoom, setCurrentRoom, rooms, 
     }
 
     wsClient.publishMessage(currentRoom.external_id, message)
-    setMessage('');
+      .then(() => {
+        setMessage('');
+      })
+      .catch(err => {
+        console.error('Error sending message:', err);
+      });
   }
 
   return (

@@ -46,9 +46,9 @@ type ServerMessage struct {
 }
 
 type Response struct {
-	ResponseCode MessageStatusCode `json:"response_code"`
-	Error        string            `json:"error,omitempty"`
-	Data         map[string]any    `json:"data,omitempty"`
+	ResponseCode int            `json:"response_code"`
+	Error        string         `json:"error,omitempty"`
+	Data         map[string]any `json:"data,omitempty"`
 }
 
 type Notification struct {
@@ -73,23 +73,57 @@ type RoomDeleted struct {
 	RoomId string `json:"room_id"`
 }
 
-type MessageStatusCode int
+func NoErrOK(id int, data map[string]any) *ServerMessage {
+	return &ServerMessage{
+		BaseMessage: BaseMessage{
+			Id:        id,
+			Timestamp: Now(),
+		},
+		Response: &Response{
+			ResponseCode: http.StatusOK,
+			Data:         data,
+		},
+	}
+}
 
-const (
-	ResponseCodeNotFound      MessageStatusCode = http.StatusNotFound
-	ResponseCodeInternalError MessageStatusCode = http.StatusInternalServerError
-	ResponseCodeOK            MessageStatusCode = http.StatusOK
-)
+func NoErrAccepted(id int) *ServerMessage {
+	return &ServerMessage{
+		BaseMessage: BaseMessage{
+			Id:        id,
+			Timestamp: Now(),
+		},
+		Response: &Response{
+			ResponseCode: http.StatusAccepted,
+		},
+	}
+}
 
 func ErrRoomNotFound(id int) *ServerMessage {
 	return &ServerMessage{
 		BaseMessage: BaseMessage{
 			Id:        id,
-			Timestamp: time.Now().Round(time.Millisecond),
+			Timestamp: Now(),
 		},
 		Response: &Response{
-			ResponseCode: ResponseCodeNotFound,
+			ResponseCode: http.StatusNotFound,
 			Error:        "room not found",
 		},
 	}
+}
+
+func ErrInternalError(id int, errMsg string) *ServerMessage {
+	return &ServerMessage{
+		BaseMessage: BaseMessage{
+			Id:        id,
+			Timestamp: Now(),
+		},
+		Response: &Response{
+			ResponseCode: http.StatusInternalServerError,
+			Error:        errMsg,
+		},
+	}
+}
+
+func Now() time.Time {
+	return time.Now().UTC().Round(time.Millisecond)
 }

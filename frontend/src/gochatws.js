@@ -78,57 +78,62 @@ class GoChatWSClient {
     }
   }
 
-  generateMessageId() {
+  #generateMessageId() {
     return this._messageId++;
   }
 
   joinRoom(roomId) {
     var msgObj = {
-      id: this.generateMessageId(),
+      id: this.#generateMessageId(),
       join: {
         room_id: roomId,
       },
     };
 
-    return new Promise((resolve, reject) => {
-      this.pendingResponses.set(msgObj.id, {
-        resolve: resolve,
-        reject: reject
-      });
-
-      this.wsClient.send(JSON.stringify(msgObj));
-    });
+    return this.#sendMessage(msgObj);
   }
 
   leaveRoom(roomId, unsub = false) {
     var msgObj = {
-      id: this.generateMessageId(),
+      id: this.#generateMessageId(),
       leave: {
         unsubscribe: unsub,
         room_id: roomId,
       },
     };
 
-    return new Promise((resolve, reject) => {
-      this.pendingResponses.set(msgObj.id, {
-        resolve: resolve,
-        reject: reject
-      });
-
-      this.wsClient.send(JSON.stringify(msgObj));
-    });
+    return this.#sendMessage(msgObj);
   }
 
   publishMessage(roomId, msg) {
     var msgObj = {
+      id: this.#generateMessageId(),
       publish: {
         content: msg,
         room_id: roomId,
       },
     };
 
-    msg = JSON.stringify(msgObj)
-    this.wsClient.send(msg)
+    return this.#sendMessage(msgObj);
+  }
+
+  #sendMessage(msgObj) {
+    let promise;
+    if (msgObj.id) {
+      promise = this.#makePromise(msgObj.id);
+    }
+
+    this.wsClient.send(JSON.stringify(msgObj));
+    return promise;
+  }
+
+  #makePromise(id) {
+    return new Promise((resolve, reject) => {
+      this.pendingResponses.set(id, {
+        resolve: resolve,
+        reject: reject
+      });
+    });
   }
 
   close() {
