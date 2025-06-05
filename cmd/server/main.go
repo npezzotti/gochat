@@ -44,7 +44,7 @@ func main() {
 	flag.Var(&allowedOrigins, "allowed-origins", "comma-separated list of allowed origins for CORS")
 	flag.Parse()
 
-	logger := log.New(os.Stderr, "", 0)
+	logger := log.New(os.Stderr, "", log.LstdFlags)
 
 	cfg, err := config.NewConfig(addr, dsn, signingKey, allowedOrigins)
 	if err != nil {
