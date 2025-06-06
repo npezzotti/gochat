@@ -3,7 +3,7 @@ class GoChatWSClient {
 
   onServerMessageMessage;
   onServerMessagePresence;
-  onServerMessageSubscriptionChange
+  onServerMessageSubscriptionChange;
   onServerMessageRoomDeleted;
 
   _pendingPromises;
@@ -19,12 +19,12 @@ class GoChatWSClient {
     });
 
     this.wsClient.onMessage((data) => {
-      this.#processMessage(data)
-    })
+      this.#processMessage(data);
+    });
 
     this.wsClient.onClose(() => {
       console.log("WebSocket connection closed");
-    })
+    });
   }
 
   #processMessage(data) {
@@ -37,11 +37,11 @@ class GoChatWSClient {
           this.onServerMessageMessage(parsedMsg);
         }
       } else if (parsedMsg.response) {
-        this.#handleServerResponse(parsedMsg)
+        this.#handleServerResponse(parsedMsg);
       } else if (parsedMsg.notification) {
-        this.#handleServerNotification(parsedMsg)
+        this.#handleServerNotification(parsedMsg);
       } else {
-        console.log("Unknown server message type")
+        console.log("Unknown server message type");
       }
     }
   }
@@ -49,9 +49,9 @@ class GoChatWSClient {
   #handleServerResponse(msg) {
     if (this._pendingPromises.has(msg.id)) {
       if (msg.response.response_code < 200 || msg.response.response_code > 299) {
-        const error = msg.response.error
+        const error = msg.response.error;
         const reject = this._pendingPromises.get(msg.id).reject;
-        reject(error)
+        reject(error);
       } else {
         const resolve = this._pendingPromises.get(msg.id).resolve;
         resolve(msg);
@@ -133,7 +133,7 @@ class GoChatWSClient {
     return new Promise((resolve, reject) => {
       this._pendingPromises.set(id, {
         resolve: resolve,
-        reject: reject
+        reject: reject,
       });
     });
   }
@@ -187,16 +187,16 @@ class WSClient {
   onMessage(callback) {
     if (this.socket) {
       this.socket.onmessage = (event) => {
-        console.log("Received message: " + event.data)
+        console.log("Received message: " + event.data);
         callback(event.data);
-      }
+      };
     }
   }
   onError(callback) {
     if (this.socket) {
       this.socket.onerror = (event) => {
         callback(event);
-      }
+      };
     }
   }
   onClose(callback) {
@@ -204,15 +204,15 @@ class WSClient {
       this.socket.onclose = (event) => {
         this.socket = null;
         callback(event);
-      }
+      };
     }
   }
   onOpen(callback) {
     if (this.socket) {
       this.socket.onopen = (event) => {
-        console.log("WebSocket connection opened")
+        console.log("WebSocket connection opened");
         callback(event);
-      }
+      };
     }
   }
 }
