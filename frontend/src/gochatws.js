@@ -6,11 +6,11 @@ class GoChatWSClient {
   onServerMessageSubscriptionChange
   onServerMessageRoomDeleted;
 
-  pendingPromises;
+  _pendingPromises;
   _messageId = 1;
 
   constructor(url) {
-    this.pendingResponses = new Map();
+    this._pendingPromises = new Map();
     this.wsClient = new WSClient(url);
     this.wsClient.connect();
 
@@ -19,22 +19,7 @@ class GoChatWSClient {
     });
 
     this.wsClient.onMessage((data) => {
-      var msgs = data.split('\n');
-      for (var i = 0; i < msgs.length; i++) {
-        const parsedMsg = JSON.parse(msgs[i]);
-
-        if (parsedMsg.message) {
-          if (this.onServerMessageMessage) {
-            this.onServerMessageMessage(parsedMsg);
-          }
-        } else if (parsedMsg.response) {
-          this.handleServerResponse(parsedMsg)
-        } else if (parsedMsg.notification) {
-          this.handleServerNotification(parsedMsg)
-        } else {
-          console.log("Unknown server message type")
-        }
-      }
+      this.#processMessage(data)
     })
 
     this.wsClient.onClose(() => {
@@ -42,21 +27,42 @@ class GoChatWSClient {
     })
   }
 
-  handleServerResponse(msg) {
-    if (this.pendingResponses.has(msg.id)) {
-      if (msg.response.response_code < 200 || msg.response.response_code > 299) {
-        const error = msg.response.error
-        const reject = this.pendingResponses.get(msg.id).reject;
-        reject(error)
+  #processMessage(data) {
+    var msgs = data.split('\n');
+    for (var i = 0; i < msgs.length; i++) {
+      const parsedMsg = JSON.parse(msgs[i]);
+
+      if (parsedMsg.message) {
+        if (this.onServerMessageMessage) {
+          this.onServerMessageMessage(parsedMsg);
+        }
+      } else if (parsedMsg.response) {
+        this.#handleServerResponse(parsedMsg)
+      } else if (parsedMsg.notification) {
+        this.#handleServerNotification(parsedMsg)
       } else {
-        const resolve = this.pendingResponses.get(msg.id).resolve;
-        this.pendingResponses.delete(msg.id);
-        resolve(msg);
+        console.log("Unknown server message type")
       }
     }
   }
 
-  handleServerNotification(msg) {
+  #handleServerResponse(msg) {
+    if (this._pendingPromises.has(msg.id)) {
+      if (msg.response.response_code < 200 || msg.response.response_code > 299) {
+        const error = msg.response.error
+        const reject = this._pendingPromises.get(msg.id).reject;
+        reject(error)
+      } else {
+        const resolve = this._pendingPromises.get(msg.id).resolve;
+        resolve(msg);
+      }
+      this._pendingPromises.delete(msg.id);
+    } else {
+      console.warn("Received response for unknown message ID: " + msg.id);
+    }
+  }
+
+  #handleServerNotification(msg) {
     if (msg.notification.room_deleted) {
       if (this.onServerMessageRoomDeleted) {
         this.onServerMessageRoomDeleted(msg);
@@ -125,7 +131,7 @@ class GoChatWSClient {
 
   #makePromise(id) {
     return new Promise((resolve, reject) => {
-      this.pendingResponses.set(id, {
+      this._pendingPromises.set(id, {
         resolve: resolve,
         reject: reject
       });
