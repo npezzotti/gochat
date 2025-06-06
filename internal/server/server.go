@@ -25,7 +25,7 @@ func NewChatServer(logger *log.Logger, db *database.DBConn) (*ChatServer, error)
 	return &ChatServer{
 		log:            logger,
 		db:             db,
-		joinChan:       make(chan *ClientMessage),
+		joinChan:       make(chan *ClientMessage, 256),
 		clients:        make(map[*Client]struct{}),
 		RegisterChan:   make(chan *Client),
 		deRegisterChan: make(chan *Client),
