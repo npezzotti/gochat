@@ -127,7 +127,7 @@ func (s *Server) deleteRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.cs.RmRoomChan <- room.ExternalId
+	s.cs.DelRoomChan <- room.ExternalId
 	writeJson(s.log, w, http.StatusNoContent, nil)
 }
 

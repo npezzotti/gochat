@@ -20,7 +20,7 @@ export default function AddRoomForm({ setShowAddUser, rooms, setRooms, setCurren
     goChatClient.createRoom(name, description)
       .then(room => {
         setRooms([...rooms, room])
-        wsClient.joinRoom(room.id)
+        wsClient.joinRoom(room.external_id)
           .then(joinedMsg => {
             setCurrentRoom(joinedMsg.response.data);
             setShowAddUser(false);

@@ -101,6 +101,7 @@ func (r *Room) start() {
 			r.log.Printf("room %q timed out", r.externalId)
 			r.cs.unloadRoom(r.externalId)
 		case e := <-r.exit:
+			r.log.Printf("received exit request: %v", e)
 			if e.deleted {
 				r.broadcast(&ServerMessage{
 					Notification: &Notification{

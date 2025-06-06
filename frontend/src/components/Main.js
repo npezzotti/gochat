@@ -42,6 +42,17 @@ export default function Main({ currentUser, setCurrentUser }) {
     setCurrentRoom({ ...currentRoomRef.current });
   }
 
+  function handleDeleteRoom(roomId) {
+    // If the current room is deleted, reset the state
+    if (currentRoomRef.current && currentRoomRef.current.external_id === roomId) {
+      setCurrentRoom(null);
+      setMessages([]);
+    }
+    // Remove the room from the list of rooms
+    setRooms((prevRooms) => prevRooms.filter(room => room.external_id !== roomId));
+    console.log(`Room with ID ${roomId} has been deleted.`);
+  }
+
   useEffect(() => {
     console.log("Initializing WebSocket client...");
     const wsConn = new GoChatWSClient("ws://localhost:8000/ws");
@@ -55,7 +66,8 @@ export default function Main({ currentUser, setCurrentUser }) {
       handlePresenceEvent(user_id, present);
     };
     wsConn.onServerMessageRoomDeleted = (msg) => {
-      console.log("Room deleted event:", msg);
+      const roomId = msg.notification.room_deleted.room_id;
+      handleDeleteRoom(roomId);
     };
     wsConn.onServerMessageSubscriptionChange = (msg) => {
       if (msg.notification.subscription_change.subscribed) {

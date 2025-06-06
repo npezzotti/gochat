@@ -15,7 +15,7 @@ type ChatServer struct {
 	joinChan       chan *ClientMessage
 	RegisterChan   chan *Client
 	deRegisterChan chan *Client
-	RmRoomChan     chan string
+	DelRoomChan    chan string
 	rooms          map[string]*Room
 	stop           chan struct{}
 	done           chan struct{}
@@ -29,7 +29,7 @@ func NewChatServer(logger *log.Logger, db *database.DBConn) (*ChatServer, error)
 		clients:        make(map[*Client]struct{}),
 		RegisterChan:   make(chan *Client),
 		deRegisterChan: make(chan *Client),
-		RmRoomChan:     make(chan string),
+		DelRoomChan:    make(chan string),
 		stop:           make(chan struct{}),
 		done:           make(chan struct{}),
 		rooms:          make(map[string]*Room),
@@ -83,13 +83,16 @@ func (cs *ChatServer) Run() {
 		case client := <-cs.deRegisterChan:
 			cs.log.Printf("removing connection from %q", client.user.Username)
 			cs.removeClient(client)
-		case id := <-cs.RmRoomChan:
+		case id := <-cs.DelRoomChan:
 			r, ok := cs.rooms[id]
-			if ok {
-				cs.unloadRoom(r.externalId)
-				r.exit <- exitReq{deleted: true}
-				<-r.done
+			if !ok {
+				cs.log.Printf("room %q not active for deletion", id)
+				continue
 			}
+			cs.unloadRoom(r.externalId)
+			r.exit <- exitReq{deleted: true}
+			<-r.done
+			cs.log.Printf("deleted room %q", id)
 		case <-cs.stop:
 			cs.log.Println("shutting down rooms")
 			for _, r := range cs.rooms {
