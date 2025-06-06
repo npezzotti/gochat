@@ -125,7 +125,18 @@ class GoChatWSClient {
       promise = this.#makePromise(msgObj.id);
     }
 
-    this.wsClient.send(JSON.stringify(msgObj));
+    try {
+      this.wsClient.send(JSON.stringify(msgObj));
+    } catch (err) {
+      if (msgObj.id) {
+        const reject = this._pendingPromises.get(msgObj.id).reject;
+        reject("Error sending message: " + err.message);
+        this._pendingPromises.delete(msgObj.id);
+      } else {
+        throw err;
+      }
+    }
+
     return promise;
   }
 
@@ -144,72 +155,73 @@ class GoChatWSClient {
 }
 
 class WSClient {
+  #socket = null;
+
   constructor(url) {
     this.url = url;
-    this.socket = null;
   }
 
   connect() {
-    this.socket = new WebSocket(this.url);
+    this.#socket = new WebSocket(this.url);
   }
   send(message) {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+    if (this.#socket && this.#socket.readyState === WebSocket.OPEN) {
       console.log("Sending message: " + message);
-      this.socket.send(message);
+      this.#socket.send(message);
     } else {
       throw new Error("WebSocket is not open");
     }
   }
   close() {
-    if (this.socket && this.socket.readyState !== WebSocket.CLOSED) {
-      this.socket.close();
-      this.socket = null;
+    if (this.#socket && this.#socket.readyState !== WebSocket.CLOSED) {
+      this.#socket.close();
+      this.#socket = null;
     }
   }
   _reconnect() {
-    if (this.socket && this.socket.readyState !== WebSocket.CLOSED) {
-      this.socket.close();
+    if (this.#socket && this.#socket.readyState !== WebSocket.CLOSED) {
+      this.#socket.close();
     }
     this.connect();
   }
   isConnected() {
-    return this.socket && this.socket.readyState === WebSocket.OPEN;
+    return this.#socket && this.#socket.readyState === WebSocket.OPEN;
   }
   reconnect() {
     this._reconnect();
   }
   isOpen() {
-    return this.socket && this.socket.readyState === WebSocket.OPEN;
+    return this.#socket && this.#socket.readyState === WebSocket.OPEN;
   }
   isClosed() {
-    return this.socket && this.socket.readyState === WebSocket.CLOSED;
+    return this.#socket && this.#socket.readyState === WebSocket.CLOSED;
   }
   onMessage(callback) {
-    if (this.socket) {
-      this.socket.onmessage = (event) => {
+    if (this.#socket) {
+      this.#socket.onmessage = (event) => {
         console.log("Received message: " + event.data);
         callback(event.data);
       };
     }
   }
   onError(callback) {
-    if (this.socket) {
-      this.socket.onerror = (event) => {
+    if (this.#socket) {
+      this.#socket.onerror = (event) => {
         callback(event);
       };
     }
   }
   onClose(callback) {
-    if (this.socket) {
-      this.socket.onclose = (event) => {
-        this.socket = null;
+    if (this.#socket) {
+      this.#socket.onclose = (event) => {
+        this.#socket = null;
         callback(event);
       };
     }
   }
   onOpen(callback) {
-    if (this.socket) {
-      this.socket.onopen = (event) => {
+    if (this.#socket) {
+      this.#socket.onopen = (event) => {
         console.log("WebSocket connection opened");
         callback(event);
       };
