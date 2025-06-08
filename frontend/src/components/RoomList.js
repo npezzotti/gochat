@@ -42,19 +42,24 @@ export default function RoomList({ currentRoom, setCurrentRoom, rooms, wsClient 
   return (
     <div id="room-list">
       {error && <p className="error">{error}</p>}
+      <div class="rooms-title">Recent Rooms</div>
       {rooms.length === 0 && <p>No rooms available</p>}
       {rooms.map(room => {
         return (
           <div
-            key={room.id}
             id={room.id}
-            data-room-external-id={room.external_id}
+            key={room.id}
             className={
-              `room ${currentRoom && room.external_id === currentRoom.external_id ?
+              `room-item ${currentRoom && room.external_id === currentRoom.external_id ?
                 'active-room' : ''}`
             }
-            onClick={handleJoinRoom}>
+            data-room-external-id={room.external_id}
+            onClick={handleJoinRoom}
+          >
+          <div className='room-name'>
             {room.name}
+          </div>
+          <div class="room-status" style={room.isOnline ? {color: 'green'} : {color: 'grey'}}></div>
           </div>
         )
       })}

@@ -49,11 +49,11 @@ export default function LoginForm({ setCurrentUser, setIsAuthenticated, goChatCl
           <p id="error-message" className="error">{error}</p>
           : ''}
         <label htmlFor="email">Email Address</label>
-        <input type="text" name="email" id="email" value={email} onChange={handleChangeEmail} disabled={
+        <input type="text" name="email" id="email" className='sidebar-input' value={email} onChange={handleChangeEmail} disabled={
           state === 'disabled'
         } />
         <label htmlFor="password">Password</label>
-        <input type="password" name="password" id="password" value={password} onChange={handleChangePassword} disabled={
+        <input type="password" name="password" className='sidebar-input' id="password" value={password} onChange={handleChangePassword} disabled={
           state === 'disabled'
         } />
         <input type="submit" id="login" value="Login" disabled={

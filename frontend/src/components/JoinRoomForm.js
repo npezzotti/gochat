@@ -77,18 +77,18 @@ export default function JoinRoomForm({ rooms, setRooms, currentRoom, setCurrentR
       {error !== null ?
         <p id="error-message" className="error">{error}</p>
         : ''}
-      <label htmlFor="roomId">Join Room</label>
+      <h3 htmlFor="roomId">Join Room</h3>
       <input
         type="text"
         id="roomId"
         name="roomId"
+        className='sidebar-input'
         value={roomId}
         onChange={e => setRoomId(e.target.value)}
         placeholder="Enter room ID"
-        // required
         aria-label="Join Room"
       />
-      <input type="submit" value="Join"></input>
+      <input type="submit" value="Join Room"></input>
     </form>
   );
 }

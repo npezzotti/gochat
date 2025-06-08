@@ -55,12 +55,12 @@ export default function EditAccountSideBar({ currentUser, setCurrentUser, setSho
             <p id="error-message" className="error">{error}</p>
             : ''}
           <label htmlFor="email">Email</label>
-          <input type="text" id="email" name="email" value={currentUser.email_address} aria-label="Email" readOnly disabled />
+          <input type="text" id="email" name="email" className='sidebar-input' value={currentUser.email_address} aria-label="Email" readOnly disabled />
           <label htmlFor="username">Username</label>
-          <input type="text" id="username" name="username" value={username} aria-label="Username" onChange={handleChangeUsername} />
+          <input type="text" id="username" name="username" value={username} className='sidebar-input' aria-label="Username" onChange={handleChangeUsername} />
           <label htmlFor="password">Password</label>
-          <input type="password" id="passsword" name="password" value={password} placeholder="**********" required="" autoComplete="on" aria-label="Password" onChange={handleChangePassword}/>
-          <input type="submit" value="Update" />
+          <input type="password" id="passsword" name="password" value={password} className='sidebar-input' placeholder="**********" required="" autoComplete="on" aria-label="Password" onChange={handleChangePassword}/>
+          <input type="submit" value="Update Account" />
         </form>
       </div>
     </>

@@ -40,17 +40,17 @@ export default function AddRoomForm({ setShowAddUser, rooms, setRooms, setCurren
         <button className="icon-button" onClick={() => {setShowAddUser(false)}}>
           <FontAwesomeIcon icon={faArrowLeft} />
         </button>
-        <h2>Add Chat Room</h2>
+        <h2>New Chat Room</h2>
       </div>
       {error !== null ?
         <p className="error">{error}</p>
         : ''}
       <form className="sidebar-form" onSubmit={handleAddRoom}>
         <label htmlFor="name">Name:</label>
-        <input type="text" id="name" name="name" />
+        <input type="text" id="name" name="name" className='sidebar-input'/>
         <label htmlFor="description">Description:</label>
-        <input type="text" id="description" name="description" />
-        <input type="submit" value="Submit" />
+        <input type="text" id="description" name="description" className='sidebar-input'/>
+        <input type="submit" value="Create Room" />
       </form>
     </>
   )

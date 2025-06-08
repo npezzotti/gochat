@@ -55,15 +55,15 @@ export default function RegisterForm() {
           <p id="error-message" className="error">{error}</p>
           : ''}
         <label htmlFor="email">Email Address</label>
-        <input type="text" name="email" id="email" value={email} onChange={handleChangeEmail} disabled={
+        <input type="text" name="email" id="email" className='sidebar-input' value={email} onChange={handleChangeEmail} disabled={
           state === 'disabled'
         } />
         <label htmlFor="username">Username</label>
-        <input type="text" name="username" id="username" value={username} onChange={handleChangeUsername} disabled={
+        <input type="text" name="username" id="username" className='sidebar-input' value={username} onChange={handleChangeUsername} disabled={
           state === 'disabled'
         } />
         <label htmlFor="password">Password</label>
-        <input type="password" name="password" id="password" value={password} onChange={handleChangePassword} disabled={
+        <input type="password" name="password" id="password" className='sidebar-input' value={password} onChange={handleChangePassword} disabled={
           state === 'disabled'
         } />
         <input type="submit" value="Register" disabled={

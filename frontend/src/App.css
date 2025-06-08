@@ -5,7 +5,7 @@
 }
 
 .sidebar {
-  padding: 1rem;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -85,28 +85,33 @@
 
 .sidebar-form label, input{
   margin: .3rem 0;
-}
-
-.sidebar-form input[type="text"], input[type="password"] {
-  padding: .5rem;
-  border: none;
-  border-radius: 5px;
-  outline: none;
-  font-size: 1em;
-}
-
-.sidebar-form label,input {
   display: block;
 }
 
+.sidebar-input {
+  padding: 12px 16px;
+  border: 2px solid rgba(102, 126, 234, 0.2);
+  border-radius: 5px;
+  outline: none;
+  font-size: 1em;
+  width: 100%;
+}
+
+.sidebar-input:focus {
+  border-color: #667eea;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+}
+
 .sidebar-form input[type="submit"] {
-  padding: .5rem;
+  font-size: 16px;
+  padding: .75rem 1rem;
   color: #2c3e50;
   background: white;
   border: none;
-  border-radius: 5px;
+  border-radius: 12px;
   cursor: pointer;
-  font-weight: 600;
+  width: 100%;
 }
 
 .sidebar-form input[type="submit"]:hover {
@@ -119,20 +124,38 @@
   overflow-y: auto;
 }
 
-.room {
+.room-item {
   padding: 1em;
   margin: 5px 0;
   background-color: #34495e;
   cursor: pointer;
-  border-radius: 5px;
-  cursor: pointer;
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.room-name {
+  font-size: 1em;
+  position: relative;
+  z-index: 1;
+}
+
+.room-status {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  width: 8px;
+  height: 8px;
+  background: #48bb78;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
 }
 
 .active-room {
   cursor: auto;
 }
 
-.room:hover,
+.room-item:hover,
 .active-room {
   background-color: #536b84;
 }
