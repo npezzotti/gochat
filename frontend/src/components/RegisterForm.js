@@ -48,7 +48,7 @@ export default function RegisterForm() {
   return (
     <div>
       <div className="sidebar-header">
-        <h1>Sign in</h1>
+        <h1>Create Account</h1>
       </div>
       <form className="sidebar-form" id="login-form" onSubmit={handleSubmit}>
         {error !== null ?
