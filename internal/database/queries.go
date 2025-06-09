@@ -345,12 +345,17 @@ func (db *DBConn) DeleteSubscription(accountId, roomId int) error {
 }
 
 func (db *DBConn) MessageCreate(msg Message) error {
-	err := db.RoomUpdateOnMessage(msg)
-	if err != nil {
-		return err
-	}
+	tx, err := db.conn.Begin()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
 
-	_, err = db.conn.Exec(
+	if err = db.RoomUpdateOnMessage(msg); err != nil {
+		return fmt.Errorf("failed to update room on message: %w", err)
+	}
+	if _, err = db.conn.Exec(
 		"INSERT INTO messages (seq_id, room_id, user_id, content, created_at, updated_at) "+
 			"VALUES ($1, $2, $3, $4, $5, $6)",
 		msg.SeqId,
@@ -359,7 +364,13 @@ func (db *DBConn) MessageCreate(msg Message) error {
 		msg.Content,
 		msg.CreatedAt,
 		msg.CreatedAt,
-	)
+	); err != nil {
+		return fmt.Errorf("failed to insert message: %w", err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
 
 	return err
 }
