@@ -45,6 +45,11 @@ type RegisterRequest struct {
 	Password string `json:"password"`
 }
 
+type UpdateAccountRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 func (s *Server) extractUserIdFromToken(r *http.Request) (int, error) {
 	tokenString, err := r.Cookie(tokenCookieKey)
 	if err != nil {
@@ -163,15 +168,15 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		var u types.User
-		err = json.NewDecoder(r.Body).Decode(&u)
+		var updateAccountReq UpdateAccountRequest
+		err = json.NewDecoder(r.Body).Decode(&updateAccountReq)
 		if err != nil {
 			errResp := NewBadRequestError()
 			writeJson(s.log, w, errResp.Code, errResp)
 			return
 		}
 
-		pwdHash, err := hashPassword(u.Password)
+		pwdHash, err := hashPassword(updateAccountReq.Password)
 		if err != nil {
 			errResp := NewInternalServerError(err)
 			writeJson(s.log, w, errResp.Code, errResp)
@@ -180,7 +185,7 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request) {
 
 		params := database.UpdateAccountParams{
 			UserId:       curUser.Id,
-			Username:     u.Username,
+			Username:     updateAccountReq.Username,
 			PasswordHash: pwdHash,
 		}
 
