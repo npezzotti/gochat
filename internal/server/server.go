@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/npezzotti/go-chatroom/internal/database"
+	"github.com/npezzotti/go-chatroom/internal/types"
 )
 
 type ChatServer struct {
@@ -16,9 +17,11 @@ type ChatServer struct {
 	RegisterChan   chan *Client
 	deRegisterChan chan *Client
 	DelRoomChan    chan string
+	broadcastChan  chan *ServerMessage
 	rooms          map[string]*Room
 	stop           chan struct{}
 	done           chan struct{}
+	userMap        map[int][]*Client
 }
 
 func NewChatServer(logger *log.Logger, db *database.DBConn) (*ChatServer, error) {
@@ -30,9 +33,11 @@ func NewChatServer(logger *log.Logger, db *database.DBConn) (*ChatServer, error)
 		RegisterChan:   make(chan *Client),
 		deRegisterChan: make(chan *Client),
 		DelRoomChan:    make(chan string),
+		broadcastChan:  make(chan *ServerMessage, 256),
 		stop:           make(chan struct{}),
 		done:           make(chan struct{}),
 		rooms:          make(map[string]*Room),
+		userMap:        make(map[int][]*Client),
 	}, nil
 }
 
@@ -56,9 +61,25 @@ func (cs *ChatServer) Run() {
 					continue
 				}
 
+				dbSubs, err := cs.db.GetSubscribersForRoom(dbRoom.Id)
+				if err != nil {
+					joinMsg.client.queueMessage(ErrInternalError(joinMsg.Id))
+					cs.log.Println("GetSubscriptionsByRoomId:", err)
+					continue
+				}
+
+				var subs []types.User
+				for _, dbSub := range dbSubs {
+					subs = append(subs, types.User{
+						Id:       dbSub.Id,
+						Username: dbSub.Username,
+					})
+				}
+
 				room := &Room{
 					id:            dbRoom.Id,
 					externalId:    dbRoom.ExternalId,
+					subscribers:   subs,
 					cs:            cs,
 					joinChan:      make(chan *ClientMessage, 256),
 					leaveChan:     make(chan *ClientMessage, 256),
@@ -83,6 +104,16 @@ func (cs *ChatServer) Run() {
 		case client := <-cs.deRegisterChan:
 			cs.log.Printf("removing connection from %q", client.user.Username)
 			cs.removeClient(client)
+		case msg := <-cs.broadcastChan:
+			cs.log.Printf("broadcasting message %v", msg)
+			userClients := cs.userMap[msg.UserId]
+			// if there are no clients for this user, skip broadcasting
+			if userClients == nil {
+				continue
+			}
+			for _, c := range userClients {
+				c.queueMessage(msg)
+			}
 		case id := <-cs.DelRoomChan:
 			r, ok := cs.rooms[id]
 			if !ok {
@@ -112,12 +143,25 @@ func (cs *ChatServer) addClient(c *Client) {
 	cs.clientsLock.Lock()
 	defer cs.clientsLock.Unlock()
 	cs.clients[c] = struct{}{}
+	cs.userMap[c.user.Id] = append(cs.userMap[c.user.Id], c)
 }
 
 func (cs *ChatServer) removeClient(c *Client) {
 	cs.clientsLock.Lock()
 	defer cs.clientsLock.Unlock()
+
 	delete(cs.clients, c)
+	if userClients, ok := cs.userMap[c.user.Id]; ok {
+		for i, client := range userClients {
+			if client == c {
+				cs.userMap[c.user.Id] = append(userClients[:i], userClients[i+1:]...)
+				break
+			}
+		}
+		if len(cs.userMap[c.user.Id]) == 0 {
+			delete(cs.userMap, c.user.Id)
+		}
+	}
 }
 
 func (cs *ChatServer) unloadRoom(roomId string) {
