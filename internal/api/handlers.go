@@ -82,6 +82,12 @@ func (s *Server) getRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dbSubs, err := s.db.GetSubscribersForRoom(dbRoom.Id)
+	if err != nil {
+		s.log.Println("get subscribers for room:", err)
+		errResp := NewInternalServerError(err)
+		writeJson(s.log, w, errResp.Code, errResp)
+		return
+	}
 	var subscribers []types.User
 	for _, dbSub := range dbSubs {
 		var u types.User
@@ -154,6 +160,7 @@ func (s *Server) getUsersRooms(w http.ResponseWriter, r *http.Request) {
 			ExternalId:  dbRoom.ExternalId,
 			Name:        dbRoom.Name,
 			Description: dbRoom.Description,
+			SeqId:       dbRoom.SeqId,
 			CreatedAt:   dbRoom.CreatedAt,
 			UpdatedAt:   dbRoom.UpdatedAt,
 		})
