@@ -32,7 +32,8 @@ export default function JoinRoomForm({ rooms, setRooms, currentRoom, setCurrentR
                 setRoomId('');
               })
               .catch(err => {
-                setError("Already subscribed to room - failed to join: " + err)
+                setCurrentRoom(null);
+                setError("Failed to join room: " + err)
               })
           })
       } else {
@@ -77,7 +78,7 @@ export default function JoinRoomForm({ rooms, setRooms, currentRoom, setCurrentR
       {error !== null ?
         <p id="error-message" className="error">{error}</p>
         : ''}
-      <h3 htmlFor="roomId">Join Room</h3>
+      <h3 className="sidebar-section-title" htmlFor="roomId">Join Room</h3>
       <input
         type="text"
         id="roomId"

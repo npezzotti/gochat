@@ -2,9 +2,9 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/handlers"
 	"github.com/npezzotti/go-chatroom/internal/config"
@@ -67,12 +67,8 @@ func (s *Server) Start() error {
 
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.log.Println("Shutting down server...")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	if err := s.mux.Shutdown(ctx); err != nil {
-		s.log.Printf("Error shutting down server: %v\n", err)
-		return err
+		return fmt.Errorf("server shutdown: %w", err)
 	}
 
 	s.log.Println("Server shutdown complete")

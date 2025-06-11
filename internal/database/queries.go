@@ -314,7 +314,8 @@ func (db *DBConn) SubscriptionExists(account_id, room_id int) bool {
 
 func (db *DBConn) ListSubscriptions(account_id int) ([]Room, error) {
 	rows, err := db.conn.Query(
-		"SELECT r.id, r.external_id, r.name, r.description FROM subscriptions s JOIN rooms r ON r.id = s.room_id WHERE s.account_id = $1",
+		"SELECT r.id, r.external_id, r.name, r.description, r.seq_id, r.created_at, r.updated_at "+
+			"FROM subscriptions s JOIN rooms r ON r.id = s.room_id WHERE s.account_id = $1",
 		account_id,
 	)
 
@@ -325,7 +326,15 @@ func (db *DBConn) ListSubscriptions(account_id int) ([]Room, error) {
 	var rooms []Room
 	for rows.Next() {
 		var room Room
-		if err = rows.Scan(&room.Id, &room.ExternalId, &room.Name, &room.Description); err != nil {
+		if err = rows.Scan(
+			&room.Id,
+			&room.ExternalId,
+			&room.Name,
+			&room.Description,
+			&room.SeqId,
+			&room.CreatedAt,
+			&room.UpdatedAt,
+		); err != nil {
 			break
 		}
 
@@ -338,6 +347,19 @@ func (db *DBConn) DeleteSubscription(accountId, roomId int) error {
 	_, err := db.conn.Exec(
 		"DELETE FROM subscriptions WHERE account_id = $1 AND room_id = $2",
 		accountId,
+		roomId,
+	)
+
+	return err
+}
+
+func (db *DBConn) UpdateLastReadSeqId(userId, roomId, seqId int) error {
+	_, err := db.conn.Exec(
+		"UPDATE subscriptions SET last_read_seq_id = $1, updated_at = $2 "+
+			"WHERE account_id = $3 AND room_id = $4",
+		seqId,
+		time.Now().UTC(),
+		userId,
 		roomId,
 	)
 

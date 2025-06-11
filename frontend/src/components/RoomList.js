@@ -39,6 +39,10 @@ export default function RoomList({ currentRoom, setCurrentRoom, rooms, wsClient 
     }
   }
 
+  function isActiveRoom(room) {
+    return currentRoom && room.external_id === currentRoom.external_id;
+  }
+
   return (
     <div id="room-list">
       {error && <p className="error">{error}</p>}
@@ -50,16 +54,23 @@ export default function RoomList({ currentRoom, setCurrentRoom, rooms, wsClient 
             id={room.id}
             key={room.id}
             className={
-              `room-item ${currentRoom && room.external_id === currentRoom.external_id ?
+              `room-item ${isActiveRoom(room) ?
                 'active-room' : ''}`
             }
             data-room-external-id={room.external_id}
             onClick={handleJoinRoom}
           >
-          <div className='room-name'>
-            {room.name}
-          </div>
-          <div class="room-status" style={room.isOnline ? {color: 'green'} : {color: 'grey'}}></div>
+            <div className='room-item-info' key={room.id}>
+              <div className='room-name'>
+                {room.name}
+              </div>
+              {room.seq_id && room.last_read_seq_id && room.seq_id - room.last_read_seq_id > 0 ?
+                <div className='unread-badge'>{room.seq_id - room.last_read_seq_id > 9 ? '9+' : room.seq_id - room.last_read_seq_id}</div> :
+                ''}
+            </div>
+            <div className='room-item-meta'>
+              <div class={`room-status ${room.isOnline ? 'online' : 'offline'}`}></div>
+            </div>
           </div>
         )
       })}

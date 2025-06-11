@@ -43,15 +43,15 @@ export default function RoomInfoPanel({ visible, hideRoomInfoPanel, currentRoom 
             <p>{currentRoom.description}</p>
             <h3>ID</h3>
             {copyDisabled ?
-              <FontAwesomeIcon icon={faFileCircleCheck} />
+                <FontAwesomeIcon icon={faFileCircleCheck} />
               :
-              <button className="icon-button">
-                <FontAwesomeIcon icon={faCopy} onClick={changeCopyColor} />
+              <button className="icon-button"  >
+                <FontAwesomeIcon icon={faCopy} onClick={changeCopyColor}/>
               </button>
             }
             {copyDisabled ?
-              <span>  Copied!</span> :
-              <span>  {currentRoom.external_id}</span>
+              <p>  Copied!</p> :
+              <p>  {currentRoom.external_id}</p>
             }
           </div>
           <div className="subscribers">

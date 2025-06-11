@@ -15,7 +15,7 @@ export default function Main({ currentUser, setCurrentUser }) {
   const [rooms, setRooms] = useState([]);
   const currentRoomRef = useRef(null);
 
-  function handlePresenceEvent(user_id, present) {
+  function handleUserPresenceEvent(user_id, present) {
     const updatedSubscribers = currentRoomRef.current?.subscribers.map(subscriber =>
       subscriber.user_id === user_id ? { ...subscriber, isPresent: present } : subscriber
     );
@@ -23,6 +23,14 @@ export default function Main({ currentUser, setCurrentUser }) {
     if (updatedSubscribers) {
       setCurrentRoom({ ...currentRoomRef.current, subscribers: updatedSubscribers });
     }
+  }
+
+  function handleRoomPresenceEvent(room_id, present) {
+    setRooms(rooms =>
+      rooms.map(room =>
+        room.external_id === room_id ? { ...room, isOnline: present } : room
+      )
+    );
   }
 
   function addSubscriber(user) {
@@ -50,7 +58,6 @@ export default function Main({ currentUser, setCurrentUser }) {
     }
     // Remove the room from the list of rooms
     setRooms((prevRooms) => prevRooms.filter(room => room.external_id !== roomId));
-    console.log(`Room with ID ${roomId} has been deleted.`);
   }
 
   useEffect(() => {
@@ -60,10 +67,24 @@ export default function Main({ currentUser, setCurrentUser }) {
 
     wsConn.onServerMessageMessage = (msg) => {
       setMessages((prevMessages) => [...prevMessages, msg.message]);
+      // update the room's seq_id and last_read_seq_id when a new message is received
+      const { room_id, seq_id } = msg.message;
+      setRooms((prevRooms) =>
+        prevRooms.map((room) => {
+          if (room.id === room_id) {
+            return { ...room, seq_id: seq_id, last_read_seq_id: seq_id};
+          }
+          return room;
+        })
+      );
     };
-    wsConn.onServerMessagePresence = (msg) => {
+    wsConn.onServerMessageUserPresence = (msg) => {
       const { user_id, present } = msg.notification.presence
-      handlePresenceEvent(user_id, present);
+      handleUserPresenceEvent(user_id, present);
+    };
+    wsConn.onServerMessageRoomPresence = (msg) => {
+      const { room_id, present } = msg.notification.presence;
+      handleRoomPresenceEvent(room_id, present);
     };
     wsConn.onServerMessageRoomDeleted = (msg) => {
       const roomId = msg.notification.room_deleted.room_id;
@@ -76,6 +97,18 @@ export default function Main({ currentUser, setCurrentUser }) {
         removeSubscriber(msg.notification.subscription_change.user.id)
       }
     };
+    wsConn.onServerMessageNotificationMessage = (msg) => {
+      // This is a notification message, update the room's seq_id
+      const { room_id, seq_id } = msg.notification.message;
+      setRooms((prevRooms) =>
+        prevRooms.map((room) => {
+          if (room.external_id === room_id) {
+            return { ...room, seq_id: seq_id };
+          }
+          return room;
+        })
+      );
+    }
     return () => {
       wsConn.close();
     };

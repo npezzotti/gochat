@@ -18,6 +18,7 @@ type exitReq struct {
 type Room struct {
 	id            int
 	externalId    string
+	subscribers   []types.User
 	cs            *ChatServer
 	joinChan      chan *ClientMessage
 	leaveChan     chan *ClientMessage
@@ -96,10 +97,25 @@ func (r *Room) start() {
 				})
 			}
 		case msg := <-r.clientMsgChan:
-			r.saveAndBroadcast(msg)
+			if msg.Publish != nil {
+				r.saveAndBroadcast(msg)
+			} else if msg.Read != nil {
+				r.handleRead(msg)
+			}
 		case <-r.killTimer.C:
 			r.log.Printf("room %q timed out", r.externalId)
 			r.cs.unloadRoom(r.externalId)
+			for _, sub := range r.subscribers {
+				r.cs.broadcastChan <- &ServerMessage{
+					Notification: &Notification{
+						Presence: &Presence{
+							Present: false,
+							RoomId:  r.externalId,
+						},
+					},
+					UserId: sub.Id,
+				}
+			}
 		case e := <-r.exit:
 			r.log.Printf("received exit request: %v", e)
 			if e.deleted {
@@ -120,6 +136,17 @@ func (r *Room) start() {
 	}
 }
 
+func (r *Room) handleRead(msg *ClientMessage) {
+	// update the last read seq id for the user
+	if err := r.cs.db.UpdateLastReadSeqId(msg.UserId, r.id, msg.Read.SeqId); err != nil {
+		r.log.Println("UpdateLastReadSeqId:", err)
+		msg.client.queueMessage(ErrInternalError(msg.Id))
+		return
+	}
+
+	msg.client.queueMessage(NoErrOK(msg.Id, nil))
+}
+
 func (r *Room) handleAddClient(join *ClientMessage) {
 	// stop the kill timer since we have a new client
 	r.killTimer.Stop()
@@ -127,7 +154,8 @@ func (r *Room) handleAddClient(join *ClientMessage) {
 	c := join.client
 	if !r.cs.db.SubscriptionExists(c.user.Id, r.id) {
 		r.log.Printf("Creating subscription for user %q in room %q", c.user.Username, r.externalId)
-		if _, err := r.cs.db.CreateSubscription(c.user.Id, r.id); err != nil {
+		sub, err := r.cs.db.CreateSubscription(c.user.Id, r.id)
+		if err != nil {
 			// reset timer since client join failed
 			if len(r.clients) == 0 {
 				r.killTimer.Reset(idleRoomTimeout)
@@ -135,6 +163,11 @@ func (r *Room) handleAddClient(join *ClientMessage) {
 			r.log.Println("CreateSubscription:", err)
 			return
 		}
+
+		r.subscribers = append(r.subscribers, types.User{
+			Id:       sub.AccountId,
+			Username: sub.Username,
+		})
 
 		r.broadcast(&ServerMessage{
 			Notification: &Notification{
@@ -192,6 +225,18 @@ func (r *Room) handleAddClient(join *ClientMessage) {
 		SkipClient: c,
 	}
 	r.broadcast(data)
+
+	for _, sub := range r.subscribers {
+		r.cs.broadcastChan <- &ServerMessage{
+			Notification: &Notification{
+				Presence: &Presence{
+					Present: true,
+					RoomId:  r.externalId,
+				},
+			},
+			UserId: sub.Id,
+		}
+	}
 }
 
 func (r *Room) addClient(c *Client) {
@@ -296,6 +341,24 @@ func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 	}
 
 	r.broadcast(data)
+
+	// notify inactive subscribers of new message
+	for _, sub := range r.subscribers {
+		if r.userMap[sub.Id] != nil {
+			// skip broadcasting to users that are already in the room
+			continue
+		}
+
+		r.cs.broadcastChan <- &ServerMessage{
+			Notification: &Notification{
+				Message: &MessageNotification{
+					RoomId: r.externalId,
+					SeqId:  r.seq_id,
+				},
+			},
+			UserId: sub.Id,
+		}
+	}
 }
 
 func (r *Room) broadcast(msg *ServerMessage) {

@@ -2,9 +2,11 @@ class GoChatWSClient {
   wsClient;
 
   onServerMessageMessage;
-  onServerMessagePresence;
+  onServerMessageUserPresence;
+  onServerMessageRoomPresence;
   onServerMessageSubscriptionChange;
   onServerMessageRoomDeleted;
+  onServerMessageNotificationMessage;
 
   _pendingPromises;
   _messageId = 1;
@@ -68,12 +70,21 @@ class GoChatWSClient {
         this.onServerMessageRoomDeleted(msg);
       }
     } else if (msg.notification.presence) {
-      if (this.onServerMessagePresence) {
-        this.onServerMessagePresence(msg);
+      let userId = msg.notification.presence.user_id;
+      if (userId) {
+        if (this.onServerMessageUserPresence) {
+          this.onServerMessageUserPresence(msg);
+        }
+      } else {
+        this.onServerMessageRoomPresence(msg);
       }
     } else if (msg.notification.subscription_change) {
       if (this.onServerMessageSubscriptionChange) {
         this.onServerMessageSubscriptionChange(msg);
+      }
+    } else if (msg.notification.message) {
+      if (this.onServerMessageNotificationMessage) {
+        this.onServerMessageNotificationMessage(msg);
       }
     } else {
       console.log("Unknown notification type");
@@ -113,6 +124,18 @@ class GoChatWSClient {
       publish: {
         content: msg,
         room_id: roomId,
+      },
+    };
+
+    return this.#sendMessage(msgObj);
+  }
+
+  readMessage(roomId, seqId) {
+    var msgObj = {
+      id: this.#generateMessageId(),
+      read: {
+        room_id: roomId,
+        seq_id: seqId,
       },
     };
 

@@ -124,6 +124,18 @@ func (c *Client) Read() {
 			} else {
 				c.queueMessage(ErrRoomNotFound(msg.Id))
 			}
+		case msg.Read != nil:
+			r := c.getRoom(msg.Read.RoomId)
+			if r != nil {
+				select {
+				case r.clientMsgChan <- &msg:
+				default:
+					c.queueMessage(ErrServiceUnavailable(msg.Id))
+					c.log.Printf("readChan full for room %q", r.externalId)
+				}
+			} else {
+				c.queueMessage(ErrRoomNotFound(msg.Id))
+			}
 		}
 	}
 }

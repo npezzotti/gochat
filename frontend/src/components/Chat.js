@@ -6,6 +6,7 @@ import '../App.css';
 import ChatMessage from './ChatMessage';
 import RoomInfoPanel from './RoomInfoPanel';
 import goChatClient from '../gochat';
+import GoChatWSClient from '../gochatws';
 
 export default function Chat({ currentUser, currentRoom, setCurrentRoom, rooms, setRooms, messages, setMessages, wsClient }) {
   const [roomInfoPanelVisible, setRoomInfoPanelVisible] = useState(false);
@@ -55,9 +56,25 @@ export default function Chat({ currentUser, currentRoom, setCurrentRoom, rooms, 
             setHasMore(false);
             return;
           }
+
           setMessages([...msgs.reverse()]);
           setBefore(msgs[0].seq_id);
           setLoadingMsgs(false);
+
+          wsClient.readMessage(currentRoom.external_id, msgs[msgs.length - 1].seq_id)
+            .then(() => {
+              setRooms(prevRooms =>
+                prevRooms.map(room => {
+                  if (room.external_id === currentRoom.external_id) {
+                    return { ...room, seq_id: msgs[msgs.length - 1].seq_id, last_read_seq_id: msgs[msgs.length - 1].seq_id };
+                  }
+                  return room;
+                })
+              );
+            })
+            .catch(err => {
+              console.error('Error marking message as read:', err);
+            });
         });
     }
   }, [currentRoom]);
@@ -98,15 +115,15 @@ export default function Chat({ currentUser, currentRoom, setCurrentRoom, rooms, 
 
   const handleLeaveRoom = () => {
     wsClient.leaveRoom(currentRoom.external_id, true)
-    .then(_ => {
-      setCurrentRoom(null)
-      setMessages([]);
-      setBefore(0);
-      setRooms(rooms.filter(room => room.external_id !== currentRoom.external_id));
-    })
-    .catch(err => {
-      console.log("Failed to leave room: " + err);
-    });
+      .then(_ => {
+        setCurrentRoom(null)
+        setMessages([]);
+        setBefore(0);
+        setRooms(rooms.filter(room => room.external_id !== currentRoom.external_id));
+      })
+      .catch(err => {
+        console.log("Failed to leave room: " + err);
+      });
   }
 
   const handleDeleteRoom = () => {
@@ -125,7 +142,7 @@ export default function Chat({ currentUser, currentRoom, setCurrentRoom, rooms, 
   const handleMessageChange = e => {
     setMessage(e.target.value);
   }
-  
+
   const sendMessage = e => {
     e.preventDefault();
     if (message.trim() === '') {
