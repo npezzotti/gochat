@@ -30,8 +30,8 @@ export default function RoomInfoPanel({ visible, hideRoomInfoPanel, currentRoom 
   return (
     <div className='sidebar' style={{ display: visible ? 'block' : 'none' }}>
       <div className="close-header">
-        <button id="close-btn" className="icon-button" aria-label="Close">
-          <FontAwesomeIcon icon={faX} onClick={hideRoomInfoPanel} />
+        <button id="close-btn" className="icon-button" aria-label="Close" onClick={hideRoomInfoPanel}>
+          <FontAwesomeIcon icon={faX} />
         </button>
       </div>
       {currentRoom &&
@@ -43,10 +43,10 @@ export default function RoomInfoPanel({ visible, hideRoomInfoPanel, currentRoom 
             <p>{currentRoom.description}</p>
             <h3>ID</h3>
             {copyDisabled ?
-                <FontAwesomeIcon icon={faFileCircleCheck} />
+              <FontAwesomeIcon icon={faFileCircleCheck} />
               :
-              <button className="icon-button"  >
-                <FontAwesomeIcon icon={faCopy} onClick={changeCopyColor}/>
+              <button className="icon-button" onClick={changeCopyColor}>
+                <FontAwesomeIcon icon={faCopy} />
               </button>
             }
             {copyDisabled ?

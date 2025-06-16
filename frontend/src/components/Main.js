@@ -67,7 +67,7 @@ export default function Main({ currentUser, setCurrentUser }) {
 
     wsConn.onServerMessageMessage = (msg) => {
       setMessages((prevMessages) => [...prevMessages, msg.message]);
-      // update the room's seq_id and last_read_seq_id when a new message is received
+      // update the current room's seq_id when a new message is received
       const { room_id, seq_id } = msg.message;
       setRooms((prevRooms) =>
         prevRooms.map((room) => {
@@ -88,6 +88,9 @@ export default function Main({ currentUser, setCurrentUser }) {
               return room
             })
           })
+        })
+        .catch(err => {
+          console.error('Error marking message as read:', err);
         })
     };
     wsConn.onServerMessageUserPresence = (msg) => {
