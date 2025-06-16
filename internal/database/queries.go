@@ -312,9 +312,10 @@ func (db *DBConn) SubscriptionExists(account_id, room_id int) bool {
 	return err == nil
 }
 
-func (db *DBConn) ListSubscriptions(account_id int) ([]Room, error) {
+func (db *DBConn) ListSubscriptions(account_id int) ([]Subscription, error) {
 	rows, err := db.conn.Query(
-		"SELECT r.id, r.external_id, r.name, r.description, r.seq_id, r.created_at, r.updated_at "+
+		"SELECT s.id, s.last_read_seq_id, s.created_at, s.updated_at, r.id AS room_id, r.external_id, "+
+			"r.name, r.description, r.seq_id, r.created_at AS room_created_at, r.updated_at AS room_updated_at "+
 			"FROM subscriptions s JOIN rooms r ON r.id = s.room_id WHERE s.account_id = $1",
 		account_id,
 	)
@@ -323,10 +324,17 @@ func (db *DBConn) ListSubscriptions(account_id int) ([]Room, error) {
 		return nil, err
 	}
 
-	var rooms []Room
+	var subs []Subscription
 	for rows.Next() {
-		var room Room
+		var (
+			sub  Subscription
+			room Room
+		)
 		if err = rows.Scan(
+			&sub.Id,
+			&sub.LastReadSeqId,
+			&sub.CreatedAt,
+			&sub.UpdatedAt,
 			&room.Id,
 			&room.ExternalId,
 			&room.Name,
@@ -338,9 +346,11 @@ func (db *DBConn) ListSubscriptions(account_id int) ([]Room, error) {
 			break
 		}
 
-		rooms = append(rooms, room)
+		sub.Room = room
+		subs = append(subs, sub)
 	}
-	return rooms, err
+
+	return subs, err
 }
 
 func (db *DBConn) DeleteSubscription(accountId, roomId int) error {

@@ -72,11 +72,23 @@ export default function Main({ currentUser, setCurrentUser }) {
       setRooms((prevRooms) =>
         prevRooms.map((room) => {
           if (room.id === room_id) {
-            return { ...room, seq_id: seq_id, last_read_seq_id: seq_id};
+            return { ...room, seq_id: seq_id };
           }
           return room;
         })
       );
+
+      wsConn.readMessage(currentRoomRef.current?.external_id, seq_id)
+        .then(() => {
+          setRooms(prevRooms => {
+            return prevRooms.map(room => {
+              if (room.id === room_id) {
+                return { ...room, last_read_seq_id: seq_id };
+              }
+              return room
+            })
+          })
+        })
     };
     wsConn.onServerMessageUserPresence = (msg) => {
       const { user_id, present } = msg.notification.presence
@@ -116,8 +128,13 @@ export default function Main({ currentUser, setCurrentUser }) {
 
   useEffect(() => {
     goChatClient.listSubscriptions()
-      .then(data => {
-        setRooms(data);
+      .then(subs => {
+        setRooms(
+          subs.map(sub => ({
+            ...sub.room,
+            last_read_seq_id: sub.last_read_seq_id
+          }))
+        );
       })
       .catch(err => {
         console.log("Failed to fetch rooms: " + err);

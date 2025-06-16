@@ -7,6 +7,7 @@ import (
 
 	"github.com/npezzotti/go-chatroom/internal/database"
 	"github.com/npezzotti/go-chatroom/internal/types"
+	"slices"
 )
 
 var idleRoomTimeout = time.Second * 5
@@ -58,6 +59,7 @@ func (r *Room) start() {
 				}
 
 				r.removeAllClientsForUser(leaveMsg.UserId)
+				r.removeSubscriber(leaveMsg.UserId)
 
 				// if this leave message is from a user
 				// send a leave response
@@ -308,6 +310,16 @@ func (r *Room) removeAllClientsForUser(userId int) {
 	if len(r.clients) == 0 {
 		r.log.Printf("no clients in %q, starting kill timer", r.externalId)
 		r.killTimer.Reset(idleRoomTimeout)
+	}
+}
+
+func (r *Room) removeSubscriber(userId int) {
+	for i, sub := range r.subscribers {
+		if sub.Id == userId {
+			r.log.Printf("removing subscriber %q from room %q", sub.Username, r.externalId)
+			r.subscribers = slices.Delete(r.subscribers, i, i+1)
+			return
+		}
 	}
 }
 

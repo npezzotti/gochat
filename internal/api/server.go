@@ -37,7 +37,7 @@ func NewServer(logger *log.Logger, cs *server.ChatServer, db *database.DBConn, c
 	mux.Handle("POST /api/rooms", s.authMiddleware(s.createRoom))
 	mux.Handle("DELETE /api/rooms", s.authMiddleware(s.deleteRoom))
 	mux.Handle("GET /api/rooms", s.authMiddleware(s.getRoom))
-	mux.Handle("GET /api/subscriptions", s.authMiddleware(s.getUsersRooms))
+	mux.Handle("GET /api/subscriptions", s.authMiddleware(s.getUsersSubscriptions))
 	mux.Handle("GET /api/messages", s.authMiddleware(s.getMessages))
 	mux.Handle("GET /ws", s.authMiddleware(s.serveWs))
 

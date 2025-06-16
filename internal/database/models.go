@@ -24,12 +24,14 @@ type User struct {
 }
 
 type Subscription struct {
-	Id        int
-	AccountId int
-	Username  string
-	RoomId    int
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Id            int
+	LastReadSeqId int
+	Room          Room
+	AccountId     int
+	Username      string
+	RoomId        int
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 type Message struct {

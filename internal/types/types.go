@@ -8,9 +8,8 @@ type User struct {
 	Id           int       `json:"id"`
 	Username     string    `json:"username"`
 	EmailAddress string    `json:"email_address,omitempty"`
-	Password     string    `json:"-"`
-	CreatedAt    time.Time `json:"created_at,omitempty"`
-	UpdatedAt    time.Time `json:"updated_at,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type Room struct {
@@ -19,17 +18,17 @@ type Room struct {
 	ExternalId  string    `json:"external_id"`
 	Description string    `json:"description"`
 	SeqId       int       `json:"seq_id"`
-	Subscribers []User    `json:"subscribers"`
-	CreatedAt   time.Time `json:"created_at,omitempty"`
-	UpdatedAt   time.Time `json:"updated_at,omitempty"`
+	Subscribers []User    `json:"subscribers,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type Subscription struct {
-	Id        int       `json:"id"`
-	User      User      `json:"user"`
-	Room      Room      `json:"room"`
-	CreatedAt time.Time `json:"created_at,omitempty"`
-	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	Id            int       `json:"id"`
+	LastReadSeqId int       `json:"last_read_seq_id"`
+	Room          Room      `json:"room"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type Message struct {

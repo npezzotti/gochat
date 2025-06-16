@@ -137,7 +137,7 @@ func (s *Server) deleteRoom(w http.ResponseWriter, r *http.Request) {
 	writeJson(s.log, w, http.StatusNoContent, nil)
 }
 
-func (s *Server) getUsersRooms(w http.ResponseWriter, r *http.Request) {
+func (s *Server) getUsersSubscriptions(w http.ResponseWriter, r *http.Request) {
 	userId, ok := UserId(r.Context())
 	if !ok {
 		errResp := NewUnauthorizedError()
@@ -145,7 +145,7 @@ func (s *Server) getUsersRooms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbRooms, err := s.db.ListSubscriptions(userId)
+	dbSubs, err := s.db.ListSubscriptions(userId)
 	if err != nil {
 		s.log.Println("list subscriptions:", err)
 		errResp := NewInternalServerError(err)
@@ -153,20 +153,26 @@ func (s *Server) getUsersRooms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var rooms []types.Room
-	for _, dbRoom := range dbRooms {
-		rooms = append(rooms, types.Room{
-			Id:          dbRoom.Id,
-			ExternalId:  dbRoom.ExternalId,
-			Name:        dbRoom.Name,
-			Description: dbRoom.Description,
-			SeqId:       dbRoom.SeqId,
-			CreatedAt:   dbRoom.CreatedAt,
-			UpdatedAt:   dbRoom.UpdatedAt,
+	var subs []types.Subscription
+	for _, dbSub := range dbSubs {
+		subs = append(subs, types.Subscription{
+			Id:            dbSub.Id,
+			LastReadSeqId: dbSub.LastReadSeqId,
+			Room: types.Room{
+				Id:          dbSub.Room.Id,
+				ExternalId:  dbSub.Room.ExternalId,
+				Name:        dbSub.Room.Name,
+				Description: dbSub.Room.Description,
+				SeqId:       dbSub.Room.SeqId,
+				CreatedAt:   dbSub.Room.CreatedAt,
+				UpdatedAt:   dbSub.Room.UpdatedAt,
+			},
+			CreatedAt: dbSub.CreatedAt,
+			UpdatedAt: dbSub.UpdatedAt,
 		})
 	}
 
-	writeJson(s.log, w, http.StatusOK, rooms)
+	writeJson(s.log, w, http.StatusOK, subs)
 }
 
 func (s *Server) getMessages(w http.ResponseWriter, r *http.Request) {
