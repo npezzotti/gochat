@@ -36,19 +36,14 @@ type Room struct {
 }
 
 func (r *Room) start() {
-	defer func() {
-		r.log.Println("room exiting")
-	}()
-
 	r.log.Printf("starting room %q", r.externalId)
-
 	r.killTimer = time.NewTimer(idleRoomTimeout)
 	r.killTimer.Stop()
 
 	for {
 		select {
 		case join := <-r.joinChan:
-			r.handleAddClient(join)
+			r.handleJoin(join)
 		case leaveMsg := <-r.leaveChan:
 			r.handleLeave(leaveMsg)
 		case msg := <-r.clientMsgChan:
@@ -58,13 +53,17 @@ func (r *Room) start() {
 				r.handleRead(msg)
 			}
 		case <-r.killTimer.C:
-			r.log.Printf("room %q timed out", r.externalId)
-			r.cs.unloadRoomChan <- r.externalId
+			r.handleRoomTimeout()
 		case e := <-r.exit:
 			r.handleRoomExit(e)
 			return
 		}
 	}
+}
+
+func (r *Room) handleRoomTimeout() {
+	r.log.Printf("room %q timed out", r.externalId)
+	r.cs.unloadRoomChan <- r.externalId
 }
 
 func (r *Room) handleRoomExit(e exitReq) {
@@ -175,7 +174,7 @@ func (r *Room) handleRead(msg *ClientMessage) {
 	msg.client.queueMessage(NoErrOK(msg.Id, nil))
 }
 
-func (r *Room) handleAddClient(join *ClientMessage) {
+func (r *Room) handleJoin(join *ClientMessage) {
 	// stop the kill timer since we have a new client
 	r.killTimer.Stop()
 
