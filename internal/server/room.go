@@ -350,9 +350,9 @@ func (r *Room) removeSubscriber(userId int) {
 }
 
 func (r *Room) saveAndBroadcast(msg *ClientMessage) {
-	seq_id := r.seq_id + 1
+	// save the message to the database
 	if err := r.cs.db.MessageCreate(database.Message{
-		SeqId:     seq_id,
+		SeqId:     r.seq_id + 1,
 		RoomId:    r.id,
 		UserId:    msg.client.user.Id,
 		Content:   msg.Publish.Content,
@@ -360,25 +360,27 @@ func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 	}); err != nil {
 		r.log.Println("error saving message:", err)
 		msg.client.queueMessage(ErrInternalError(msg.Id))
+		return
 	}
+
+	// increment the sequence ID for the room now that the message is saved
 	r.seq_id++
 	msg.client.queueMessage(NoErrAccepted(msg.Id))
 
-	data := &ServerMessage{
+	// broadcast the message to all clients in the room
+	r.broadcast(&ServerMessage{
 		BaseMessage: BaseMessage{
 			Id:        msg.Id,
 			Timestamp: msg.Timestamp,
 		},
 		Message: &types.Message{
-			SeqId:     seq_id,
+			SeqId:     r.seq_id,
 			RoomId:    r.id,
 			UserId:    msg.UserId,
 			Content:   msg.Publish.Content,
 			Timestamp: msg.Timestamp,
 		},
-	}
-
-	r.broadcast(data)
+	})
 
 	// notify inactive subscribers of new message
 	for _, sub := range r.subscribers {
