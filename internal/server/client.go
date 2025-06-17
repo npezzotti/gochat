@@ -223,7 +223,7 @@ func (c *Client) delRoom(id string) {
 
 	if _, ok := c.rooms[id]; ok {
 		delete(c.rooms, id)
-		c.log.Printf("removed room %q from rooms, current rooms: %v", id, c.rooms)
+		c.log.Printf("removed room %q from connection from user %q, client's current rooms: %v", id, c.user.Username, c.rooms)
 	}
 }
 

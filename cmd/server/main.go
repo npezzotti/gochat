@@ -85,8 +85,6 @@ func main() {
 		logger.Println("server:", err)
 	}
 
-	logger.Println("stopping server")
-
 	shutDownCtx, cancel := context.WithTimeout(
 		context.Background(),
 		5*time.Second,
@@ -94,12 +92,11 @@ func main() {
 	defer cancel()
 
 	if err := srv.Shutdown(shutDownCtx); err != nil {
-		logger.Fatalln("shutdown:", err)
+		logger.Fatalln("HTTP server shutdown:", err)
 	}
-	logger.Println("stopped server")
 
-	logger.Println("shutting down chat server")
-	chatServer.Shutdown()
-
-	logger.Println("shutdown complete")
+	logger.Println("shutting down chat server...")
+	if err := chatServer.Shutdown(shutDownCtx); err != nil {
+		logger.Fatalln("chat server shutdown:", err)
+	}
 }

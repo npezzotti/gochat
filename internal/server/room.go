@@ -5,15 +5,17 @@ import (
 	"sync"
 	"time"
 
+	"slices"
+
 	"github.com/npezzotti/go-chatroom/internal/database"
 	"github.com/npezzotti/go-chatroom/internal/types"
-	"slices"
 )
 
 var idleRoomTimeout = time.Second * 5
 
 type exitReq struct {
 	deleted bool
+	done    chan bool
 }
 
 type Room struct {
@@ -28,10 +30,9 @@ type Room struct {
 	clients       map[*Client]struct{}
 	userMap       map[int]map[*Client]struct{}
 	clientLock    sync.RWMutex
-	exit          chan exitReq
-	done          chan struct{}
 	log           *log.Logger
 	killTimer     *time.Timer
+	exit          chan exitReq
 }
 
 func (r *Room) start() {
@@ -49,55 +50,7 @@ func (r *Room) start() {
 		case join := <-r.joinChan:
 			r.handleAddClient(join)
 		case leaveMsg := <-r.leaveChan:
-			if leaveMsg.Leave.Unsubscribe {
-				r.log.Printf("unsubscribing %q from room %q", leaveMsg.client.user.Username, r.externalId)
-				err := r.cs.db.DeleteSubscription(leaveMsg.UserId, r.id)
-				if err != nil {
-					r.log.Println("DeleteSubscription:", err)
-					leaveMsg.client.queueMessage(ErrInternalError(leaveMsg.Id))
-					continue
-				}
-
-				r.removeAllClientsForUser(leaveMsg.UserId)
-				r.removeSubscriber(leaveMsg.UserId)
-
-				// if this leave message is from a user
-				// send a leave response
-				leaveMsg.client.queueMessage(NoErrOK(leaveMsg.Id, nil))
-
-				r.broadcast(&ServerMessage{
-					Notification: &Notification{
-						SubscriptionChange: &SubscriptionChange{
-							RoomId:     r.externalId,
-							Subscribed: false,
-							User: types.User{
-								Id:       leaveMsg.UserId,
-								Username: leaveMsg.client.user.Username,
-							},
-						},
-					},
-				})
-				continue
-			}
-
-			c := leaveMsg.client
-			r.removeClient(c)
-			c.queueMessage(NoErrOK(leaveMsg.Id, nil))
-
-			// notify all clients user is offline
-			// if no sessions for user in the room
-			if r.userMap[c.user.Id] == nil {
-				r.broadcast(&ServerMessage{
-					Notification: &Notification{
-						Presence: &Presence{
-							Present: false,
-							RoomId:  r.externalId,
-							UserId:  c.user.Id,
-						},
-					},
-					SkipClient: c,
-				})
-			}
+			r.handleLeave(leaveMsg)
 		case msg := <-r.clientMsgChan:
 			if msg.Publish != nil {
 				r.saveAndBroadcast(msg)
@@ -106,35 +59,108 @@ func (r *Room) start() {
 			}
 		case <-r.killTimer.C:
 			r.log.Printf("room %q timed out", r.externalId)
-			r.cs.unloadRoom(r.externalId)
-			for _, sub := range r.subscribers {
-				r.cs.broadcastChan <- &ServerMessage{
-					Notification: &Notification{
-						Presence: &Presence{
-							Present: false,
-							RoomId:  r.externalId,
-						},
-					},
-					UserId: sub.Id,
-				}
-			}
+			r.cs.unloadRoomChan <- r.externalId
 		case e := <-r.exit:
-			r.log.Printf("received exit request: %v", e)
-			if e.deleted {
-				r.broadcast(&ServerMessage{
-					Notification: &Notification{
-						RoomDeleted: &RoomDeleted{RoomId: r.externalId},
-					},
-				})
-			}
-
-			for c := range r.clients {
-				c.delRoom(r.externalId)
-			}
-
-			close(r.done)
+			r.handleRoomExit(e)
 			return
 		}
+	}
+}
+
+func (r *Room) handleRoomExit(e exitReq) {
+	r.log.Printf("room %q is exiting", r.externalId)
+	if e.deleted {
+		// notify all clients that the room is deleted
+		r.broadcast(&ServerMessage{
+			BaseMessage: BaseMessage{
+				Timestamp: Now(),
+			},
+			Notification: &Notification{
+				RoomDeleted: &RoomDeleted{RoomId: r.externalId},
+			},
+		})
+	}
+
+	// remove the room for all clients
+	r.clientLock.Lock()
+	for c := range r.clients {
+		c.delRoom(r.externalId)
+	}
+	r.clientLock.Unlock()
+
+	// notify active subscribers that the room is offline
+	for _, sub := range r.subscribers {
+		r.cs.broadcastChan <- &ServerMessage{
+			BaseMessage: BaseMessage{
+				Timestamp: Now(),
+			},
+			Notification: &Notification{
+				Presence: &Presence{
+					Present: false,
+					RoomId:  r.externalId,
+				},
+			},
+			UserId: sub.Id,
+		}
+	}
+
+	// notify the chat server the room is done cleaning up
+	e.done <- true
+}
+
+func (r *Room) handleLeave(leaveMsg *ClientMessage) {
+	if leaveMsg.Leave.Unsubscribe {
+		r.log.Printf("unsubscribing %q from room %q", leaveMsg.client.user.Username, r.externalId)
+		err := r.cs.db.DeleteSubscription(leaveMsg.UserId, r.id)
+		if err != nil {
+			r.log.Println("DeleteSubscription:", err)
+			leaveMsg.client.queueMessage(ErrInternalError(leaveMsg.Id))
+			return
+		}
+
+		// remove all clients for this user from the room
+		r.removeAllClientsForUser(leaveMsg.UserId)
+		// remove the user from the in memory subscriber list
+		// so we don't send a leave notification
+		r.removeSubscriber(leaveMsg.UserId)
+
+		// notify the client that the unsubscribe was successful
+		leaveMsg.client.queueMessage(NoErrOK(leaveMsg.Id, nil))
+
+		// broadcast that the user unsubscribed
+		r.broadcast(&ServerMessage{
+			Notification: &Notification{
+				SubscriptionChange: &SubscriptionChange{
+					RoomId:     r.externalId,
+					Subscribed: false,
+					User: types.User{
+						Id:       leaveMsg.UserId,
+						Username: leaveMsg.client.user.Username,
+					},
+				},
+			},
+		})
+		return
+	}
+
+	client := leaveMsg.client
+	// remove the client from the room
+	r.removeClient(client)
+	client.queueMessage(NoErrOK(leaveMsg.Id, nil))
+
+	// notify all clients user is offline
+	// if no sessions for user in the room
+	if r.userMap[client.user.Id] == nil {
+		r.broadcast(&ServerMessage{
+			Notification: &Notification{
+				Presence: &Presence{
+					Present: false,
+					RoomId:  r.externalId,
+					UserId:  client.user.Id,
+				},
+			},
+			SkipClient: client,
+		})
 	}
 }
 

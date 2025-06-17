@@ -61,16 +61,15 @@ func NewServer(logger *log.Logger, cs *server.ChatServer, db *database.DBConn, c
 }
 
 func (s *Server) Start() error {
-	s.log.Printf("Starting server on %s\n", s.mux.Addr)
+	s.log.Printf("starting server on %s\n", s.mux.Addr)
 	return s.mux.ListenAndServe()
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
-	s.log.Println("Shutting down server...")
+	s.log.Println("shutting down HTTP server...")
 	if err := s.mux.Shutdown(ctx); err != nil {
 		return fmt.Errorf("server shutdown: %w", err)
 	}
 
-	s.log.Println("Server shutdown complete")
 	return nil
 }

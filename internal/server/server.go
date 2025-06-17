@@ -1,8 +1,10 @@
 package server
 
 import (
+	"context"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/npezzotti/go-chatroom/internal/database"
 	"github.com/npezzotti/go-chatroom/internal/types"
@@ -16,9 +18,11 @@ type ChatServer struct {
 	joinChan       chan *ClientMessage
 	RegisterChan   chan *Client
 	deRegisterChan chan *Client
+	unloadRoomChan chan string
 	DelRoomChan    chan string
 	broadcastChan  chan *ServerMessage
 	rooms          map[string]*Room
+	roomsLock      sync.Mutex
 	stop           chan struct{}
 	done           chan struct{}
 	userMap        map[int][]*Client
@@ -32,6 +36,7 @@ func NewChatServer(logger *log.Logger, db *database.DBConn) (*ChatServer, error)
 		clients:        make(map[*Client]struct{}),
 		RegisterChan:   make(chan *Client),
 		deRegisterChan: make(chan *Client),
+		unloadRoomChan: make(chan string),
 		DelRoomChan:    make(chan string),
 		broadcastChan:  make(chan *ServerMessage, 256),
 		stop:           make(chan struct{}),
@@ -88,8 +93,8 @@ func (cs *ChatServer) Run() {
 					clients:       make(map[*Client]struct{}),
 					userMap:       make(map[int]map[*Client]struct{}),
 					log:           cs.log,
+					killTimer:     time.NewTimer(time.Second * 10),
 					exit:          make(chan exitReq),
-					done:          make(chan struct{}),
 				}
 
 				cs.rooms[room.externalId] = room
@@ -106,36 +111,39 @@ func (cs *ChatServer) Run() {
 			cs.removeClient(client)
 		case msg := <-cs.broadcastChan:
 			cs.log.Printf("broadcasting message %v", msg)
-			userClients := cs.userMap[msg.UserId]
-			// if there are no clients for this user, skip broadcasting
-			if userClients == nil {
-				continue
-			}
-			for _, c := range userClients {
-				c.queueMessage(msg)
-			}
+			cs.handleBroadcast(msg)
+		case id := <-cs.unloadRoomChan:
+			cs.handleUnloadRoom(id, false)
 		case id := <-cs.DelRoomChan:
-			r, ok := cs.rooms[id]
-			if !ok {
-				cs.log.Printf("room %q not active for deletion", id)
-				continue
-			}
-			cs.unloadRoom(r.externalId)
-			r.exit <- exitReq{deleted: true}
-			<-r.done
+			cs.handleUnloadRoom(id, true)
 			cs.log.Printf("deleted room %q", id)
 		case <-cs.stop:
 			cs.log.Println("shutting down rooms")
-			for _, r := range cs.rooms {
-				cs.log.Println("shutting down room", r.externalId)
-				close(r.exit)
-
-				<-r.done
-			}
-
+			cs.unloadAllRooms()
 			close(cs.done)
 			return
 		}
+	}
+}
+
+func (cs *ChatServer) unloadAllRooms() {
+	for _, r := range cs.rooms {
+		cs.log.Println("shutting down room", r.externalId)
+		exit := exitReq{deleted: false, done: make(chan bool)}
+		r.exit <- exit
+		<-exit.done
+	}
+}
+
+func (cs *ChatServer) handleBroadcast(msg *ServerMessage) {
+	userClients := cs.userMap[msg.UserId]
+	// if there are no clients for this user, skip broadcasting
+	if userClients == nil {
+		return
+	}
+
+	for _, c := range userClients {
+		c.queueMessage(msg)
 	}
 }
 
@@ -164,22 +172,35 @@ func (cs *ChatServer) removeClient(c *Client) {
 	}
 }
 
-func (cs *ChatServer) unloadRoom(roomId string) {
-	if r, ok := cs.rooms[roomId]; ok {
-		cs.log.Printf("removing room %q", r.externalId)
-		delete(cs.rooms, roomId)
+func (cs *ChatServer) handleUnloadRoom(id string, deleted bool) {
+	cs.roomsLock.Lock()
+	room, ok := cs.rooms[id]
+	cs.roomsLock.Unlock()
+	if !ok {
+		return
 	}
 
-	cs.log.Printf("current rooms: %v", cs.rooms)
+	// Signal the room to exit and wait for cleanup
+	exit := exitReq{deleted: deleted, done: make(chan bool)}
+	room.exit <- exit
+	<-exit.done
+
+	cs.roomsLock.Lock()
+	delete(cs.rooms, id)
+	cs.roomsLock.Unlock()
 }
 
-func (cs *ChatServer) Shutdown() {
-	cs.log.Println("received shutdown signal")
+func (cs *ChatServer) Shutdown(ctx context.Context) error {
 	for c := range cs.clients {
 		close(c.stop)
 	}
 
 	close(cs.stop)
 
-	<-cs.done
+	select {
+	case <-cs.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
