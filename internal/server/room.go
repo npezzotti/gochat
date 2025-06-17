@@ -11,7 +11,7 @@ import (
 	"github.com/npezzotti/go-chatroom/internal/types"
 )
 
-var idleRoomTimeout = time.Second * 5
+const idleRoomTimeout = time.Second * 5
 
 type exitReq struct {
 	deleted bool
@@ -42,7 +42,7 @@ func (r *Room) start() {
 
 	r.log.Printf("starting room %q", r.externalId)
 
-	r.killTimer = time.NewTimer(time.Second * 10)
+	r.killTimer = time.NewTimer(idleRoomTimeout)
 	r.killTimer.Stop()
 
 	for {
