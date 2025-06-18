@@ -110,6 +110,16 @@ type RoomDeleted struct {
 	RoomId string `json:"room_id"`
 }
 
+// GetUserId returns the UserId of the ClientMessage.
+// If UserId is set to a positive value, it returns that value.
+// Otherwise, it returns 0.
+func (cm *ClientMessage) GetUserId() int {
+	if cm.UserId > 0 {
+		return cm.UserId
+	}
+	return 0
+}
+
 func NoErrOK(id int, data any) *ServerMessage {
 	return &ServerMessage{
 		BaseMessage: BaseMessage{

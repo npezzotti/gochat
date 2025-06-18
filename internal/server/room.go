@@ -132,7 +132,10 @@ func (r *Room) handleLeave(leaveMsg *ClientMessage) {
 		err := r.cs.db.DeleteSubscription(leaveMsg.UserId, r.id)
 		if err != nil {
 			r.log.Println("DeleteSubscription:", err)
-			leaveMsg.client.queueMessage(ErrInternalError(leaveMsg.Id))
+			if leaveMsg.GetUserId() != 0 {
+				// the leave message is from a client, so we need to notify them
+				leaveMsg.client.queueMessage(ErrInternalError(leaveMsg.Id))
+			}
 			return
 		}
 
@@ -142,8 +145,10 @@ func (r *Room) handleLeave(leaveMsg *ClientMessage) {
 		// so we don't send a leave notification
 		r.removeSubscriber(leaveMsg.UserId)
 
-		// notify the client that the unsubscribe was successful
-		leaveMsg.client.queueMessage(NoErrOK(leaveMsg.Id, nil))
+		if leaveMsg.GetUserId() != 0 {
+			// if the leave message is from a user, notify the user the unsubscribe was successful
+			leaveMsg.client.queueMessage(NoErrOK(leaveMsg.Id, nil))
+		}
 
 		// broadcast that the user unsubscribed
 		r.broadcast(&ServerMessage{
@@ -164,7 +169,11 @@ func (r *Room) handleLeave(leaveMsg *ClientMessage) {
 	client := leaveMsg.client
 	// remove the client from the room
 	r.removeClient(client)
-	client.queueMessage(NoErrOK(leaveMsg.Id, nil))
+
+	if leaveMsg.GetUserId() != 0 {
+		// if the leave message is from a user, notify the user that they left the room
+		client.queueMessage(NoErrOK(leaveMsg.Id, nil))
+	}
 
 	// notify all clients user is offline
 	// if no sessions for user in the room
