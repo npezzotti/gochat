@@ -249,25 +249,24 @@ func (r *Room) handleJoin(join *ClientMessage) {
 		r.notifyActive(c)
 	}
 
-	roomInfo := map[string]any{
-		"id":          dbRoom.Id,
-		"name":        dbRoom.Name,
-		"external_id": dbRoom.ExternalId,
-		"description": dbRoom.Description,
-		"created_at":  dbRoom.CreatedAt,
-		"updated_at":  dbRoom.UpdatedAt,
-		"subscribers": func() []map[string]any {
-			subscribers := make([]map[string]any, len(dbRoom.Subscriptions))
+	roomInfo := types.Room{
+		Id:          dbRoom.Id,
+		ExternalId:  dbRoom.ExternalId,
+		Name:        dbRoom.Name,
+		Description: dbRoom.Description,
+		Subscribers: func() []types.User {
+			subscribers := make([]types.User, len(dbRoom.Subscriptions))
 			for i, sub := range dbRoom.Subscriptions {
-				subscribers[i] = map[string]any{
-					"id":        sub.Id,
-					"user_id":   sub.AccountId,
-					"username":  sub.Username,
-					"isPresent": r.userMap[sub.AccountId] != nil,
+				subscribers[i] = types.User{
+					Id:        sub.AccountId,
+					Username:  sub.Username,
+					IsPresent: r.userMap[sub.AccountId] != nil,
 				}
 			}
 			return subscribers
 		}(),
+		CreatedAt: dbRoom.CreatedAt,
+		UpdatedAt: dbRoom.UpdatedAt,
 	}
 
 	// send the room info to the client

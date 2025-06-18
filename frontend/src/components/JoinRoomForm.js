@@ -1,8 +1,6 @@
 import { useState } from 'react';
 
-import goChatClient from '../gochat'
-
-export default function JoinRoomForm({ rooms, setRooms, currentRoom, setCurrentRoom, wsClient }) {
+export default function JoinRoomForm({ rooms, setRooms, currentRoom, setCurrentRoom, wsClient, handleJoinRoomSuccess }) {
   const [error, setError] = useState(null)
   const [roomId, setRoomId] = useState('')
 
@@ -28,7 +26,7 @@ export default function JoinRoomForm({ rooms, setRooms, currentRoom, setCurrentR
           .then(_ => {
             wsClient.joinRoom(roomId)
               .then(joinedMsg => {
-                setCurrentRoom(joinedMsg.response.data);
+                handleJoinRoomSuccess(joinedMsg.response.data);
                 setRoomId('');
               })
               .catch(err => {
@@ -39,7 +37,7 @@ export default function JoinRoomForm({ rooms, setRooms, currentRoom, setCurrentR
       } else {
         wsClient.joinRoom(roomId)
           .then(joinedMsg => {
-            setCurrentRoom(joinedMsg.response.data);
+            handleJoinRoomSuccess(joinedMsg.response.data);
             setRoomId('');
           })
           .catch(err => {
@@ -49,8 +47,9 @@ export default function JoinRoomForm({ rooms, setRooms, currentRoom, setCurrentR
     } else {
       wsClient.joinRoom(roomId)
         .then(joinedMsg => {
-          setRooms([...rooms, joinedMsg.response.data]);
-          setCurrentRoom(joinedMsg.response.data);
+          // Add the room to the list of rooms
+          setRooms([...rooms, {...joinedMsg.response.data}]);
+          handleJoinRoomSuccess(joinedMsg.response.data);
           setRoomId('');
         })
         .catch(err => {

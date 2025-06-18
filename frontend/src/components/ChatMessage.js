@@ -1,6 +1,6 @@
 export default function ChatMessage({ message, currentUser, currentRoom }) {
   const isCurrentUser = message.user_id === currentUser.id;
-  const user = currentRoom.subscribers.find(sub => sub.user_id === message.user_id); // Find the user in the subscribers list
+  const user = currentRoom.subscribers.find(sub => sub.id === message.user_id); // Find the user in the subscribers list
   const username = user ? user.username : 'Unknown';
 
   function formatTimestamp(timestamp) {

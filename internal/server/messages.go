@@ -75,9 +75,9 @@ type ServerMessage struct {
 
 // Response represents the response sent from the server to the client.
 type Response struct {
-	ResponseCode int            `json:"response_code"`
-	Error        string         `json:"error,omitempty"`
-	Data         map[string]any `json:"data,omitempty"`
+	ResponseCode int    `json:"response_code"`
+	Error        string `json:"error,omitempty"`
+	Data         any    `json:"data,omitempty"`
 }
 
 // Notification represents a notification sent from the server to the client.
@@ -110,7 +110,7 @@ type RoomDeleted struct {
 	RoomId string `json:"room_id"`
 }
 
-func NoErrOK(id int, data map[string]any) *ServerMessage {
+func NoErrOK(id int, data any) *ServerMessage {
 	return &ServerMessage{
 		BaseMessage: BaseMessage{
 			Id:        id,

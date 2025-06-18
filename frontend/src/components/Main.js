@@ -17,7 +17,7 @@ export default function Main({ currentUser, setCurrentUser }) {
 
   function handleUserPresenceEvent(user_id, present) {
     const updatedSubscribers = currentRoomRef.current?.subscribers.map(subscriber =>
-      subscriber.user_id === user_id ? { ...subscriber, isPresent: present } : subscriber
+      subscriber.id === user_id ? { ...subscriber, is_present: present } : subscriber
     );
 
     if (updatedSubscribers) {

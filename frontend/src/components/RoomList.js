@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function RoomList({ setRooms, currentRoom, setCurrentRoom, rooms, wsClient }) {
+export default function RoomList({ currentRoom, setCurrentRoom, rooms, wsClient, handleJoinRoomSuccess }) {
   const [error, setError] = useState(null);
 
   const handleJoinRoom = e => {
@@ -18,14 +18,7 @@ export default function RoomList({ setRooms, currentRoom, setCurrentRoom, rooms,
         .then(_ => {
           wsClient.joinRoom(roomId)
             .then(joinedMsg => {
-              setRooms(prevRooms =>
-                prevRooms.map(room =>
-                  room.external_id === roomId
-                    ? { ...room, is_online: true }
-                    : room
-                )
-              );
-              setCurrentRoom(joinedMsg.response.data);
+              handleJoinRoomSuccess(joinedMsg.response.data);
             })
             .catch(err => {
               setCurrentRoom(null);
@@ -38,14 +31,7 @@ export default function RoomList({ setRooms, currentRoom, setCurrentRoom, rooms,
     } else {
       wsClient.joinRoom(roomId)
         .then(joinedMsg => {
-          setRooms(prevRooms =>
-            prevRooms.map(room =>
-              room.external_id === roomId
-                ? { ...room, is_online: true }
-                : room
-            )
-          );
-          setCurrentRoom(joinedMsg.response.data);
+          handleJoinRoomSuccess(joinedMsg.response.data);
         })
         .catch(err => {
           setError("Failed to join room: " + err);

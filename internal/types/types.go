@@ -8,8 +8,9 @@ type User struct {
 	Id           int       `json:"id"`
 	Username     string    `json:"username"`
 	EmailAddress string    `json:"email_address,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	IsPresent    bool      `json:"is_present,omitempty"`
+	CreatedAt    time.Time `json:"created_at,omitempty"`
+	UpdatedAt    time.Time `json:"updated_at,omitempty"`
 }
 
 type Room struct {

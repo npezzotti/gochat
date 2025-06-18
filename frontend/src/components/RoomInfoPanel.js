@@ -58,7 +58,7 @@ export default function RoomInfoPanel({ visible, hideRoomInfoPanel, currentRoom 
             <h3>Subscribers</h3>
             <ul className="subscribers-list">
               {currentRoom.subscribers.map((subscriber) => {
-                return <li key={subscriber.user_id} className={subscriber.isPresent ? 'status-online' : 'status-offline'} data-user-id={subscriber.user_id} >{subscriber.username}</li>
+                return <li key={subscriber.id} className={subscriber.is_present ? 'status-online' : 'status-offline'} data-user-id={subscriber.id} >{subscriber.username}</li>
               })}
             </ul>
           </div>

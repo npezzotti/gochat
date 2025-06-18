@@ -4,7 +4,7 @@ import { faArrowLeft } from '@fortawesome/free-solid-svg-icons'
 
 import goChatClient from '../gochat';
 
-export default function AddRoomForm({ setShowAddUser, rooms, setRooms, setCurrentRoom, wsClient }) {
+export default function AddRoomForm({ setShowAddUser, rooms, setRooms, setCurrentRoom, wsClient, handleJoinRoomSuccess }) {
   const [error, setError] = useState(null);
 
   const handleAddRoom = e => {
@@ -22,14 +22,7 @@ export default function AddRoomForm({ setShowAddUser, rooms, setRooms, setCurren
         setRooms([...rooms, room])
         wsClient.joinRoom(room.external_id)
           .then(joinedMsg => {
-            setRooms(prevRooms =>
-              prevRooms.map(room =>
-                room.external_id === joinedMsg.response.data
-                  ? { ...joinedMsg.response.data, is_online: true }
-                  : room
-              )
-            );
-            setCurrentRoom(joinedMsg.response.data);
+            handleJoinRoomSuccess(joinedMsg.response.data);
             setShowAddUser(false);
           })
           .catch(err => {
