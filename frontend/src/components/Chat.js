@@ -157,8 +157,7 @@ export default function Chat({ currentUser, currentRoom, setCurrentRoom, rooms, 
         console.error('Error sending message:', err);
       });
   }
-  console.log("Chat component rendered with currentRoom:", currentRoom, currentUser);
-
+  
   return (
     <>
       <div className="chat-container">
