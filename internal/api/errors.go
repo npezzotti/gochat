@@ -52,6 +52,13 @@ func NewUnauthorizedError() *ApiError {
 	}
 }
 
+func NewForbiddenError() *ApiError {
+	return &ApiError{
+		Code:    http.StatusForbidden,
+		Message: http.StatusText(http.StatusForbidden),
+	}
+}
+
 func NewMethodNotAllowedError() *ApiError {
 	return &ApiError{
 		Code:    http.StatusMethodNotAllowed,

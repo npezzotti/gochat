@@ -157,6 +157,7 @@ export default function Chat({ currentUser, currentRoom, setCurrentRoom, rooms, 
         console.error('Error sending message:', err);
       });
   }
+  console.log("Chat component rendered with currentRoom:", currentRoom, currentUser);
 
   return (
     <>
@@ -170,7 +171,10 @@ export default function Chat({ currentUser, currentRoom, setCurrentRoom, rooms, 
             <div id="room-opts-dropdown-content" className="dropdown-content" style={{ display: showDropdownContent ? 'block' : 'none' }}>
               <a id="room-details-btn" onClick={toggleRoomInfoPanel}>Room Details</a>
               <a id="leave-rm-btn" onClick={handleLeaveRoom}>Leave Room</a>
-              <a id="delete-rm-btn" onClick={handleDeleteRoom}>Delete Room</a>
+              {currentRoom?.owner_id === currentUser.id ?
+                <a id="delete-rm-btn" onClick={handleDeleteRoom}>Delete Room</a> :
+                ''
+              }
             </div>
           </div>
         </div>

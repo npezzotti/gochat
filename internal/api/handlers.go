@@ -111,6 +111,13 @@ func (s *Server) getRoom(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteRoom(w http.ResponseWriter, r *http.Request) {
+	userId, ok := UserId(r.Context())
+	if !ok {
+		errResp := NewUnauthorizedError()
+		writeJson(s.log, w, errResp.Code, errResp)
+		return
+	}
+
 	externalId := r.URL.Query().Get("id")
 	if externalId == "" {
 		errResp := NewBadRequestError()
@@ -121,6 +128,13 @@ func (s *Server) deleteRoom(w http.ResponseWriter, r *http.Request) {
 	room, err := s.db.GetRoomByExternalID(externalId)
 	if err != nil {
 		errResp := NewNotFoundError()
+		writeJson(s.log, w, errResp.Code, errResp)
+		return
+	}
+
+	// Check if the user is the owner of the room
+	if room.OwnerId != userId {
+		errResp := NewForbiddenError()
 		writeJson(s.log, w, errResp.Code, errResp)
 		return
 	}

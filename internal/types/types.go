@@ -19,6 +19,7 @@ type Room struct {
 	ExternalId  string    `json:"external_id"`
 	Description string    `json:"description"`
 	SeqId       int       `json:"seq_id"`
+	OwnerId     int       `json:"owner_id,omitempty"`
 	Subscribers []User    `json:"subscribers,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`

@@ -86,7 +86,7 @@ func (db *DBConn) GetAccountByEmail(email string) (User, error) {
 
 func (db *DBConn) GetRoomByExternalID(externalId string) (Room, error) {
 	row := db.conn.QueryRow(
-		"SELECT id, external_id, name, description, seq_id FROM rooms "+
+		"SELECT id, name, external_id, description, seq_id, owner_id, created_at, updated_at FROM rooms "+
 			"WHERE external_id = $1 LIMIT 1",
 		externalId,
 	)
@@ -94,10 +94,13 @@ func (db *DBConn) GetRoomByExternalID(externalId string) (Room, error) {
 	var room Room
 	err := row.Scan(
 		&room.Id,
-		&room.ExternalId,
 		&room.Name,
+		&room.ExternalId,
 		&room.Description,
 		&room.SeqId,
+		&room.OwnerId,
+		&room.CreatedAt,
+		&room.UpdatedAt,
 	)
 
 	return room, err
@@ -107,9 +110,11 @@ func (db *DBConn) FetchRoomWithSubscribers(roomId int) (*Room, error) {
 	query := `
 		SELECT 
 				r.id AS room_id,
-				r.external_id,
 				r.name AS room_name,
+				r.external_id,
 				r.description,
+				r.seq_id,
+				r.owner_id,
 				r.created_at AS room_created_at,
 				r.updated_at AS room_updated_at,
 				s.id,
@@ -133,9 +138,11 @@ func (db *DBConn) FetchRoomWithSubscribers(roomId int) (*Room, error) {
 	for rows.Next() {
 		var (
 			roomId                int
-			externalId            string
 			roomName              string
+			externalId            string
 			description           string
+			seqId                 int
+			ownerId               int
 			roomCreatedAt         time.Time
 			roomUpdatedAt         time.Time
 			subscriptionId        sql.NullInt64
@@ -147,9 +154,11 @@ func (db *DBConn) FetchRoomWithSubscribers(roomId int) (*Room, error) {
 
 		err := rows.Scan(
 			&roomId,
-			&externalId,
 			&roomName,
+			&externalId,
 			&description,
+			&seqId,
+			&ownerId,
 			&roomCreatedAt,
 			&roomUpdatedAt,
 			&subscriptionId,
@@ -165,9 +174,11 @@ func (db *DBConn) FetchRoomWithSubscribers(roomId int) (*Room, error) {
 		if room == nil {
 			room = &Room{
 				Id:            roomId,
-				ExternalId:    externalId,
 				Name:          roomName,
+				ExternalId:    externalId,
 				Description:   description,
+				SeqId:         seqId,
+				OwnerId:       ownerId,
 				CreatedAt:     roomCreatedAt,
 				UpdatedAt:     roomUpdatedAt,
 				Subscriptions: make([]Subscription, 0),

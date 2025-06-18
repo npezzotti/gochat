@@ -4,11 +4,11 @@ import "time"
 
 type Room struct {
 	Id            int
-	OwnerId       int
 	Name          string
 	ExternalId    string
 	Description   string
 	SeqId         int
+	OwnerId       int
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 	Subscriptions []Subscription

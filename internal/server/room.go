@@ -260,9 +260,11 @@ func (r *Room) handleJoin(join *ClientMessage) {
 
 	roomInfo := types.Room{
 		Id:          dbRoom.Id,
-		ExternalId:  dbRoom.ExternalId,
 		Name:        dbRoom.Name,
+		ExternalId:  dbRoom.ExternalId,
 		Description: dbRoom.Description,
+		SeqId:       dbRoom.SeqId,
+		OwnerId:     dbRoom.OwnerId,
 		Subscribers: func() []types.User {
 			subscribers := make([]types.User, len(dbRoom.Subscriptions))
 			for i, sub := range dbRoom.Subscriptions {
