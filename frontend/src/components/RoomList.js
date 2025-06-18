@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function RoomList({ currentRoom, setCurrentRoom, rooms, wsClient }) {
+export default function RoomList({ setRooms, currentRoom, setCurrentRoom, rooms, wsClient }) {
   const [error, setError] = useState(null);
 
   const handleJoinRoom = e => {
@@ -18,6 +18,13 @@ export default function RoomList({ currentRoom, setCurrentRoom, rooms, wsClient 
         .then(_ => {
           wsClient.joinRoom(roomId)
             .then(joinedMsg => {
+              setRooms(prevRooms =>
+                prevRooms.map(room =>
+                  room.external_id === roomId
+                    ? { ...room, is_online: true }
+                    : room
+                )
+              );
               setCurrentRoom(joinedMsg.response.data);
             })
             .catch(err => {
@@ -31,6 +38,13 @@ export default function RoomList({ currentRoom, setCurrentRoom, rooms, wsClient 
     } else {
       wsClient.joinRoom(roomId)
         .then(joinedMsg => {
+          setRooms(prevRooms =>
+            prevRooms.map(room =>
+              room.external_id === roomId
+                ? { ...room, is_online: true }
+                : room
+            )
+          );
           setCurrentRoom(joinedMsg.response.data);
         })
         .catch(err => {
@@ -69,7 +83,7 @@ export default function RoomList({ currentRoom, setCurrentRoom, rooms, wsClient 
                 ''}
             </div>
             <div className='room-item-meta'>
-              <div class={`room-status ${room.isOnline ? 'online' : 'offline'}`}></div>
+              <div class={`room-status ${room.is_online ? 'online' : 'offline'}`}></div>
             </div>
           </div>
         )

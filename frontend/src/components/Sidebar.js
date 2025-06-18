@@ -27,7 +27,7 @@ export default function Sidebar({ currentUser, setCurrentUser, currentRoom, setC
       <div className="sidebar">
         <RoomListHeader currentUser={currentUser} setShowAddUser={setShowAddUser} setShowEditAccount={setShowEditAccount} />
         <JoinRoomForm rooms={rooms} setRooms={setRooms} currentRoom={currentRoom} setCurrentRoom={setCurrentRoom} wsClient={wsClient} />
-        <RoomList currentRoom={currentRoom} setCurrentRoom={setCurrentRoom} rooms={rooms} wsClient={wsClient} />
+        <RoomList setRooms={setRooms} currentRoom={currentRoom} setCurrentRoom={setCurrentRoom} rooms={rooms} wsClient={wsClient} />
       </div>
     )
   }

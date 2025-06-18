@@ -28,7 +28,7 @@ export default function Main({ currentUser, setCurrentUser }) {
   function handleRoomPresenceEvent(room_id, present) {
     setRooms(rooms =>
       rooms.map(room =>
-        room.external_id === room_id ? { ...room, isOnline: present } : room
+        room.external_id === room_id ? { ...room, is_online: present } : room
       )
     );
   }

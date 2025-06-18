@@ -50,16 +50,17 @@ func (cs *ChatServer) Run() {
 	for {
 		select {
 		case joinMsg := <-cs.joinChan:
-			cs.log.Println("received join request")
+			// check if the room is already loaded
 			if room, ok := cs.rooms[joinMsg.Join.RoomId]; ok {
 				select {
 				case room.joinChan <- joinMsg:
 				default:
-					joinMsg.client.queueMessage(ErrServiceUnavailable(joinMsg.Id))
 					cs.log.Printf("joinChan full for room %q ", room.externalId)
+					joinMsg.client.queueMessage(ErrServiceUnavailable(joinMsg.Id))
 					continue
 				}
 			} else {
+				// room not loaded, load it
 				dbRoom, err := cs.db.GetRoomByExternalID(joinMsg.Join.RoomId)
 				if err != nil {
 					joinMsg.client.queueMessage(ErrRoomNotFound(joinMsg.Id))
@@ -98,14 +99,35 @@ func (cs *ChatServer) Run() {
 				}
 
 				cs.rooms[room.externalId] = room
+				// forward join request to the room
 				room.joinChan <- joinMsg
-
 				go room.start()
-
 			}
 		case client := <-cs.RegisterChan:
 			cs.log.Printf("adding connection from %q", client.user.Username)
 			cs.addClient(client)
+
+			subs, err := cs.db.ListSubscriptions(client.user.Id)
+			if err != nil {
+				cs.log.Println("ListSubscriptions:", err)
+				continue
+			}
+			// notify the client of any active rooms to which they are subscribed
+			for _, sub := range subs {
+				if room, ok := cs.rooms[sub.Room.ExternalId]; ok {
+					client.queueMessage(&ServerMessage{
+						BaseMessage: BaseMessage{
+							Timestamp: Now(),
+						},
+						Notification: &Notification{
+							Presence: &Presence{
+								Present: true,
+								RoomId:  room.externalId,
+							},
+						},
+					})
+				}
+			}
 		case client := <-cs.deRegisterChan:
 			cs.log.Printf("removing connection from %q", client.user.Username)
 			cs.removeClient(client)
@@ -143,6 +165,9 @@ func (cs *ChatServer) handleBroadcast(msg *ServerMessage) {
 	}
 
 	for _, c := range userClients {
+		if msg.SkipClient != nil && c == msg.SkipClient {
+			continue
+		}
 		c.queueMessage(msg)
 	}
 }
@@ -150,6 +175,7 @@ func (cs *ChatServer) handleBroadcast(msg *ServerMessage) {
 func (cs *ChatServer) addClient(c *Client) {
 	cs.clientsLock.Lock()
 	defer cs.clientsLock.Unlock()
+
 	cs.clients[c] = struct{}{}
 	cs.userMap[c.user.Id] = append(cs.userMap[c.user.Id], c)
 }

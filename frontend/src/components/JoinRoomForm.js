@@ -38,38 +38,26 @@ export default function JoinRoomForm({ rooms, setRooms, currentRoom, setCurrentR
           })
       } else {
         wsClient.joinRoom(roomId)
+          .then(joinedMsg => {
+            setCurrentRoom(joinedMsg.response.data);
+            setRoomId('');
+          })
+          .catch(err => {
+            setError("Already subscribed to room - failed to join: " + err)
+          })
+      }
+    } else {
+      wsClient.joinRoom(roomId)
         .then(joinedMsg => {
+          setRooms([...rooms, joinedMsg.response.data]);
           setCurrentRoom(joinedMsg.response.data);
           setRoomId('');
         })
         .catch(err => {
-          setError("Already subscribed to room - failed to join: " + err)
-        })
-      }
-    } else {
-      // goChatClient.subscribeRoom(roomId)
-        // .then(sub => {
-          wsClient.joinRoom(roomId)
-          .then(joinedMsg => {
-              setRooms([...rooms, {
-                id: joinedMsg.response.data.id,
-                external_id: joinedMsg.response.data.external_id,
-                name: joinedMsg.response.data.name,
-                created_at: joinedMsg.response.data.created_at,
-                updated_at: joinedMsg.response.data.updated_at,
-              }]);
-              setCurrentRoom(joinedMsg.response.data);
-              setRoomId('');
-            })
-            .catch(err => {
-              setError("Failed to join room: " + err);
-            });
-          e.target.roomId.value = '';
-          setError(null);
-        // })
-        // .catch(err => {
-        //   setError("Failed to subscribe to room: " + err);
-        // });
+          setError("Failed to join room: " + err);
+        });
+      e.target.roomId.value = '';
+      setError(null);
     }
   }
 
@@ -86,7 +74,7 @@ export default function JoinRoomForm({ rooms, setRooms, currentRoom, setCurrentR
         className='sidebar-input'
         value={roomId}
         onChange={e => setRoomId(e.target.value)}
-        placeholder="Enter room ID"
+        placeholder="Enter Room ID"
         aria-label="Join Room"
       />
       <input type="submit" value="Join Room"></input>

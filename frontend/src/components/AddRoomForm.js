@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import { useState } from 'react';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft } from '@fortawesome/free-solid-svg-icons'
 
@@ -22,6 +22,13 @@ export default function AddRoomForm({ setShowAddUser, rooms, setRooms, setCurren
         setRooms([...rooms, room])
         wsClient.joinRoom(room.external_id)
           .then(joinedMsg => {
+            setRooms(prevRooms =>
+              prevRooms.map(room =>
+                room.external_id === joinedMsg.response.data
+                  ? { ...joinedMsg.response.data, is_online: true }
+                  : room
+              )
+            );
             setCurrentRoom(joinedMsg.response.data);
             setShowAddUser(false);
           })
@@ -37,7 +44,7 @@ export default function AddRoomForm({ setShowAddUser, rooms, setRooms, setCurren
   return (
     <>
       <div className="actions-header">
-        <button className="icon-button" onClick={() => {setShowAddUser(false)}}>
+        <button className="icon-button" onClick={() => { setShowAddUser(false) }}>
           <FontAwesomeIcon icon={faArrowLeft} />
         </button>
         <h2>New Chat Room</h2>
@@ -47,9 +54,9 @@ export default function AddRoomForm({ setShowAddUser, rooms, setRooms, setCurren
         : ''}
       <form className="sidebar-form" onSubmit={handleAddRoom}>
         <label htmlFor="name">Name:</label>
-        <input type="text" id="name" name="name" className='sidebar-input'/>
+        <input type="text" id="name" name="name" className='sidebar-input' />
         <label htmlFor="description">Description:</label>
-        <input type="text" id="description" name="description" className='sidebar-input'/>
+        <input type="text" id="description" name="description" className='sidebar-input' />
         <input type="submit" value="Create Room" />
       </form>
     </>

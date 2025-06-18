@@ -31,8 +31,10 @@ type Room struct {
 	userMap       map[int]map[*Client]struct{}
 	clientLock    sync.RWMutex
 	log           *log.Logger
-	killTimer     *time.Timer
-	exit          chan exitReq
+	// killTimer is used to automatically unload the room when it is no longer active
+	killTimer *time.Timer
+	// exit is used to signal the room to exit
+	exit chan exitReq
 }
 
 func (r *Room) start() {
@@ -57,6 +59,23 @@ func (r *Room) start() {
 		case e := <-r.exit:
 			r.handleRoomExit(e)
 			return
+		}
+	}
+}
+
+// notifyActive sends a presence notification to all active subscribers
+// indicating that the room is currently active.
+func (r *Room) notifyActive(skipClient *Client) {
+	for _, sub := range r.subscribers {
+		r.cs.broadcastChan <- &ServerMessage{
+			Notification: &Notification{
+				Presence: &Presence{
+					Present: true,
+					RoomId:  r.externalId,
+				},
+			},
+			UserId:     sub.Id,
+			SkipClient: skipClient,
 		}
 	}
 }
@@ -180,6 +199,7 @@ func (r *Room) handleJoin(join *ClientMessage) {
 
 	c := join.client
 	if !r.cs.db.SubscriptionExists(c.user.Id, r.id) {
+		// if the user is not subscribed, create a subscription
 		r.log.Printf("Creating subscription for user %q in room %q", c.user.Username, r.externalId)
 		sub, err := r.cs.db.CreateSubscription(c.user.Id, r.id)
 		if err != nil {
@@ -188,15 +208,21 @@ func (r *Room) handleJoin(join *ClientMessage) {
 				r.killTimer.Reset(idleRoomTimeout)
 			}
 			r.log.Println("CreateSubscription:", err)
+			c.queueMessage(ErrInternalError(join.Id))
 			return
 		}
 
+		// update the room's internal subscriber list
 		r.subscribers = append(r.subscribers, types.User{
 			Id:       sub.AccountId,
 			Username: sub.Username,
 		})
 
+		// notify users that the user has subscribed
 		r.broadcast(&ServerMessage{
+			BaseMessage: BaseMessage{
+				Timestamp: Now(),
+			},
 			Notification: &Notification{
 				SubscriptionChange: &SubscriptionChange{
 					RoomId:     r.externalId,
@@ -217,6 +243,11 @@ func (r *Room) handleJoin(join *ClientMessage) {
 	}
 
 	r.addClient(c)
+
+	if len(r.clients) == 1 {
+		// if this is the first client in the room, notify all subscribers that the room is now active
+		r.notifyActive(c)
+	}
 
 	roomInfo := map[string]any{
 		"id":          dbRoom.Id,
@@ -239,9 +270,14 @@ func (r *Room) handleJoin(join *ClientMessage) {
 		}(),
 	}
 
+	// send the room info to the client
 	c.queueMessage(NoErrOK(join.Id, roomInfo))
 
-	data := &ServerMessage{
+	// notify clients that the user has joined
+	r.broadcast(&ServerMessage{
+		BaseMessage: BaseMessage{
+			Timestamp: Now(),
+		},
 		Notification: &Notification{
 			Presence: &Presence{
 				Present: true,
@@ -250,38 +286,18 @@ func (r *Room) handleJoin(join *ClientMessage) {
 			},
 		},
 		SkipClient: c,
-	}
-	r.broadcast(data)
-
-	for _, sub := range r.subscribers {
-		r.cs.broadcastChan <- &ServerMessage{
-			Notification: &Notification{
-				Presence: &Presence{
-					Present: true,
-					RoomId:  r.externalId,
-				},
-			},
-			UserId: sub.Id,
-		}
-	}
+	})
 }
 
 func (r *Room) addClient(c *Client) {
-	r.killTimer.Stop()
-
 	r.clientLock.Lock()
-	r.clients[c] = struct{}{}
+	defer r.clientLock.Unlock()
 
+	r.clients[c] = struct{}{}
 	if r.userMap[c.user.Id] == nil {
 		r.userMap[c.user.Id] = make(map[*Client]struct{})
 	}
 	r.userMap[c.user.Id][c] = struct{}{}
-
-	if len(r.userMap[c.user.Id]) > 1 {
-		r.log.Printf("user %q has multiple clients in room %q", c.user.Username, r.externalId)
-	}
-	r.log.Printf("added %q to room %q, current clients %v", c.user.Username, r.externalId, r.clients)
-	r.clientLock.Unlock()
 
 	c.addRoom(r)
 }
