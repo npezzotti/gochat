@@ -140,20 +140,23 @@ func (cs *ChatServer) Run() {
 			cs.handleUnloadRoom(id, true)
 			cs.log.Printf("deleted room %q", id)
 		case <-cs.stop:
-			cs.log.Println("shutting down rooms")
 			cs.unloadAllRooms()
-			close(cs.done)
+			cs.done <- struct{}{}
 			return
 		}
 	}
 }
 
 func (cs *ChatServer) unloadAllRooms() {
+	cs.log.Println("shutting down all active rooms")
+	roomDone := make(chan bool)
 	for _, r := range cs.rooms {
 		cs.log.Println("shutting down room", r.externalId)
-		exit := exitReq{deleted: false, done: make(chan bool)}
-		r.exit <- exit
-		<-exit.done
+		r.exit <- exitReq{deleted: false, done: roomDone}
+	}
+
+	for range len(cs.rooms) {
+		<-roomDone
 	}
 }
 
@@ -217,14 +220,12 @@ func (cs *ChatServer) handleUnloadRoom(id string, deleted bool) {
 }
 
 func (cs *ChatServer) Shutdown(ctx context.Context) error {
-	for c := range cs.clients {
-		close(c.stop)
-	}
-
-	close(cs.stop)
+	cs.log.Println("shutting down chat server...")
+	cs.stop <- struct{}{}
 
 	select {
 	case <-cs.done:
+		cs.log.Println("chat server shutdown complete")
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()

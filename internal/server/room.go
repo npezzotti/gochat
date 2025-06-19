@@ -123,7 +123,9 @@ func (r *Room) handleRoomExit(e exitReq) {
 	}
 
 	// notify the chat server the room is done cleaning up
-	e.done <- true
+	if e.done != nil {
+		e.done <- true
+	}
 }
 
 func (r *Room) handleLeave(leaveMsg *ClientMessage) {
@@ -334,7 +336,7 @@ func (r *Room) removeClient(c *Client) {
 		}
 	}
 
-	r.log.Printf("removed client %q from room %q, current clients %v", c.user.Username, r.externalId, r.clients)
+	r.log.Printf("removed client %q from room %q", c.user.Username, r.externalId)
 
 	// if the client is the last one in the room, start the kill timer
 	if len(r.clients) == 0 {

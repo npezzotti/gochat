@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,6 +26,7 @@ type Client struct {
 	send       chan *ServerMessage
 	rooms      map[string]*Room
 	roomsLock  sync.RWMutex
+	exitRoom   chan string
 	stop       chan struct{}
 }
 
@@ -36,6 +38,7 @@ func NewClient(user types.User, conn *websocket.Conn, cs *ChatServer, l *log.Log
 		user:       user,
 		send:       make(chan *ServerMessage, 256),
 		rooms:      make(map[string]*Room),
+		exitRoom:   make(chan string),
 		stop:       make(chan struct{}),
 	}
 }
@@ -64,6 +67,9 @@ func (c *Client) Write() {
 			if !c.sendMessage(websocket.TextMessage, bytes) {
 				return
 			}
+		case roomId := <-c.exitRoom:
+			c.delRoom(roomId)
+			c.log.Printf("removed room %q from connection from user %q, client's current rooms: %v", roomId, c.user.Username, c.rooms)
 		case <-c.stop:
 			return
 		case <-ticker.C:
@@ -217,22 +223,32 @@ func (c *Client) leaveRoom(msg *ClientMessage) {
 	}
 }
 
+// delRoom removes the room from the client's list of rooms.
 func (c *Client) delRoom(id string) {
 	c.roomsLock.Lock()
 	defer c.roomsLock.Unlock()
 
-	if _, ok := c.rooms[id]; ok {
-		delete(c.rooms, id)
-		c.log.Printf("removed room %q from connection from user %q, client's current rooms: %v", id, c.user.Username, c.rooms)
-	}
+	delete(c.rooms, id)
+	c.log.Printf("removed client for user %s from room %q, client's current rooms: %s\n", c.user.Username, id, c.printRooms())
 }
 
+// addRoom adds the room to the client's list of rooms.
 func (c *Client) addRoom(r *Room) {
 	c.roomsLock.Lock()
 	defer c.roomsLock.Unlock()
 
 	c.rooms[r.externalId] = r
-	c.log.Printf("added user %s to room %q, client's current rooms: %+v\n", c.user.Username, r.externalId, c.rooms)
+	c.log.Printf("added client for user %s to room %q, client's current rooms: %s\n", c.user.Username, r.externalId, c.printRooms())
+}
+
+func (c *Client) printRooms() string {
+	// Create a slice to hold the room IDs
+	roomIds := make([]string, 0, len(c.rooms))
+	for roomId := range c.rooms {
+		roomIds = append(roomIds, roomId)
+	}
+
+	return strings.Join(roomIds, ", ")
 }
 
 func (c *Client) getRoom(id string) *Room {
