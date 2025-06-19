@@ -58,7 +58,7 @@ func (c *Client) Write() {
 				return
 			}
 
-			bytes, err := c.serializeMessage(msg)
+			bytes, err := serializeMessage(msg)
 			if err != nil {
 				c.log.Println("failed to serialize message:", err)
 				continue
@@ -156,7 +156,8 @@ func (c *Client) queueMessage(msg *ServerMessage) bool {
 	return true
 }
 
-func (c *Client) serializeMessage(msg *ServerMessage) ([]byte, error) {
+// serializeMessage serializes a ServerMessage to JSON.
+func serializeMessage(msg *ServerMessage) ([]byte, error) {
 	return json.Marshal(msg)
 }
 
