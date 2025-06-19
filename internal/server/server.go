@@ -22,7 +22,7 @@ type ChatServer struct {
 	DelRoomChan    chan string
 	broadcastChan  chan *ServerMessage
 	rooms          map[string]*Room
-	roomsLock      sync.Mutex
+	roomsLock      sync.RWMutex
 	stop           chan struct{}
 	done           chan struct{}
 	userMap        map[int][]*Client
@@ -98,7 +98,7 @@ func (cs *ChatServer) Run() {
 					exit:          make(chan exitReq),
 				}
 
-				cs.rooms[room.externalId] = room
+				cs.addRoom(room.externalId, room)
 				// forward join request to the room
 				room.joinChan <- joinMsg
 				go room.start()
@@ -147,16 +147,40 @@ func (cs *ChatServer) Run() {
 	}
 }
 
+// addRoom adds a room to the server's list of active rooms.
+func (cs *ChatServer) addRoom(id string, r *Room) {
+	cs.roomsLock.Lock()
+	defer cs.roomsLock.Unlock()
+	cs.rooms[id] = r
+}
+
+// removeRoom removes a room from the server's list of active rooms by its ID.
+func (cs *ChatServer) removeRoom(id string) {
+	cs.roomsLock.Lock()
+	defer cs.roomsLock.Unlock()
+	delete(cs.rooms, id)
+}
+
+// getRoom retrieves a room by its ID from the server's list of active rooms.
+func (cs *ChatServer) getRoom(id string) (*Room, bool) {
+	cs.roomsLock.RLock()
+	defer cs.roomsLock.RUnlock()
+	room, ok := cs.rooms[id]
+	return room, ok
+}
+
 func (cs *ChatServer) unloadAllRooms() {
 	cs.log.Println("shutting down all active rooms")
-	roomDone := make(chan bool)
+	// signal all rooms to exit
+	roomDone := make(chan string)
 	for _, r := range cs.rooms {
 		cs.log.Println("shutting down room", r.externalId)
 		r.exit <- exitReq{deleted: false, done: roomDone}
 	}
 
 	for range len(cs.rooms) {
-		<-roomDone
+		id := <-roomDone
+		cs.removeRoom(id)
 	}
 }
 
@@ -202,21 +226,14 @@ func (cs *ChatServer) removeClient(c *Client) {
 }
 
 func (cs *ChatServer) handleUnloadRoom(id string, deleted bool) {
-	cs.roomsLock.Lock()
-	room, ok := cs.rooms[id]
-	cs.roomsLock.Unlock()
-	if !ok {
-		return
+	if room, ok := cs.getRoom(id); ok {
+		// Signal the room to exit and wait for cleanup
+		exit := exitReq{deleted: deleted, done: make(chan string)}
+		room.exit <- exit
+		<-exit.done
 	}
 
-	// Signal the room to exit and wait for cleanup
-	exit := exitReq{deleted: deleted, done: make(chan bool)}
-	room.exit <- exit
-	<-exit.done
-
-	cs.roomsLock.Lock()
-	delete(cs.rooms, id)
-	cs.roomsLock.Unlock()
+	cs.removeRoom(id)
 }
 
 func (cs *ChatServer) Shutdown(ctx context.Context) error {

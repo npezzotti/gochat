@@ -69,7 +69,6 @@ func (c *Client) Write() {
 			}
 		case roomId := <-c.exitRoom:
 			c.delRoom(roomId)
-			c.log.Printf("removed room %q from connection from user %q, client's current rooms: %v", roomId, c.user.Username, c.rooms)
 		case <-c.stop:
 			return
 		case <-ticker.C:
@@ -119,8 +118,8 @@ func (c *Client) Read() {
 		case msg.Leave != nil:
 			c.leaveRoom(&msg)
 		case msg.Publish != nil:
-			r := c.getRoom(msg.Publish.RoomId)
-			if r != nil {
+			r, ok := c.getRoom(msg.Publish.RoomId)
+			if ok {
 				select {
 				case r.clientMsgChan <- &msg:
 				default:
@@ -131,8 +130,8 @@ func (c *Client) Read() {
 				c.queueMessage(ErrRoomNotFound(msg.Id))
 			}
 		case msg.Read != nil:
-			r := c.getRoom(msg.Read.RoomId)
-			if r != nil {
+			r, ok := c.getRoom(msg.Read.RoomId)
+			if ok {
 				select {
 				case r.clientMsgChan <- &msg:
 				default:
@@ -209,8 +208,8 @@ func (c *Client) joinRoom(msg *ClientMessage) {
 }
 
 func (c *Client) leaveRoom(msg *ClientMessage) {
-	r := c.getRoom(msg.Leave.RoomId)
-	if r != nil {
+	r, ok := c.getRoom(msg.Leave.RoomId)
+	if ok {
 		select {
 		case r.leaveChan <- msg:
 		default:
@@ -241,6 +240,14 @@ func (c *Client) addRoom(r *Room) {
 	c.log.Printf("added client for user %s to room %q, client's current rooms: %s\n", c.user.Username, r.externalId, c.printRooms())
 }
 
+func (c *Client) getRoom(id string) (*Room, bool) {
+	c.roomsLock.RLock()
+	defer c.roomsLock.RUnlock()
+
+	room, ok := c.rooms[id]
+	return room, ok
+}
+
 func (c *Client) printRooms() string {
 	// Create a slice to hold the room IDs
 	roomIds := make([]string, 0, len(c.rooms))
@@ -249,12 +256,4 @@ func (c *Client) printRooms() string {
 	}
 
 	return strings.Join(roomIds, ", ")
-}
-
-func (c *Client) getRoom(id string) *Room {
-	if room, ok := c.rooms[id]; ok {
-		return room
-	}
-
-	return nil
 }
