@@ -12,12 +12,14 @@ export default function Sidebar({ currentUser, setCurrentUser, currentRoom, setC
 
   function handleJoinRoomSuccess(joinedRoom) {
     setRooms(prevRooms =>
+      // update the room online status in the list of rooms
       prevRooms.map(room =>
         room.external_id === joinedRoom.external_id
           ? { ...room, is_online: true }
           : room
       )
     );
+    // update the current room
     setCurrentRoom(joinedRoom);
   }
 
