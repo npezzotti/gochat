@@ -4,11 +4,11 @@ import (
 	"database/sql"
 )
 
-type DBConn struct {
+type PgGoChatRepository struct {
 	conn *sql.DB
 }
 
-func NewDatabaseConnection(dsn string) (*DBConn, error) {
+func NewPgGoChatRepository(dsn string) (*PgGoChatRepository, error) {
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return nil, err
@@ -18,10 +18,10 @@ func NewDatabaseConnection(dsn string) (*DBConn, error) {
 		return nil, err
 	}
 
-	return &DBConn{conn: db}, nil
+	return &PgGoChatRepository{conn: db}, nil
 }
 
-func (db *DBConn) Close() error {
+func (db *PgGoChatRepository) Close() error {
 	if db.conn != nil {
 		return db.conn.Close()
 	}

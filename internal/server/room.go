@@ -227,7 +227,7 @@ func (r *Room) handleJoin(join *ClientMessage) {
 		})
 	}
 
-	dbRoom, err := r.cs.db.FetchRoomWithSubscribers(r.id)
+	dbRoom, err := r.cs.db.GetRoomWithSubscribers(r.id)
 	if err != nil {
 		r.log.Println("FetchRoomWithSubscribers:", err)
 		return
@@ -386,7 +386,7 @@ func (r *Room) removeSubscriber(userId int) {
 
 func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 	// save the message to the database
-	if err := r.cs.db.MessageCreate(database.Message{
+	if err := r.cs.db.CreateMessage(database.Message{
 		SeqId:     r.seq_id + 1,
 		RoomId:    r.id,
 		UserId:    msg.client.user.Id,

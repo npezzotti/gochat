@@ -10,7 +10,7 @@ const (
 	createSubQuery = "INSERT INTO subscriptions (account_id, room_id, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING id, account_id, room_id"
 )
 
-func (db *DBConn) CreateAccount(accountParams CreateAccountParams) (User, error) {
+func (db *PgGoChatRepository) CreateAccount(accountParams CreateAccountParams) (User, error) {
 	res := db.conn.QueryRow(
 		"INSERT INTO accounts (username, email, password_hash, created_at) "+
 			"VALUES ($1, $2, $3, $4) RETURNING id, username, email",
@@ -30,7 +30,7 @@ func (db *DBConn) CreateAccount(accountParams CreateAccountParams) (User, error)
 	return u, err
 }
 
-func (db *DBConn) UpdateAccount(accountParams UpdateAccountParams) (User, error) {
+func (db *PgGoChatRepository) UpdateAccount(accountParams UpdateAccountParams) (User, error) {
 	res := db.conn.QueryRow(
 		"UPDATE accounts SET username = $2, password_hash = $3, updated_at = $4 "+
 			"WHERE id = $1 RETURNING id, username, email",
@@ -50,7 +50,7 @@ func (db *DBConn) UpdateAccount(accountParams UpdateAccountParams) (User, error)
 	return u, err
 }
 
-func (db *DBConn) GetAccount(id int) (User, error) {
+func (db *PgGoChatRepository) GetAccountById(id int) (User, error) {
 	row := db.conn.QueryRow(
 		"SELECT id, username, email FROM accounts "+
 			"WHERE id = $1 LIMIT 1",
@@ -67,7 +67,7 @@ func (db *DBConn) GetAccount(id int) (User, error) {
 	return user, err
 }
 
-func (db *DBConn) GetAccountByEmail(email string) (User, error) {
+func (db *PgGoChatRepository) GetAccountByEmail(email string) (User, error) {
 	row := db.conn.QueryRow(
 		"SELECT id, username, email, password_hash FROM accounts "+
 			"WHERE email = $1 LIMIT 1",
@@ -84,7 +84,7 @@ func (db *DBConn) GetAccountByEmail(email string) (User, error) {
 	return user, err
 }
 
-func (db *DBConn) GetRoomByExternalID(externalId string) (Room, error) {
+func (db *PgGoChatRepository) GetRoomByExternalId(externalId string) (Room, error) {
 	row := db.conn.QueryRow(
 		"SELECT id, name, external_id, description, seq_id, owner_id, created_at, updated_at FROM rooms "+
 			"WHERE external_id = $1 LIMIT 1",
@@ -106,7 +106,7 @@ func (db *DBConn) GetRoomByExternalID(externalId string) (Room, error) {
 	return room, err
 }
 
-func (db *DBConn) FetchRoomWithSubscribers(roomId int) (*Room, error) {
+func (db *PgGoChatRepository) GetRoomWithSubscribers(roomId int) (*Room, error) {
 	query := `
 		SELECT 
 				r.id AS room_id,
@@ -207,7 +207,7 @@ func (db *DBConn) FetchRoomWithSubscribers(roomId int) (*Room, error) {
 	return room, nil
 }
 
-func (db *DBConn) CreateRoom(params CreateRoomParams) (Room, error) {
+func (db *PgGoChatRepository) CreateRoom(params CreateRoomParams) (Room, error) {
 	tx, err := db.conn.Begin()
 	if err != nil {
 		return Room{}, err
@@ -260,7 +260,7 @@ func (db *DBConn) CreateRoom(params CreateRoomParams) (Room, error) {
 	return room, err
 }
 
-func (db *DBConn) DeleteRoom(id int) error {
+func (db *PgGoChatRepository) DeleteRoom(id int) error {
 	tx, err := db.conn.Begin()
 	if err != nil {
 		return err
@@ -289,7 +289,7 @@ func (db *DBConn) DeleteRoom(id int) error {
 	return tx.Commit()
 }
 
-func (db *DBConn) CreateSubscription(userId, roomId int) (Subscription, error) {
+func (db *PgGoChatRepository) CreateSubscription(userId, roomId int) (Subscription, error) {
 	res := db.conn.QueryRow(
 		createSubQuery,
 		userId,
@@ -308,7 +308,7 @@ func (db *DBConn) CreateSubscription(userId, roomId int) (Subscription, error) {
 	return sub, err
 }
 
-func (db *DBConn) SubscriptionExists(account_id, room_id int) bool {
+func (db *PgGoChatRepository) SubscriptionExists(account_id, room_id int) bool {
 	res := db.conn.QueryRow(
 		"SELECT id FROM subscriptions WHERE account_id = $1 AND room_id = $2 LIMIT 1",
 		account_id,
@@ -323,7 +323,7 @@ func (db *DBConn) SubscriptionExists(account_id, room_id int) bool {
 	return err == nil
 }
 
-func (db *DBConn) ListSubscriptions(account_id int) ([]Subscription, error) {
+func (db *PgGoChatRepository) ListSubscriptions(account_id int) ([]Subscription, error) {
 	rows, err := db.conn.Query(
 		"SELECT s.id, s.last_read_seq_id, s.created_at, s.updated_at, r.id AS room_id, r.external_id, "+
 			"r.name, r.description, r.seq_id, r.created_at AS room_created_at, r.updated_at AS room_updated_at "+
@@ -364,7 +364,7 @@ func (db *DBConn) ListSubscriptions(account_id int) ([]Subscription, error) {
 	return subs, err
 }
 
-func (db *DBConn) DeleteSubscription(accountId, roomId int) error {
+func (db *PgGoChatRepository) DeleteSubscription(accountId, roomId int) error {
 	_, err := db.conn.Exec(
 		"DELETE FROM subscriptions WHERE account_id = $1 AND room_id = $2",
 		accountId,
@@ -374,7 +374,7 @@ func (db *DBConn) DeleteSubscription(accountId, roomId int) error {
 	return err
 }
 
-func (db *DBConn) UpdateLastReadSeqId(userId, roomId, seqId int) error {
+func (db *PgGoChatRepository) UpdateLastReadSeqId(userId, roomId, seqId int) error {
 	_, err := db.conn.Exec(
 		"UPDATE subscriptions SET last_read_seq_id = $1, updated_at = $2 "+
 			"WHERE account_id = $3 AND room_id = $4",
@@ -387,7 +387,7 @@ func (db *DBConn) UpdateLastReadSeqId(userId, roomId, seqId int) error {
 	return err
 }
 
-func (db *DBConn) MessageCreate(msg Message) error {
+func (db *PgGoChatRepository) CreateMessage(msg Message) error {
 	tx, err := db.conn.Begin()
 	defer func() {
 		if err != nil {
@@ -395,7 +395,7 @@ func (db *DBConn) MessageCreate(msg Message) error {
 		}
 	}()
 
-	if err = db.RoomUpdateOnMessage(msg); err != nil {
+	if err = db.UpdateRoomOnMessage(msg); err != nil {
 		return fmt.Errorf("failed to update room on message: %w", err)
 	}
 	if _, err = db.conn.Exec(
@@ -418,13 +418,13 @@ func (db *DBConn) MessageCreate(msg Message) error {
 	return err
 }
 
-func (db *DBConn) RoomUpdateOnMessage(msg Message) error {
+func (db *PgGoChatRepository) UpdateRoomOnMessage(msg Message) error {
 	_, err := db.conn.Exec("UPDATE rooms SET seq_id = $1 WHERE id = $2", msg.SeqId, msg.RoomId)
 
 	return err
 }
 
-func (db *DBConn) GetSubscribersForRoom(roomId int) ([]User, error) {
+func (db *PgGoChatRepository) GetSubscribersByRoomId(roomId int) ([]User, error) {
 	rows, err := db.conn.Query(
 		"SELECT a.id, a.username FROM subscriptions AS s "+
 			"JOIN accounts AS a ON s.account_id = a.id WHERE s.room_id = $1",
@@ -444,7 +444,7 @@ func (db *DBConn) GetSubscribersForRoom(roomId int) ([]User, error) {
 	return subs, err
 }
 
-func (db *DBConn) MessageGetAll(roomId, since, before, limit int) ([]Message, error) {
+func (db *PgGoChatRepository) GetMessages(roomId, since, before, limit int) ([]Message, error) {
 	var upper, lower int = 1<<31 - 1, 0
 	if before > 0 {
 		upper = before - 1

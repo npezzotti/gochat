@@ -12,7 +12,7 @@ import (
 
 type ChatServer struct {
 	log            *log.Logger
-	db             *database.DBConn
+	db             *database.PgGoChatRepository
 	clients        map[*Client]struct{}
 	clientsLock    sync.Mutex
 	joinChan       chan *ClientMessage
@@ -28,7 +28,7 @@ type ChatServer struct {
 	userMap        map[int][]*Client
 }
 
-func NewChatServer(logger *log.Logger, db *database.DBConn) (*ChatServer, error) {
+func NewChatServer(logger *log.Logger, db *database.PgGoChatRepository) (*ChatServer, error) {
 	return &ChatServer{
 		log:            logger,
 		db:             db,
@@ -61,13 +61,13 @@ func (cs *ChatServer) Run() {
 				}
 			} else {
 				// room not loaded, load it
-				dbRoom, err := cs.db.GetRoomByExternalID(joinMsg.Join.RoomId)
+				dbRoom, err := cs.db.GetRoomByExternalId(joinMsg.Join.RoomId)
 				if err != nil {
 					joinMsg.client.queueMessage(ErrRoomNotFound(joinMsg.Id))
 					continue
 				}
 
-				dbSubs, err := cs.db.GetSubscribersForRoom(dbRoom.Id)
+				dbSubs, err := cs.db.GetSubscribersByRoomId(dbRoom.Id)
 				if err != nil {
 					joinMsg.client.queueMessage(ErrInternalError(joinMsg.Id))
 					cs.log.Println("GetSubscriptionsByRoomId:", err)

@@ -75,7 +75,7 @@ func (s *Server) getRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbRoom, err := s.db.GetRoomByExternalID(externalId)
+	dbRoom, err := s.db.GetRoomByExternalId(externalId)
 	if err != nil {
 		var errResp *ApiError
 		if errors.Is(err, sql.ErrNoRows) {
@@ -87,7 +87,7 @@ func (s *Server) getRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbSubs, err := s.db.GetSubscribersForRoom(dbRoom.Id)
+	dbSubs, err := s.db.GetSubscribersByRoomId(dbRoom.Id)
 	if err != nil {
 		s.log.Println("get subscribers for room:", err)
 		errResp := NewInternalServerError(err)
@@ -131,7 +131,7 @@ func (s *Server) deleteRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	room, err := s.db.GetRoomByExternalID(externalId)
+	room, err := s.db.GetRoomByExternalId(externalId)
 	if err != nil {
 		var errResp *ApiError
 		if errors.Is(err, sql.ErrNoRows) {
@@ -208,7 +208,7 @@ func (s *Server) getMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	room, err := s.db.GetRoomByExternalID(externalId)
+	room, err := s.db.GetRoomByExternalId(externalId)
 	if err != nil {
 		var errResp *ApiError
 		if errors.Is(err, sql.ErrNoRows) {
@@ -252,7 +252,7 @@ func (s *Server) getMessages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	messages, err := s.db.MessageGetAll(room.Id, after, before, limit)
+	messages, err := s.db.GetMessages(room.Id, after, before, limit)
 	if err != nil {
 		errResp := NewInternalServerError(err)
 		s.writeJson(w, errResp.StatusCode, errResp)
@@ -284,7 +284,7 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := s.db.GetAccount(username)
+	user, err := s.db.GetAccountById(username)
 	if err != nil {
 		errResp := NewNotFoundError()
 		s.writeJson(w, errResp.StatusCode, errResp)

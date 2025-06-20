@@ -142,7 +142,7 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user, err := s.db.GetAccount(userId)
+		user, err := s.db.GetAccountById(userId)
 		if err != nil {
 			var errResp *ApiError
 			if errors.Is(err, sql.ErrNoRows) {
@@ -171,7 +171,7 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		curUser, err := s.db.GetAccount(userId)
+		curUser, err := s.db.GetAccountById(userId)
 		if err != nil {
 			var errResp *ApiError
 			if errors.Is(err, sql.ErrNoRows) {
@@ -234,7 +234,7 @@ func (s *Server) session(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := s.db.GetAccount(userId)
+	user, err := s.db.GetAccountById(userId)
 	if err != nil {
 		var errResp *ApiError
 		if errors.Is(err, sql.ErrNoRows) {

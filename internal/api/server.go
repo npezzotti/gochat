@@ -14,13 +14,13 @@ import (
 
 type Server struct {
 	log        *log.Logger
-	db         *database.DBConn
+	db         database.GoChatRepository
 	mux        *http.Server
 	cs         *server.ChatServer
 	signingKey []byte
 }
 
-func NewServer(logger *log.Logger, cs *server.ChatServer, db *database.DBConn, cfg *config.Config) *Server {
+func NewServer(logger *log.Logger, cs *server.ChatServer, db *database.PgGoChatRepository, cfg *config.Config) *Server {
 	s := &Server{
 		log:        logger,
 		db:         db,
