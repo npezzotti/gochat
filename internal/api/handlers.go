@@ -1,8 +1,9 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
-	"log"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -13,11 +14,11 @@ import (
 	"github.com/teris-io/shortid"
 )
 
-func writeJson(l *log.Logger, w http.ResponseWriter, statusCode int, v interface{}) {
+func (s *Server) writeJson(w http.ResponseWriter, statusCode int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		l.Printf("JSON encoding error: %v", err)
+		s.log.Printf("json encode: %v", err)
 	}
 }
 
@@ -25,14 +26,14 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 	var params database.CreateRoomParams
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
 		errResp := NewBadRequestError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
 	userId, ok := UserId(r.Context())
 	if !ok {
 		errResp := NewUnauthorizedError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
@@ -40,7 +41,7 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.log.Print("generate shortid:", err)
 		errResp := NewInternalServerError(err)
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
@@ -50,7 +51,7 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 	newRoom, err := s.db.CreateRoom(params)
 	if err != nil {
 		errResp := NewBadRequestError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
@@ -63,21 +64,26 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:   newRoom.UpdatedAt,
 	}
 
-	writeJson(s.log, w, http.StatusCreated, room)
+	s.writeJson(w, http.StatusCreated, room)
 }
 
 func (s *Server) getRoom(w http.ResponseWriter, r *http.Request) {
 	externalId := r.URL.Query().Get("id")
 	if externalId == "" {
 		errResp := NewBadRequestError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
 	dbRoom, err := s.db.GetRoomByExternalID(externalId)
 	if err != nil {
-		errResp := NewNotFoundError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		var errResp *ApiError
+		if errors.Is(err, sql.ErrNoRows) {
+			errResp = NewNotFoundError()
+		} else {
+			errResp = NewInternalServerError(err)
+		}
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
@@ -85,7 +91,7 @@ func (s *Server) getRoom(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.log.Println("get subscribers for room:", err)
 		errResp := NewInternalServerError(err)
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 	var subscribers []types.User
@@ -107,35 +113,40 @@ func (s *Server) getRoom(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:   dbRoom.UpdatedAt,
 	}
 
-	writeJson(s.log, w, http.StatusOK, room)
+	s.writeJson(w, http.StatusOK, room)
 }
 
 func (s *Server) deleteRoom(w http.ResponseWriter, r *http.Request) {
 	userId, ok := UserId(r.Context())
 	if !ok {
 		errResp := NewUnauthorizedError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
 	externalId := r.URL.Query().Get("id")
 	if externalId == "" {
 		errResp := NewBadRequestError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
 	room, err := s.db.GetRoomByExternalID(externalId)
 	if err != nil {
-		errResp := NewNotFoundError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		var errResp *ApiError
+		if errors.Is(err, sql.ErrNoRows) {
+			errResp = NewNotFoundError()
+		} else {
+			errResp = NewInternalServerError(err)
+		}
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
 	// Check if the user is the owner of the room
 	if room.OwnerId != userId {
 		errResp := NewForbiddenError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
@@ -143,19 +154,19 @@ func (s *Server) deleteRoom(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.log.Println("delete room:", err)
 		errResp := NewInternalServerError(err)
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
 	s.cs.DelRoomChan <- room.ExternalId
-	writeJson(s.log, w, http.StatusNoContent, nil)
+	s.writeJson(w, http.StatusNoContent, nil)
 }
 
 func (s *Server) getUsersSubscriptions(w http.ResponseWriter, r *http.Request) {
 	userId, ok := UserId(r.Context())
 	if !ok {
 		errResp := NewUnauthorizedError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
@@ -163,7 +174,7 @@ func (s *Server) getUsersSubscriptions(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.log.Println("list subscriptions:", err)
 		errResp := NewInternalServerError(err)
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
@@ -186,21 +197,26 @@ func (s *Server) getUsersSubscriptions(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	writeJson(s.log, w, http.StatusOK, subs)
+	s.writeJson(w, http.StatusOK, subs)
 }
 
 func (s *Server) getMessages(w http.ResponseWriter, r *http.Request) {
 	externalId := r.URL.Query().Get("room_id")
 	if externalId == "" {
 		errResp := NewBadRequestError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
 	room, err := s.db.GetRoomByExternalID(externalId)
 	if err != nil {
-		errResp := NewNotFoundError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		var errResp *ApiError
+		if errors.Is(err, sql.ErrNoRows) {
+			errResp = NewNotFoundError()
+		} else {
+			errResp = NewInternalServerError(err)
+		}
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
@@ -211,7 +227,7 @@ func (s *Server) getMessages(w http.ResponseWriter, r *http.Request) {
 		before, err = strconv.Atoi(beforeStr)
 		if err != nil {
 			errResp := NewBadRequestError()
-			writeJson(s.log, w, errResp.Code, errResp)
+			s.writeJson(w, errResp.StatusCode, errResp)
 			return
 		}
 	}
@@ -221,7 +237,7 @@ func (s *Server) getMessages(w http.ResponseWriter, r *http.Request) {
 		after, err = strconv.Atoi(afterStr)
 		if err != nil {
 			errResp := NewBadRequestError()
-			writeJson(s.log, w, errResp.Code, errResp)
+			s.writeJson(w, errResp.StatusCode, errResp)
 			return
 		}
 	}
@@ -231,7 +247,7 @@ func (s *Server) getMessages(w http.ResponseWriter, r *http.Request) {
 		limit, err = strconv.Atoi(limitStr)
 		if err != nil {
 			errResp := NewBadRequestError()
-			writeJson(s.log, w, errResp.Code, errResp)
+			s.writeJson(w, errResp.StatusCode, errResp)
 			return
 		}
 	}
@@ -239,7 +255,7 @@ func (s *Server) getMessages(w http.ResponseWriter, r *http.Request) {
 	messages, err := s.db.MessageGetAll(room.Id, after, before, limit)
 	if err != nil {
 		errResp := NewInternalServerError(err)
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
@@ -257,21 +273,21 @@ func (s *Server) getMessages(w http.ResponseWriter, r *http.Request) {
 		userMessages = append(userMessages, msg)
 	}
 
-	writeJson(s.log, w, http.StatusOK, userMessages)
+	s.writeJson(w, http.StatusOK, userMessages)
 }
 
 func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 	username, ok := UserId(r.Context())
 	if !ok {
 		errResp := NewUnauthorizedError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
 	user, err := s.db.GetAccount(username)
 	if err != nil {
 		errResp := NewNotFoundError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 

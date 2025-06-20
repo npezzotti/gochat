@@ -3,12 +3,13 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 type ApiError struct {
-	Code    int    `json:"-"`
-	Message string `json:"message"`
-	Err     error  `json:"-"`
+	StatusCode int    `json:"status_code"`
+	Message    string `json:"message"`
+	Err        error  `json:"-"`
 }
 
 func (e *ApiError) Error() string {
@@ -23,45 +24,49 @@ func (e *ApiError) Unwrap() error {
 	return e.Err
 }
 
+func lower(s string) string {
+	return strings.ToLower(s)
+}
+
 func NewBadRequestError() *ApiError {
 	return &ApiError{
-		Code:    http.StatusBadRequest,
-		Message: http.StatusText(http.StatusBadRequest),
+		StatusCode: http.StatusBadRequest,
+		Message:    lower(http.StatusText(http.StatusBadRequest)),
 	}
 }
 
 func NewNotFoundError() *ApiError {
 	return &ApiError{
-		Code:    http.StatusNotFound,
-		Message: http.StatusText(http.StatusNotFound),
+		StatusCode: http.StatusNotFound,
+		Message:    lower(http.StatusText(http.StatusNotFound)),
 	}
 }
 
 func NewInternalServerError(err error) *ApiError {
 	return &ApiError{
-		Code:    http.StatusInternalServerError,
-		Message: http.StatusText(http.StatusInternalServerError),
-		Err:     err,
+		StatusCode: http.StatusInternalServerError,
+		Message:    lower(http.StatusText(http.StatusInternalServerError)),
+		Err:        err,
 	}
 }
 
 func NewUnauthorizedError() *ApiError {
 	return &ApiError{
-		Code:    http.StatusUnauthorized,
-		Message: http.StatusText(http.StatusUnauthorized),
+		StatusCode: http.StatusUnauthorized,
+		Message:    lower(http.StatusText(http.StatusUnauthorized)),
 	}
 }
 
 func NewForbiddenError() *ApiError {
 	return &ApiError{
-		Code:    http.StatusForbidden,
-		Message: http.StatusText(http.StatusForbidden),
+		StatusCode: http.StatusForbidden,
+		Message:    lower(http.StatusText(http.StatusForbidden)),
 	}
 }
 
 func NewMethodNotAllowedError() *ApiError {
 	return &ApiError{
-		Code:    http.StatusMethodNotAllowed,
-		Message: http.StatusText(http.StatusMethodNotAllowed),
+		StatusCode: http.StatusMethodNotAllowed,
+		Message:    lower(http.StatusText(http.StatusMethodNotAllowed)),
 	}
 }

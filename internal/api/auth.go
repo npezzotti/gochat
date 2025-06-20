@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -50,13 +51,8 @@ type UpdateAccountRequest struct {
 	Password string `json:"password"`
 }
 
-func (s *Server) extractUserIdFromToken(r *http.Request) (int, error) {
-	tokenString, err := r.Cookie(tokenCookieKey)
-	if err != nil {
-		return 0, fmt.Errorf("get cookie: %w", err)
-	}
-
-	token, err := s.verifyToken(tokenString.Value)
+func (s *Server) extractUserIdFromToken(tokenString string) (int, error) {
+	token, err := s.verifyToken(tokenString)
 	if err != nil {
 		return 0, fmt.Errorf("verify token: %w", err)
 	}
@@ -76,11 +72,19 @@ func (s *Server) extractUserIdFromToken(r *http.Request) (int, error) {
 
 func (s *Server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userId, err := s.extractUserIdFromToken(r)
+		tokenCookie, err := r.Cookie(tokenCookieKey)
+		if err != nil {
+			errResp := NewUnauthorizedError()
+			s.writeJson(w, errResp.StatusCode, errResp)
+			return
+		}
+
+		tokenString := tokenCookie.Value
+		userId, err := s.extractUserIdFromToken(tokenString)
 		if err != nil {
 			s.log.Println("failed to extract user id from token:", err)
 			errResp := NewUnauthorizedError()
-			writeJson(s.log, w, errResp.Code, errResp)
+			s.writeJson(w, errResp.StatusCode, errResp)
 			return
 		}
 
@@ -95,14 +99,14 @@ func (s *Server) createAccount(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		errResp := NewBadRequestError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
 	pwdHash, err := hashPassword(req.Password)
 	if err != nil {
 		errResp := NewInternalServerError(err)
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
@@ -115,11 +119,11 @@ func (s *Server) createAccount(w http.ResponseWriter, r *http.Request) {
 	newUser, err := s.db.CreateAccount(params)
 	if err != nil {
 		errResp := NewInternalServerError(err)
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
-	writeJson(s.log, w, http.StatusCreated, types.User{
+	s.writeJson(w, http.StatusCreated, types.User{
 		Id:           newUser.Id,
 		Username:     newUser.Username,
 		EmailAddress: newUser.EmailAddress,
@@ -129,18 +133,24 @@ func (s *Server) createAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) account(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet {
+	switch r.Method {
+	case http.MethodGet:
 		userId, ok := UserId(r.Context())
 		if !ok {
 			errResp := NewUnauthorizedError()
-			writeJson(s.log, w, errResp.Code, errResp)
+			s.writeJson(w, errResp.StatusCode, errResp)
 			return
 		}
 
 		user, err := s.db.GetAccount(userId)
 		if err != nil {
-			errResp := NewNotFoundError()
-			writeJson(s.log, w, errResp.Code, errResp)
+			var errResp *ApiError
+			if errors.Is(err, sql.ErrNoRows) {
+				errResp = NewNotFoundError()
+			} else {
+				errResp = NewInternalServerError(err)
+			}
+			s.writeJson(w, errResp.StatusCode, errResp)
 			return
 		}
 
@@ -152,19 +162,24 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt:    user.UpdatedAt,
 		}
 
-		writeJson(s.log, w, http.StatusOK, u)
-	} else if r.Method == http.MethodPut {
+		s.writeJson(w, http.StatusOK, u)
+	case http.MethodPut:
 		userId, ok := UserId(r.Context())
 		if !ok {
 			errResp := NewUnauthorizedError()
-			writeJson(s.log, w, errResp.Code, errResp)
+			s.writeJson(w, errResp.StatusCode, errResp)
 			return
 		}
 
 		curUser, err := s.db.GetAccount(userId)
 		if err != nil {
-			errResp := NewNotFoundError()
-			writeJson(s.log, w, errResp.Code, errResp)
+			var errResp *ApiError
+			if errors.Is(err, sql.ErrNoRows) {
+				errResp = NewNotFoundError()
+			} else {
+				errResp = NewInternalServerError(err)
+			}
+			s.writeJson(w, errResp.StatusCode, errResp)
 			return
 		}
 
@@ -172,14 +187,14 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request) {
 		err = json.NewDecoder(r.Body).Decode(&updateAccountReq)
 		if err != nil {
 			errResp := NewBadRequestError()
-			writeJson(s.log, w, errResp.Code, errResp)
+			s.writeJson(w, errResp.StatusCode, errResp)
 			return
 		}
 
 		pwdHash, err := hashPassword(updateAccountReq.Password)
 		if err != nil {
 			errResp := NewInternalServerError(err)
-			writeJson(s.log, w, errResp.Code, errResp)
+			s.writeJson(w, errResp.StatusCode, errResp)
 			return
 		}
 
@@ -192,7 +207,7 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request) {
 		dbUser, err := s.db.UpdateAccount(params)
 		if err != nil {
 			errResp := NewInternalServerError(err)
-			writeJson(s.log, w, errResp.Code, errResp)
+			s.writeJson(w, errResp.StatusCode, errResp)
 			return
 		}
 
@@ -204,10 +219,10 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt:    dbUser.UpdatedAt,
 		}
 
-		writeJson(s.log, w, http.StatusOK, userResp)
-	} else {
+		s.writeJson(w, http.StatusOK, userResp)
+	default:
 		errResp := NewMethodNotAllowedError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 	}
 }
 
@@ -215,14 +230,19 @@ func (s *Server) session(w http.ResponseWriter, r *http.Request) {
 	userId, ok := UserId(r.Context())
 	if !ok {
 		errResp := NewUnauthorizedError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
 	user, err := s.db.GetAccount(userId)
 	if err != nil {
-		errResp := NewNotFoundError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		var errResp *ApiError
+		if errors.Is(err, sql.ErrNoRows) {
+			errResp = NewNotFoundError()
+		} else {
+			errResp = NewInternalServerError(err)
+		}
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
@@ -234,32 +254,32 @@ func (s *Server) session(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:    user.UpdatedAt,
 	}
 
-	writeJson(s.log, w, http.StatusOK, u)
+	s.writeJson(w, http.StatusOK, u)
 }
 
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	var lr LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&lr); err != nil {
 		errResp := NewBadRequestError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
 	dbUser, err := s.db.GetAccountByEmail(lr.Email)
 	if err != nil {
 		var errResp *ApiError
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			errResp = NewNotFoundError()
 		} else {
 			errResp = NewInternalServerError(err)
 		}
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
 	if !verifyPassword(dbUser.PasswordHash, lr.Password) {
 		errResp := NewUnauthorizedError()
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
@@ -274,13 +294,13 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	token, err := s.createJwtForSession(u, defaultJwtExpiration)
 	if err != nil {
 		errResp := NewInternalServerError(err)
-		writeJson(s.log, w, errResp.Code, errResp)
+		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
 	http.SetCookie(w, createJwtCookie(token, defaultJwtExpiration))
 
-	writeJson(s.log, w, http.StatusOK, u)
+	s.writeJson(w, http.StatusOK, u)
 }
 
 func createJwtCookie(tokenString string, exp time.Duration) *http.Cookie {

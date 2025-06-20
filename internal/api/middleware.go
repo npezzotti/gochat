@@ -22,7 +22,7 @@ func (s *Server) errorHandler(next http.Handler) http.Handler {
 				}
 
 				w.Header().Set("Connection", "close")
-				w.WriteHeader(errResp.Code)
+				w.WriteHeader(errResp.StatusCode)
 				w.Write(jsonResp)
 				return
 			}
