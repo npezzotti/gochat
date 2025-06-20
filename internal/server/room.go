@@ -63,23 +63,6 @@ func (r *Room) start() {
 	}
 }
 
-// notifyActive sends a presence notification to all active subscribers
-// indicating that the room is currently active.
-func (r *Room) notifyActive(skipClient *Client) {
-	for _, sub := range r.subscribers {
-		r.cs.broadcastChan <- &ServerMessage{
-			Notification: &Notification{
-				Presence: &Presence{
-					Present: true,
-					RoomId:  r.externalId,
-				},
-			},
-			UserId:     sub.Id,
-			SkipClient: skipClient,
-		}
-	}
-}
-
 func (r *Room) handleRoomTimeout() {
 	r.log.Printf("room %q timed out", r.externalId)
 	r.cs.unloadRoomChan <- r.externalId
@@ -99,7 +82,7 @@ func (r *Room) handleRoomExit(e exitReq) {
 		})
 	}
 
-	// remove the room for all clients
+	// signal all clients to exit the room
 	for c := range r.clients {
 		c.exitRoom <- r.externalId
 	}
@@ -254,7 +237,18 @@ func (r *Room) handleJoin(join *ClientMessage) {
 
 	if len(r.clients) == 1 {
 		// if this is the first client in the room, notify all subscribers that the room is now active
-		r.notifyActive(c)
+		for _, sub := range r.subscribers {
+			r.cs.broadcastChan <- &ServerMessage{
+				Notification: &Notification{
+					Presence: &Presence{
+						Present: true,
+						RoomId:  r.externalId,
+					},
+				},
+				UserId:     sub.Id,
+				SkipClient: c,
+			}
+		}
 	}
 
 	roomInfo := types.Room{
@@ -351,7 +345,8 @@ func (r *Room) removeClientSession(client *Client) {
 	r.deleteClient(c)
 
 	// signal the client to exit the room
-	c.exitRoom <- r.externalId
+	// Getting stuck here when client closes connection
+	c.delRoom(r.externalId)
 
 	r.log.Printf("removed client %q from room %q", c.user.Username, r.externalId)
 

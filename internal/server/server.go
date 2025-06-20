@@ -132,13 +132,11 @@ func (cs *ChatServer) Run() {
 			cs.log.Printf("removing connection from %q", client.user.Username)
 			cs.removeClient(client)
 		case msg := <-cs.broadcastChan:
-			cs.log.Printf("broadcasting message %v", msg)
 			cs.handleBroadcast(msg)
 		case id := <-cs.unloadRoomChan:
 			cs.handleUnloadRoom(id, false)
 		case id := <-cs.DelRoomChan:
 			cs.handleUnloadRoom(id, true)
-			cs.log.Printf("deleted room %q", id)
 		case <-cs.stop:
 			cs.unloadAllRooms()
 			cs.done <- struct{}{}
@@ -180,6 +178,7 @@ func (cs *ChatServer) unloadAllRooms() {
 
 	for range len(cs.rooms) {
 		id := <-roomDone
+		cs.log.Println("room shutdown complete", id)
 		cs.removeRoom(id)
 	}
 }

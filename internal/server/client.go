@@ -180,9 +180,9 @@ func (c *Client) stopClient() {
 }
 
 func (c *Client) cleanup() {
-	c.chatServer.deRegisterChan <- c
 	c.leaveAllRooms()
 	c.stopClient()
+	c.chatServer.deRegisterChan <- c
 }
 
 func (c *Client) leaveAllRooms() {
