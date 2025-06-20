@@ -51,7 +51,7 @@ type UpdateAccountRequest struct {
 	Password string `json:"password"`
 }
 
-func (s *Server) extractUserIdFromToken(tokenString string) (int, error) {
+func (s *GoChatApp) extractUserIdFromToken(tokenString string) (int, error) {
 	token, err := s.verifyToken(tokenString)
 	if err != nil {
 		return 0, fmt.Errorf("verify token: %w", err)
@@ -70,7 +70,7 @@ func (s *Server) extractUserIdFromToken(tokenString string) (int, error) {
 	return int(userId), nil
 }
 
-func (s *Server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
+func (s *GoChatApp) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokenCookie, err := r.Cookie(tokenCookieKey)
 		if err != nil {
@@ -95,7 +95,7 @@ func (s *Server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func (s *Server) createAccount(w http.ResponseWriter, r *http.Request) {
+func (s *GoChatApp) createAccount(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		errResp := NewBadRequestError()
@@ -132,7 +132,7 @@ func (s *Server) createAccount(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) account(w http.ResponseWriter, r *http.Request) {
+func (s *GoChatApp) account(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		userId, ok := UserId(r.Context())
@@ -226,7 +226,7 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) session(w http.ResponseWriter, r *http.Request) {
+func (s *GoChatApp) session(w http.ResponseWriter, r *http.Request) {
 	userId, ok := UserId(r.Context())
 	if !ok {
 		errResp := NewUnauthorizedError()
@@ -257,7 +257,7 @@ func (s *Server) session(w http.ResponseWriter, r *http.Request) {
 	s.writeJson(w, http.StatusOK, u)
 }
 
-func (s *Server) login(w http.ResponseWriter, r *http.Request) {
+func (s *GoChatApp) login(w http.ResponseWriter, r *http.Request) {
 	var lr LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&lr); err != nil {
 		errResp := NewBadRequestError()
@@ -314,7 +314,7 @@ func createJwtCookie(tokenString string, exp time.Duration) *http.Cookie {
 	}
 }
 
-func (s *Server) logout(w http.ResponseWriter, _ *http.Request) {
+func (s *GoChatApp) logout(w http.ResponseWriter, _ *http.Request) {
 	// instruct browser to delete cookie by overwriting it with an expired token
 	http.SetCookie(w, createJwtCookie("", time.Duration(time.Unix(0, 0).Unix())))
 	w.WriteHeader(http.StatusNoContent)
@@ -330,7 +330,7 @@ func verifyPassword(passwdHash, passwd string) bool {
 	return err == nil
 }
 
-func (s *Server) createJwtForSession(user types.User, exp time.Duration) (string, error) {
+func (s *GoChatApp) createJwtForSession(user types.User, exp time.Duration) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		userIdClaim: user.Id,
 		expClaim:    time.Now().Add(exp).Unix(),
@@ -339,7 +339,7 @@ func (s *Server) createJwtForSession(user types.User, exp time.Duration) (string
 	return token.SignedString(s.signingKey)
 }
 
-func (s *Server) verifyToken(tokenString string) (*jwt.Token, error) {
+func (s *GoChatApp) verifyToken(tokenString string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
 		return s.signingKey, nil
 	})

@@ -12,7 +12,7 @@ import (
 	"github.com/npezzotti/go-chatroom/internal/server"
 )
 
-type Server struct {
+type GoChatApp struct {
 	log        *log.Logger
 	db         database.GoChatRepository
 	mux        *http.Server
@@ -20,8 +20,8 @@ type Server struct {
 	signingKey []byte
 }
 
-func NewServer(logger *log.Logger, cs *server.ChatServer, db *database.PgGoChatRepository, cfg *config.Config) *Server {
-	s := &Server{
+func NewGoChatApp(logger *log.Logger, cs *server.ChatServer, db *database.PgGoChatRepository, cfg *config.Config) *GoChatApp {
+	app := &GoChatApp{
 		log:        logger,
 		db:         db,
 		cs:         cs,
@@ -29,17 +29,17 @@ func NewServer(logger *log.Logger, cs *server.ChatServer, db *database.PgGoChatR
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /api/auth/register", s.createAccount)
-	mux.HandleFunc("POST /api/auth/login", s.login)
-	mux.HandleFunc("GET /api/auth/session", s.authMiddleware(s.session))
-	mux.Handle("GET /api/auth/logout", s.authMiddleware(s.logout))
-	mux.Handle("/api/account", s.authMiddleware(s.account))
-	mux.Handle("POST /api/rooms", s.authMiddleware(s.createRoom))
-	mux.Handle("DELETE /api/rooms", s.authMiddleware(s.deleteRoom))
-	mux.Handle("GET /api/rooms", s.authMiddleware(s.getRoom))
-	mux.Handle("GET /api/subscriptions", s.authMiddleware(s.getUsersSubscriptions))
-	mux.Handle("GET /api/messages", s.authMiddleware(s.getMessages))
-	mux.Handle("GET /ws", s.authMiddleware(s.serveWs))
+	mux.HandleFunc("POST /api/auth/register", app.createAccount)
+	mux.HandleFunc("POST /api/auth/login", app.login)
+	mux.HandleFunc("GET /api/auth/session", app.authMiddleware(app.session))
+	mux.Handle("GET /api/auth/logout", app.authMiddleware(app.logout))
+	mux.Handle("/api/account", app.authMiddleware(app.account))
+	mux.Handle("POST /api/rooms", app.authMiddleware(app.createRoom))
+	mux.Handle("DELETE /api/rooms", app.authMiddleware(app.deleteRoom))
+	mux.Handle("GET /api/rooms", app.authMiddleware(app.getRoom))
+	mux.Handle("GET /api/subscriptions", app.authMiddleware(app.getUsersSubscriptions))
+	mux.Handle("GET /api/messages", app.authMiddleware(app.getMessages))
+	mux.Handle("GET /ws", app.authMiddleware(app.serveWs))
 
 	h := handlers.CORS(
 		handlers.MaxAge(3600),
@@ -49,23 +49,23 @@ func NewServer(logger *log.Logger, cs *server.ChatServer, db *database.PgGoChatR
 		handlers.AllowCredentials(),
 	)(mux)
 
-	h = s.errorHandler(h)
+	h = app.errorHandler(h)
 
 	srv := &http.Server{
 		Addr:    cfg.ServerAddr,
 		Handler: h,
 	}
 
-	s.mux = srv
-	return s
+	app.mux = srv
+	return app
 }
 
-func (s *Server) Start() error {
+func (s *GoChatApp) Start() error {
 	s.log.Printf("starting server on %s\n", s.mux.Addr)
 	return s.mux.ListenAndServe()
 }
 
-func (s *Server) Shutdown(ctx context.Context) error {
+func (s *GoChatApp) Shutdown(ctx context.Context) error {
 	s.log.Println("shutting down HTTP server...")
 	if err := s.mux.Shutdown(ctx); err != nil {
 		return fmt.Errorf("server shutdown: %w", err)

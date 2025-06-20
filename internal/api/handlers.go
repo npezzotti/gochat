@@ -14,7 +14,7 @@ import (
 	"github.com/teris-io/shortid"
 )
 
-func (s *Server) writeJson(w http.ResponseWriter, statusCode int, v interface{}) {
+func (s *GoChatApp) writeJson(w http.ResponseWriter, statusCode int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
@@ -22,7 +22,7 @@ func (s *Server) writeJson(w http.ResponseWriter, statusCode int, v interface{})
 	}
 }
 
-func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
+func (s *GoChatApp) createRoom(w http.ResponseWriter, r *http.Request) {
 	var params database.CreateRoomParams
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
 		errResp := NewBadRequestError()
@@ -67,7 +67,7 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 	s.writeJson(w, http.StatusCreated, room)
 }
 
-func (s *Server) getRoom(w http.ResponseWriter, r *http.Request) {
+func (s *GoChatApp) getRoom(w http.ResponseWriter, r *http.Request) {
 	externalId := r.URL.Query().Get("id")
 	if externalId == "" {
 		errResp := NewBadRequestError()
@@ -116,7 +116,7 @@ func (s *Server) getRoom(w http.ResponseWriter, r *http.Request) {
 	s.writeJson(w, http.StatusOK, room)
 }
 
-func (s *Server) deleteRoom(w http.ResponseWriter, r *http.Request) {
+func (s *GoChatApp) deleteRoom(w http.ResponseWriter, r *http.Request) {
 	userId, ok := UserId(r.Context())
 	if !ok {
 		errResp := NewUnauthorizedError()
@@ -162,7 +162,7 @@ func (s *Server) deleteRoom(w http.ResponseWriter, r *http.Request) {
 	s.writeJson(w, http.StatusNoContent, nil)
 }
 
-func (s *Server) getUsersSubscriptions(w http.ResponseWriter, r *http.Request) {
+func (s *GoChatApp) getUsersSubscriptions(w http.ResponseWriter, r *http.Request) {
 	userId, ok := UserId(r.Context())
 	if !ok {
 		errResp := NewUnauthorizedError()
@@ -200,7 +200,7 @@ func (s *Server) getUsersSubscriptions(w http.ResponseWriter, r *http.Request) {
 	s.writeJson(w, http.StatusOK, subs)
 }
 
-func (s *Server) getMessages(w http.ResponseWriter, r *http.Request) {
+func (s *GoChatApp) getMessages(w http.ResponseWriter, r *http.Request) {
 	externalId := r.URL.Query().Get("room_id")
 	if externalId == "" {
 		errResp := NewBadRequestError()
@@ -276,7 +276,7 @@ func (s *Server) getMessages(w http.ResponseWriter, r *http.Request) {
 	s.writeJson(w, http.StatusOK, userMessages)
 }
 
-func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
+func (s *GoChatApp) serveWs(w http.ResponseWriter, r *http.Request) {
 	username, ok := UserId(r.Context())
 	if !ok {
 		errResp := NewUnauthorizedError()
