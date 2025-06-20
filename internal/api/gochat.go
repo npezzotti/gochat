@@ -12,7 +12,7 @@ import (
 	"github.com/npezzotti/go-chatroom/internal/server"
 )
 
-type Server struct {
+type GoChatApp struct {
 	log        *log.Logger
 	db         database.GoChatRepository
 	mux        *http.Server
@@ -20,8 +20,8 @@ type Server struct {
 	signingKey []byte
 }
 
-func NewServer(logger *log.Logger, cs *server.ChatServer, db *database.PgGoChatRepository, cfg *config.Config) *Server {
-	s := &Server{
+func NewGoChatApp(logger *log.Logger, cs *server.ChatServer, db *database.PgGoChatRepository, cfg *config.Config) *GoChatApp {
+	s := &GoChatApp{
 		log:        logger,
 		db:         db,
 		cs:         cs,
@@ -60,12 +60,12 @@ func NewServer(logger *log.Logger, cs *server.ChatServer, db *database.PgGoChatR
 	return s
 }
 
-func (s *Server) Start() error {
+func (s *GoChatApp) Start() error {
 	s.log.Printf("starting server on %s\n", s.mux.Addr)
 	return s.mux.ListenAndServe()
 }
 
-func (s *Server) Shutdown(ctx context.Context) error {
+func (s *GoChatApp) Shutdown(ctx context.Context) error {
 	s.log.Println("shutting down HTTP server...")
 	if err := s.mux.Shutdown(ctx); err != nil {
 		return fmt.Errorf("server shutdown: %w", err)
