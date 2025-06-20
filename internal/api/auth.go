@@ -2,15 +2,11 @@ package api
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/golang-jwt/jwt"
-	"github.com/npezzotti/go-chatroom/internal/database"
 	"github.com/npezzotti/go-chatroom/internal/types"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -35,22 +31,6 @@ type contextKey string
 
 const userIdKey contextKey = "user-id"
 
-type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-type RegisterRequest struct {
-	Email    string `json:"email"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-type UpdateAccountRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
 func (s *GoChatApp) extractUserIdFromToken(tokenString string) (int, error) {
 	token, err := s.verifyToken(tokenString)
 	if err != nil {
@@ -70,239 +50,6 @@ func (s *GoChatApp) extractUserIdFromToken(tokenString string) (int, error) {
 	return int(userId), nil
 }
 
-func (s *GoChatApp) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		tokenCookie, err := r.Cookie(tokenCookieKey)
-		if err != nil {
-			errResp := NewUnauthorizedError()
-			s.writeJson(w, errResp.StatusCode, errResp)
-			return
-		}
-
-		tokenString := tokenCookie.Value
-		userId, err := s.extractUserIdFromToken(tokenString)
-		if err != nil {
-			s.log.Println("failed to extract user id from token:", err)
-			errResp := NewUnauthorizedError()
-			s.writeJson(w, errResp.StatusCode, errResp)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), userIdKey, userId)
-		w.Header().Add("Cache-Control", "no-store, no-cache, must-revalidate, private")
-
-		next(w, r.WithContext(ctx))
-	}
-}
-
-func (s *GoChatApp) createAccount(w http.ResponseWriter, r *http.Request) {
-	var req RegisterRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		errResp := NewBadRequestError()
-		s.writeJson(w, errResp.StatusCode, errResp)
-		return
-	}
-
-	pwdHash, err := hashPassword(req.Password)
-	if err != nil {
-		errResp := NewInternalServerError(err)
-		s.writeJson(w, errResp.StatusCode, errResp)
-		return
-	}
-
-	params := database.CreateAccountParams{
-		Username:     r.Form.Get("username"),
-		EmailAddress: r.Form.Get("email"),
-		PasswordHash: pwdHash,
-	}
-
-	newUser, err := s.db.CreateAccount(params)
-	if err != nil {
-		errResp := NewInternalServerError(err)
-		s.writeJson(w, errResp.StatusCode, errResp)
-		return
-	}
-
-	s.writeJson(w, http.StatusCreated, types.User{
-		Id:           newUser.Id,
-		Username:     newUser.Username,
-		EmailAddress: newUser.EmailAddress,
-		CreatedAt:    newUser.CreatedAt,
-		UpdatedAt:    newUser.UpdatedAt,
-	})
-}
-
-func (s *GoChatApp) account(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		userId, ok := UserId(r.Context())
-		if !ok {
-			errResp := NewUnauthorizedError()
-			s.writeJson(w, errResp.StatusCode, errResp)
-			return
-		}
-
-		user, err := s.db.GetAccountById(userId)
-		if err != nil {
-			var errResp *ApiError
-			if errors.Is(err, sql.ErrNoRows) {
-				errResp = NewNotFoundError()
-			} else {
-				errResp = NewInternalServerError(err)
-			}
-			s.writeJson(w, errResp.StatusCode, errResp)
-			return
-		}
-
-		u := types.User{
-			Id:           user.Id,
-			Username:     user.Username,
-			EmailAddress: user.EmailAddress,
-			CreatedAt:    user.CreatedAt,
-			UpdatedAt:    user.UpdatedAt,
-		}
-
-		s.writeJson(w, http.StatusOK, u)
-	case http.MethodPut:
-		userId, ok := UserId(r.Context())
-		if !ok {
-			errResp := NewUnauthorizedError()
-			s.writeJson(w, errResp.StatusCode, errResp)
-			return
-		}
-
-		curUser, err := s.db.GetAccountById(userId)
-		if err != nil {
-			var errResp *ApiError
-			if errors.Is(err, sql.ErrNoRows) {
-				errResp = NewNotFoundError()
-			} else {
-				errResp = NewInternalServerError(err)
-			}
-			s.writeJson(w, errResp.StatusCode, errResp)
-			return
-		}
-
-		var updateAccountReq UpdateAccountRequest
-		err = json.NewDecoder(r.Body).Decode(&updateAccountReq)
-		if err != nil {
-			errResp := NewBadRequestError()
-			s.writeJson(w, errResp.StatusCode, errResp)
-			return
-		}
-
-		pwdHash, err := hashPassword(updateAccountReq.Password)
-		if err != nil {
-			errResp := NewInternalServerError(err)
-			s.writeJson(w, errResp.StatusCode, errResp)
-			return
-		}
-
-		params := database.UpdateAccountParams{
-			UserId:       curUser.Id,
-			Username:     updateAccountReq.Username,
-			PasswordHash: pwdHash,
-		}
-
-		dbUser, err := s.db.UpdateAccount(params)
-		if err != nil {
-			errResp := NewInternalServerError(err)
-			s.writeJson(w, errResp.StatusCode, errResp)
-			return
-		}
-
-		userResp := types.User{
-			Id:           dbUser.Id,
-			Username:     dbUser.Username,
-			EmailAddress: dbUser.EmailAddress,
-			CreatedAt:    dbUser.CreatedAt,
-			UpdatedAt:    dbUser.UpdatedAt,
-		}
-
-		s.writeJson(w, http.StatusOK, userResp)
-	default:
-		errResp := NewMethodNotAllowedError()
-		s.writeJson(w, errResp.StatusCode, errResp)
-	}
-}
-
-func (s *GoChatApp) session(w http.ResponseWriter, r *http.Request) {
-	userId, ok := UserId(r.Context())
-	if !ok {
-		errResp := NewUnauthorizedError()
-		s.writeJson(w, errResp.StatusCode, errResp)
-		return
-	}
-
-	user, err := s.db.GetAccountById(userId)
-	if err != nil {
-		var errResp *ApiError
-		if errors.Is(err, sql.ErrNoRows) {
-			errResp = NewNotFoundError()
-		} else {
-			errResp = NewInternalServerError(err)
-		}
-		s.writeJson(w, errResp.StatusCode, errResp)
-		return
-	}
-
-	u := types.User{
-		Id:           user.Id,
-		Username:     user.Username,
-		EmailAddress: user.EmailAddress,
-		CreatedAt:    user.CreatedAt,
-		UpdatedAt:    user.UpdatedAt,
-	}
-
-	s.writeJson(w, http.StatusOK, u)
-}
-
-func (s *GoChatApp) login(w http.ResponseWriter, r *http.Request) {
-	var lr LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&lr); err != nil {
-		errResp := NewBadRequestError()
-		s.writeJson(w, errResp.StatusCode, errResp)
-		return
-	}
-
-	dbUser, err := s.db.GetAccountByEmail(lr.Email)
-	if err != nil {
-		var errResp *ApiError
-		if errors.Is(err, sql.ErrNoRows) {
-			errResp = NewNotFoundError()
-		} else {
-			errResp = NewInternalServerError(err)
-		}
-		s.writeJson(w, errResp.StatusCode, errResp)
-		return
-	}
-
-	if !verifyPassword(dbUser.PasswordHash, lr.Password) {
-		errResp := NewUnauthorizedError()
-		s.writeJson(w, errResp.StatusCode, errResp)
-		return
-	}
-
-	u := types.User{
-		Id:           dbUser.Id,
-		Username:     dbUser.Username,
-		EmailAddress: dbUser.EmailAddress,
-		CreatedAt:    dbUser.CreatedAt,
-		UpdatedAt:    dbUser.UpdatedAt,
-	}
-
-	token, err := s.createJwtForSession(u, defaultJwtExpiration)
-	if err != nil {
-		errResp := NewInternalServerError(err)
-		s.writeJson(w, errResp.StatusCode, errResp)
-		return
-	}
-
-	http.SetCookie(w, createJwtCookie(token, defaultJwtExpiration))
-
-	s.writeJson(w, http.StatusOK, u)
-}
-
 func createJwtCookie(tokenString string, exp time.Duration) *http.Cookie {
 	return &http.Cookie{
 		Name:     tokenCookieKey,
@@ -312,12 +59,6 @@ func createJwtCookie(tokenString string, exp time.Duration) *http.Cookie {
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
-}
-
-func (s *GoChatApp) logout(w http.ResponseWriter, _ *http.Request) {
-	// instruct browser to delete cookie by overwriting it with an expired token
-	http.SetCookie(w, createJwtCookie("", time.Duration(time.Unix(0, 0).Unix())))
-	w.WriteHeader(http.StatusNoContent)
 }
 
 func hashPassword(passwd string) (string, error) {
