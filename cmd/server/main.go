@@ -51,7 +51,7 @@ func main() {
 		logger.Fatal("config:", err)
 	}
 
-	dbConn, err := database.NewDatabaseConnection(cfg.DatabaseDSN)
+	dbConn, err := database.NewPgGoChatRepository(cfg.DatabaseDSN)
 	if err != nil {
 		logger.Fatal("db open:", err)
 	}
@@ -87,7 +87,7 @@ func main() {
 
 	shutDownCtx, cancel := context.WithTimeout(
 		context.Background(),
-		5*time.Second,
+		10*time.Second,
 	)
 	defer cancel()
 
@@ -95,7 +95,6 @@ func main() {
 		logger.Fatalln("HTTP server shutdown:", err)
 	}
 
-	logger.Println("shutting down chat server...")
 	if err := chatServer.Shutdown(shutDownCtx); err != nil {
 		logger.Fatalln("chat server shutdown:", err)
 	}
