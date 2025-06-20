@@ -47,9 +47,9 @@ export default function AddRoomForm({ setShowAddUser, rooms, setRooms, setCurren
         : ''}
       <form className="sidebar-form" onSubmit={handleAddRoom}>
         <label htmlFor="name">Name:</label>
-        <input type="text" id="name" name="name" className='sidebar-input' />
+        <input type="text" id="name" name="name" className='sidebar-input' placeholder='Enter Name' />
         <label htmlFor="description">Description:</label>
-        <input type="text" id="description" name="description" className='sidebar-input' />
+        <input type="text" id="description" name="description" className='sidebar-input' placeholder='Enter Password' />
         <input type="submit" value="Create Room" />
       </form>
     </>
