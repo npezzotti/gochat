@@ -12,7 +12,7 @@ import (
 
 type ChatServer struct {
 	log            *log.Logger
-	db             *database.PgGoChatRepository
+	db             database.GoChatRepository
 	clients        map[*Client]struct{}
 	clientsLock    sync.Mutex
 	joinChan       chan *ClientMessage
@@ -28,7 +28,7 @@ type ChatServer struct {
 	userMap        map[int][]*Client
 }
 
-func NewChatServer(logger *log.Logger, db *database.PgGoChatRepository) (*ChatServer, error) {
+func NewChatServer(logger *log.Logger, db database.GoChatRepository) (*ChatServer, error) {
 	return &ChatServer{
 		log:            logger,
 		db:             db,
