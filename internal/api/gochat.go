@@ -20,7 +20,7 @@ type GoChatApp struct {
 	signingKey []byte
 }
 
-func NewGoChatApp(logger *log.Logger, cs *server.ChatServer, db *database.PgGoChatRepository, cfg *config.Config) *GoChatApp {
+func NewGoChatApp(logger *log.Logger, cs *server.ChatServer, db database.GoChatRepository, cfg *config.Config) *GoChatApp {
 	app := &GoChatApp{
 		log:        logger,
 		db:         db,

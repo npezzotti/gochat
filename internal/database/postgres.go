@@ -37,7 +37,7 @@ const (
 func (db *PgGoChatRepository) CreateAccount(accountParams CreateAccountParams) (User, error) {
 	res := db.conn.QueryRow(
 		"INSERT INTO accounts (username, email, password_hash, created_at) "+
-			"VALUES ($1, $2, $3, $4) RETURNING id, username, email",
+			"VALUES ($1, $2, $3, $4) RETURNING id, username, email, password_hash, created_at, updated_at",
 		accountParams.Username,
 		accountParams.EmailAddress,
 		accountParams.PasswordHash,
@@ -49,6 +49,9 @@ func (db *PgGoChatRepository) CreateAccount(accountParams CreateAccountParams) (
 		&u.Id,
 		&u.Username,
 		&u.EmailAddress,
+		&u.PasswordHash,
+		&u.CreatedAt,
+		&u.UpdatedAt,
 	)
 
 	return u, err
