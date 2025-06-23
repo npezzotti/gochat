@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"log"
 	"sync"
 	"time"
@@ -63,8 +65,14 @@ func (cs *ChatServer) Run() {
 				// room not loaded, load it
 				dbRoom, err := cs.db.GetRoomByExternalId(joinMsg.Join.RoomId)
 				if err != nil {
-					joinMsg.client.queueMessage(ErrRoomNotFound(joinMsg.Id))
-					continue
+					if errors.Is(err, sql.ErrNoRows) {
+						joinMsg.client.queueMessage(ErrRoomNotFound(joinMsg.Id))
+						continue
+					} else {
+						joinMsg.client.queueMessage(ErrInternalError(joinMsg.Id))
+						cs.log.Println("GetRoomByExternalId:", err)
+						continue
+					}
 				}
 
 				dbSubs, err := cs.db.GetSubscribersByRoomId(dbRoom.Id)
