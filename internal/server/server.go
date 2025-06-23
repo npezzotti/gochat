@@ -134,9 +134,9 @@ func (cs *ChatServer) Run() {
 		case msg := <-cs.broadcastChan:
 			cs.handleBroadcast(msg)
 		case id := <-cs.unloadRoomChan:
-			cs.handleUnloadRoom(id, false)
+			cs.unloadRoom(id, false)
 		case id := <-cs.DelRoomChan:
-			cs.handleUnloadRoom(id, true)
+			cs.unloadRoom(id, true)
 		case <-cs.stop:
 			cs.unloadAllRooms()
 			cs.done <- struct{}{}
@@ -153,6 +153,7 @@ func (cs *ChatServer) addRoom(id string, r *Room) {
 }
 
 // removeRoom removes a room from the server's list of active rooms by its ID.
+// It is safe to call this method even if the room does not exist.
 func (cs *ChatServer) removeRoom(id string) {
 	cs.roomsLock.Lock()
 	defer cs.roomsLock.Unlock()
@@ -160,6 +161,7 @@ func (cs *ChatServer) removeRoom(id string) {
 }
 
 // getRoom retrieves a room by its ID from the server's list of active rooms.
+// It returns the room and a boolean indicating whether the room was found.
 func (cs *ChatServer) getRoom(id string) (*Room, bool) {
 	cs.roomsLock.RLock()
 	defer cs.roomsLock.RUnlock()
@@ -224,12 +226,12 @@ func (cs *ChatServer) removeClient(c *Client) {
 	}
 }
 
-func (cs *ChatServer) handleUnloadRoom(id string, deleted bool) {
+func (cs *ChatServer) unloadRoom(id string, deleted bool) {
 	if room, ok := cs.getRoom(id); ok {
-		// Signal the room to exit and wait for cleanup
-		exit := exitReq{deleted: deleted, done: make(chan string)}
-		room.exit <- exit
-		<-exit.done
+		// signal the room to exit
+		done := make(chan string)
+		room.exit <- exitReq{deleted: deleted, done: done}
+		<-done
 	}
 
 	cs.removeRoom(id)
