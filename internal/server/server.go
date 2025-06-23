@@ -52,65 +52,7 @@ func (cs *ChatServer) Run() {
 	for {
 		select {
 		case joinMsg := <-cs.joinChan:
-			// check if the room is already loaded
-			if room, ok := cs.rooms[joinMsg.Join.RoomId]; ok {
-				select {
-				case room.joinChan <- joinMsg:
-				default:
-					cs.log.Printf("joinChan full for room %q ", room.externalId)
-					joinMsg.client.queueMessage(ErrServiceUnavailable(joinMsg.Id))
-					continue
-				}
-			} else {
-				// room not loaded, load it
-				dbRoom, err := cs.db.GetRoomByExternalId(joinMsg.Join.RoomId)
-				if err != nil {
-					if errors.Is(err, sql.ErrNoRows) {
-						joinMsg.client.queueMessage(ErrRoomNotFound(joinMsg.Id))
-						continue
-					} else {
-						joinMsg.client.queueMessage(ErrInternalError(joinMsg.Id))
-						cs.log.Println("GetRoomByExternalId:", err)
-						continue
-					}
-				}
-
-				dbSubs, err := cs.db.GetSubscribersByRoomId(dbRoom.Id)
-				if err != nil {
-					joinMsg.client.queueMessage(ErrInternalError(joinMsg.Id))
-					cs.log.Println("GetSubscriptionsByRoomId:", err)
-					continue
-				}
-
-				var subs []types.User
-				for _, dbSub := range dbSubs {
-					subs = append(subs, types.User{
-						Id:       dbSub.Id,
-						Username: dbSub.Username,
-					})
-				}
-
-				room := &Room{
-					id:            dbRoom.Id,
-					externalId:    dbRoom.ExternalId,
-					subscribers:   subs,
-					cs:            cs,
-					joinChan:      make(chan *ClientMessage, 256),
-					leaveChan:     make(chan *ClientMessage, 256),
-					clientMsgChan: make(chan *ClientMessage, 256),
-					seq_id:        dbRoom.SeqId,
-					clients:       make(map[*Client]struct{}),
-					userMap:       make(map[int]map[*Client]struct{}),
-					log:           cs.log,
-					killTimer:     time.NewTimer(time.Second * 10),
-					exit:          make(chan exitReq),
-				}
-
-				cs.addRoom(room.externalId, room)
-				// forward join request to the room
-				room.joinChan <- joinMsg
-				go room.start()
-			}
+			cs.handleJoinRoom(joinMsg)
 		case client := <-cs.RegisterChan:
 			cs.log.Printf("adding connection from %q", client.user.Username)
 			cs.addClient(client)
@@ -150,6 +92,72 @@ func (cs *ChatServer) Run() {
 			cs.done <- struct{}{}
 			return
 		}
+	}
+}
+
+// handleJoinRoom processes a join request from a client.
+// It checks if the room is already loaded and, if so, forwards the join request to the room.
+// If the room is not loaded, it retrieves the room from the database,
+// creates a new Room instance, and starts the room before forwarding the join request.
+func (cs *ChatServer) handleJoinRoom(joinMsg *ClientMessage) {
+	// check if the room is already loaded
+	if room, ok := cs.rooms[joinMsg.Join.RoomId]; ok {
+		select {
+		case room.joinChan <- joinMsg:
+		default:
+			cs.log.Printf("joinChan full for room %q ", room.externalId)
+			joinMsg.client.queueMessage(ErrServiceUnavailable(joinMsg.Id))
+			return
+		}
+	} else {
+		// room not loaded, load it
+		dbRoom, err := cs.db.GetRoomByExternalId(joinMsg.Join.RoomId)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				joinMsg.client.queueMessage(ErrRoomNotFound(joinMsg.Id))
+				return
+			} else {
+				joinMsg.client.queueMessage(ErrInternalError(joinMsg.Id))
+				cs.log.Println("GetRoomByExternalId:", err)
+				return
+			}
+		}
+
+		dbSubs, err := cs.db.GetSubscribersByRoomId(dbRoom.Id)
+		if err != nil {
+			joinMsg.client.queueMessage(ErrInternalError(joinMsg.Id))
+			cs.log.Println("GetSubscriptionsByRoomId:", err)
+			return
+		}
+
+		var subs []types.User
+		for _, dbSub := range dbSubs {
+			subs = append(subs, types.User{
+				Id:       dbSub.Id,
+				Username: dbSub.Username,
+			})
+		}
+
+		room := &Room{
+			id:            dbRoom.Id,
+			externalId:    dbRoom.ExternalId,
+			subscribers:   subs,
+			cs:            cs,
+			joinChan:      make(chan *ClientMessage, 256),
+			leaveChan:     make(chan *ClientMessage, 256),
+			clientMsgChan: make(chan *ClientMessage, 256),
+			seq_id:        dbRoom.SeqId,
+			clients:       make(map[*Client]struct{}),
+			userMap:       make(map[int]map[*Client]struct{}),
+			log:           cs.log,
+			killTimer:     time.NewTimer(time.Second * 10),
+			exit:          make(chan exitReq),
+		}
+
+		cs.addRoom(room.externalId, room)
+		// forward join request to the room
+		room.joinChan <- joinMsg
+		go room.start()
 	}
 }
 
