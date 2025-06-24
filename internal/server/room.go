@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"log"
 	"sync"
 	"time"
@@ -115,16 +116,22 @@ func (r *Room) handleLeave(leaveMsg *ClientMessage) {
 		r.log.Printf("unsubscribing %q from room %q", leaveMsg.client.user.Username, r.externalId)
 		err := r.cs.db.DeleteSubscription(leaveMsg.UserId, r.id)
 		if err != nil {
-			r.log.Println("DeleteSubscription:", err)
+			var errResp *ServerMessage
+			if err == sql.ErrNoRows {
+				errResp = ErrSubscriptionNotFound(leaveMsg.Id)
+			} else {
+				r.log.Println("DeleteSubscription:", err)
+				errResp = ErrInternalError(leaveMsg.Id)
+			}
 			if leaveMsg.GetUserId() != 0 {
 				// the leave message is from a client, so we need to notify them
-				leaveMsg.client.queueMessage(ErrInternalError(leaveMsg.Id))
+				leaveMsg.client.queueMessage(errResp)
 			}
 			return
 		}
 
 		// remove all clients for this user from the room
-		r.removeAllClientSessionForUser(leaveMsg.UserId)
+		r.removeAllClientsForUser(leaveMsg.UserId)
 		// remove the user from the in memory subscriber list so they don't get subscriber notifications
 		r.removeSubscriber(leaveMsg.UserId)
 
@@ -149,6 +156,13 @@ func (r *Room) handleLeave(leaveMsg *ClientMessage) {
 	} else {
 		// the user is leaving the room without unsubscribing
 		client := leaveMsg.client
+		if _, ok := r.getClient(client); !ok {
+			// if the client is not in the room, we can just return
+			if leaveMsg.GetUserId() != 0 {
+				client.queueMessage(ErrRoomNotFound(leaveMsg.Id))
+			}
+			return
+		}
 		// remove the client from the room
 		r.removeClientSession(client)
 
@@ -356,7 +370,7 @@ func (r *Room) removeClientSession(client *Client) {
 	}
 }
 
-func (r *Room) removeAllClientSessionForUser(userId int) {
+func (r *Room) removeAllClientsForUser(userId int) {
 	if userClients, ok := r.userMap[userId]; ok {
 		for client := range userClients {
 			r.deleteClient(client)
