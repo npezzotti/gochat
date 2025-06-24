@@ -111,6 +111,7 @@ func (r *Room) handleRoomExit(e exitReq) {
 
 func (r *Room) handleLeave(leaveMsg *ClientMessage) {
 	if leaveMsg.Leave.Unsubscribe {
+		// the user is leaving and unsubscribing from the room
 		r.log.Printf("unsubscribing %q from room %q", leaveMsg.client.user.Username, r.externalId)
 		err := r.cs.db.DeleteSubscription(leaveMsg.UserId, r.id)
 		if err != nil {
@@ -343,9 +344,7 @@ func (r *Room) removeClientSession(client *Client) {
 
 	// remove the client from the room
 	r.deleteClient(c)
-
-	// signal the client to exit the room
-	// Getting stuck here when client closes connection
+	// remove the room from the client's list of rooms
 	c.delRoom(r.externalId)
 
 	r.log.Printf("removed client %q from room %q", c.user.Username, r.externalId)
