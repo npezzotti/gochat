@@ -112,11 +112,16 @@ type RoomDeleted struct {
 
 // GetUserId returns the UserId of the ClientMessage.
 // If UserId is set to a positive value, it returns that value.
+// If UserId is not set (i.e., it is 0), it attempts to extract the user ID from the associated Client.
 // Otherwise, it returns 0.
 func (cm *ClientMessage) GetUserId() int {
 	if cm.UserId > 0 {
 		return cm.UserId
 	}
+	if cm.client != nil {
+		return cm.client.user.Id
+	}
+
 	return 0
 }
 
@@ -154,6 +159,19 @@ func ErrRoomNotFound(id int) *ServerMessage {
 		Response: &Response{
 			ResponseCode: http.StatusNotFound,
 			Error:        "room not found",
+		},
+	}
+}
+
+func ErrSubscriptionNotFound(id int) *ServerMessage {
+	return &ServerMessage{
+		BaseMessage: BaseMessage{
+			Id:        id,
+			Timestamp: Now(),
+		},
+		Response: &Response{
+			ResponseCode: http.StatusNotFound,
+			Error:        "subscription not found",
 		},
 	}
 }
