@@ -130,8 +130,8 @@ func (r *Room) handleLeave(leaveMsg *ClientMessage) {
 			return
 		}
 
-		// remove all clients for this user from the room
-		r.removeAllClientsForUser(leaveMsg.UserId)
+		// evict all clients for this user from the room
+		r.removeAllSessionsForUser(leaveMsg.UserId)
 		// remove the user from the in memory subscriber list so they don't get subscriber notifications
 		r.removeSubscriber(leaveMsg.UserId)
 
@@ -156,19 +156,21 @@ func (r *Room) handleLeave(leaveMsg *ClientMessage) {
 	} else {
 		// the user is leaving the room without unsubscribing
 		client := leaveMsg.client
-		if _, ok := r.getClient(client); !ok {
+		c, ok := r.getClient(client)
+		if !ok {
 			// if the client is not in the room, we can just return
 			if leaveMsg.GetUserId() != 0 {
 				client.queueMessage(ErrRoomNotFound(leaveMsg.Id))
 			}
 			return
 		}
+
 		// remove the client from the room
-		r.removeClientSession(client)
+		r.removeSession(c)
 
 		if leaveMsg.GetUserId() != 0 {
 			// if the leave message is from a user, notify the user that they left the room
-			client.queueMessage(NoErrOK(leaveMsg.Id, nil))
+			c.queueMessage(NoErrOK(leaveMsg.Id, nil))
 		}
 
 		// notify all clients user is offline
@@ -220,8 +222,7 @@ func (r *Room) handleJoin(join *ClientMessage) {
 
 		// update the room's internal subscriber list
 		r.subscribers = append(r.subscribers, types.User{
-			Id:       sub.AccountId,
-			Username: sub.Username,
+			Id: sub.AccountId,
 		})
 
 		// notify users that the user has subscribed
@@ -348,20 +349,12 @@ func (r *Room) addClient(c *Client) {
 	c.addRoom(r)
 }
 
-func (r *Room) removeClientSession(client *Client) {
-	// check if the client is in the room
-	c, ok := r.getClient(client)
-	if !ok {
-		r.log.Printf("removeClientSession: client not in room %q", r.externalId)
-		return
-	}
+func (r *Room) removeSession(client *Client) {
+	// Remove the client from the room and from the client's room list
+	r.deleteClient(client)
+	client.delRoom(r.externalId)
 
-	// remove the client from the room
-	r.deleteClient(c)
-	// remove the room from the client's list of rooms
-	c.delRoom(r.externalId)
-
-	r.log.Printf("removed client %q from room %q", c.user.Username, r.externalId)
+	r.log.Printf("removed client %q from room %q", client.user.Username, r.externalId)
 
 	// if the client is the last one in the room, start the kill timer
 	if len(r.clients) == 0 {
@@ -370,7 +363,7 @@ func (r *Room) removeClientSession(client *Client) {
 	}
 }
 
-func (r *Room) removeAllClientsForUser(userId int) {
+func (r *Room) removeAllSessionsForUser(userId int) {
 	if userClients, ok := r.userMap[userId]; ok {
 		for client := range userClients {
 			r.deleteClient(client)
@@ -378,7 +371,7 @@ func (r *Room) removeAllClientsForUser(userId int) {
 		}
 	}
 
-	r.log.Printf("removed all clients for user %d from room %q", userId, r.externalId)
+	r.log.Printf("removed all sessions for user %d from room %q", userId, r.externalId)
 
 	// if the user was the last one in the room, start the kill timer
 	if len(r.clients) == 0 {
