@@ -245,7 +245,12 @@ func (r *Room) handleJoin(join *ClientMessage) {
 
 	dbRoom, err := r.cs.db.GetRoomWithSubscribers(r.id)
 	if err != nil {
-		r.log.Println("FetchRoomWithSubscribers:", err)
+		r.log.Println("GetRoomWithSubscribers:", err)
+		c.queueMessage(ErrInternalError(join.Id))
+		// reset timer since client join failed
+		if len(r.clients) == 0 {
+			r.killTimer.Reset(idleRoomTimeout)
+		}
 		return
 	}
 
