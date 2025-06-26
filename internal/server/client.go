@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
@@ -219,7 +218,7 @@ func (c *Client) leaveRoom(msg *ClientMessage) {
 			return
 		}
 	} else {
-		c.log.Println("didn't find room")
+		msg.client.queueMessage(ErrRoomNotFound(msg.Id))
 	}
 }
 
@@ -229,7 +228,6 @@ func (c *Client) delRoom(id string) {
 	defer c.roomsLock.Unlock()
 
 	delete(c.rooms, id)
-	c.log.Printf("removed client for user %s from room %q, client's current rooms: %s\n", c.user.Username, id, c.printRooms())
 }
 
 // addRoom adds the room to the client's list of rooms.
@@ -238,7 +236,6 @@ func (c *Client) addRoom(r *Room) {
 	defer c.roomsLock.Unlock()
 
 	c.rooms[r.externalId] = r
-	c.log.Printf("added client for user %s to room %q, client's current rooms: %s\n", c.user.Username, r.externalId, c.printRooms())
 }
 
 func (c *Client) getRoom(id string) (*Room, bool) {
@@ -247,14 +244,4 @@ func (c *Client) getRoom(id string) (*Room, bool) {
 
 	room, ok := c.rooms[id]
 	return room, ok
-}
-
-func (c *Client) printRooms() string {
-	// Create a slice to hold the room IDs
-	roomIds := make([]string, 0, len(c.rooms))
-	for roomId := range c.rooms {
-		roomIds = append(roomIds, roomId)
-	}
-
-	return strings.Join(roomIds, ", ")
 }
