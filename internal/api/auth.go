@@ -11,10 +11,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const (
-	defaultJwtExpiration = time.Hour * 24
-	tokenCookieKey       = "token"
-)
+type contextKey string
+
+const userIdKey contextKey = "user-id"
 
 func UserId(ctx context.Context) (int, bool) {
 	userId, ok := ctx.Value(userIdKey).(int)
@@ -22,14 +21,16 @@ func UserId(ctx context.Context) (int, bool) {
 	return userId, ok
 }
 
+func WithUserId(ctx context.Context, userId int) context.Context {
+	return context.WithValue(ctx, userIdKey, userId)
+}
+
 const (
-	userIdClaim = "user-id"
-	expClaim    = "exp"
+	userIdClaim          = "user-id"
+	expClaim             = "exp"
+	defaultJwtExpiration = time.Hour * 24
+	tokenCookieKey       = "token"
 )
-
-type contextKey string
-
-const userIdKey contextKey = "user-id"
 
 func (s *GoChatApp) extractUserIdFromToken(tokenString string) (int, error) {
 	token, err := s.verifyToken(tokenString)
