@@ -221,6 +221,12 @@ func (s *GoChatApp) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if lr.Email == "" || lr.Password == "" {
+		errResp := NewBadRequestError()
+		s.writeJson(w, errResp.StatusCode, errResp)
+		return
+	}
+
 	dbUser, err := s.db.GetAccountByEmail(lr.Email)
 	if err != nil {
 		var errResp *ApiError
