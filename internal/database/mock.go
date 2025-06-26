@@ -1,8 +1,6 @@
 package database
 
 import (
-	"fmt"
-
 	"github.com/stretchr/testify/mock"
 )
 
@@ -15,7 +13,6 @@ func (m *MockGoChatRepository) CreateAccount(accountParams CreateAccountParams) 
 	return args.Get(0).(User), args.Error(1)
 }
 func (m *MockGoChatRepository) UpdateAccount(params UpdateAccountParams) (User, error) {
-	fmt.Println("MockGetAccountById called with params:", params)
 	args := m.Called(params)
 	return args.Get(0).(User), args.Error(1)
 }
