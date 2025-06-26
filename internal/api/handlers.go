@@ -47,6 +47,12 @@ func (s *GoChatApp) createAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Username == "" || req.Email == "" || req.Password == "" {
+		errResp := NewBadRequestError()
+		s.writeJson(w, errResp.StatusCode, errResp)
+		return
+	}
+
 	pwdHash, err := hashPassword(req.Password)
 	if err != nil {
 		errResp := NewInternalServerError(err)
@@ -130,6 +136,12 @@ func (s *GoChatApp) account(w http.ResponseWriter, r *http.Request) {
 		var updateAccountReq UpdateAccountRequest
 		err = json.NewDecoder(r.Body).Decode(&updateAccountReq)
 		if err != nil {
+			errResp := NewBadRequestError()
+			s.writeJson(w, errResp.StatusCode, errResp)
+			return
+		}
+
+		if updateAccountReq.Username == "" || updateAccountReq.Password == "" {
 			errResp := NewBadRequestError()
 			s.writeJson(w, errResp.StatusCode, errResp)
 			return
@@ -508,14 +520,14 @@ func (s *GoChatApp) getMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *GoChatApp) serveWs(w http.ResponseWriter, r *http.Request) {
-	username, ok := UserId(r.Context())
+	id, ok := UserId(r.Context())
 	if !ok {
 		errResp := NewUnauthorizedError()
 		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
-	user, err := s.db.GetAccountById(username)
+	user, err := s.db.GetAccountById(id)
 	if err != nil {
 		errResp := NewNotFoundError()
 		s.writeJson(w, errResp.StatusCode, errResp)
