@@ -37,7 +37,7 @@ func NewClient(user types.User, conn *websocket.Conn, cs *ChatServer, l *log.Log
 		user:       user,
 		send:       make(chan *ServerMessage, 256),
 		rooms:      make(map[string]*Room),
-		exitRoom:   make(chan string),
+		exitRoom:   make(chan string, 64),
 		stop:       make(chan struct{}),
 	}
 }
