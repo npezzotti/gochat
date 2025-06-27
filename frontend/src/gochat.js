@@ -48,10 +48,6 @@ class GoChatClient {
     return this._request('GET', '/api/subscriptions');
   }
 
-  async getRoom(roomId) {
-    return this._request('GET', '/api/rooms', null, { id: roomId });
-  }
-
   async subscribeRoom(roomId) {
     return this._request('POST', '/api/subscriptions', null, { room_id: roomId });
   }
