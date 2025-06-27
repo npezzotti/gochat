@@ -10,22 +10,25 @@ import (
 	"github.com/npezzotti/go-chatroom/internal/config"
 	"github.com/npezzotti/go-chatroom/internal/database"
 	"github.com/npezzotti/go-chatroom/internal/server"
+	"github.com/teris-io/shortid"
 )
 
 type GoChatApp struct {
-	log        *log.Logger
-	db         database.GoChatRepository
-	mux        *http.Server
-	cs         *server.ChatServer
-	signingKey []byte
+	log             *log.Logger
+	db              database.GoChatRepository
+	mux             *http.Server
+	cs              *server.ChatServer
+	signingKey      []byte
+	generateShortId func() (string, error)
 }
 
 func NewGoChatApp(logger *log.Logger, cs *server.ChatServer, db database.GoChatRepository, cfg *config.Config) *GoChatApp {
 	app := &GoChatApp{
-		log:        logger,
-		db:         db,
-		cs:         cs,
-		signingKey: cfg.SigningKey,
+		log:             logger,
+		db:              db,
+		cs:              cs,
+		signingKey:      cfg.SigningKey,
+		generateShortId: defaultGenerateShortId,
 	}
 
 	mux := http.NewServeMux()
@@ -72,4 +75,8 @@ func (s *GoChatApp) Shutdown(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func defaultGenerateShortId() (string, error) {
+	return shortid.Generate()
 }

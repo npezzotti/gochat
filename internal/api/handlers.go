@@ -12,7 +12,6 @@ import (
 	"github.com/npezzotti/go-chatroom/internal/database"
 	"github.com/npezzotti/go-chatroom/internal/server"
 	"github.com/npezzotti/go-chatroom/internal/types"
-	"github.com/teris-io/shortid"
 )
 
 type LoginRequest struct {
@@ -29,6 +28,11 @@ type RegisterRequest struct {
 type UpdateAccountRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+}
+
+type CreateRoomRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 func (s *GoChatApp) writeJson(w http.ResponseWriter, statusCode int, v interface{}) {
@@ -272,8 +276,8 @@ func (s *GoChatApp) logout(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *GoChatApp) createRoom(w http.ResponseWriter, r *http.Request) {
-	var params database.CreateRoomParams
-	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+	var createRoomReq CreateRoomRequest
+	if err := json.NewDecoder(r.Body).Decode(&createRoomReq); err != nil {
 		errResp := NewBadRequestError()
 		s.writeJson(w, errResp.StatusCode, errResp)
 		return
@@ -286,16 +290,20 @@ func (s *GoChatApp) createRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sid, err := shortid.Generate()
+	sid, err := s.generateShortId()
 	if err != nil {
-		s.log.Print("generate shortid:", err)
+		s.log.Print("generateShortId:", err)
 		errResp := NewInternalServerError(err)
 		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
-	params.ExternalId = sid
-	params.OwnerId = userId
+	params := database.CreateRoomParams{
+		Name:        createRoomReq.Name,
+		Description: createRoomReq.Description,
+		OwnerId:     userId,
+		ExternalId:  sid,
+	}
 
 	newRoom, err := s.db.CreateRoom(params)
 	if err != nil {
@@ -309,6 +317,7 @@ func (s *GoChatApp) createRoom(w http.ResponseWriter, r *http.Request) {
 		ExternalId:  newRoom.ExternalId,
 		Name:        newRoom.Name,
 		Description: newRoom.Description,
+		OwnerId:     newRoom.OwnerId,
 		CreatedAt:   newRoom.CreatedAt,
 		UpdatedAt:   newRoom.UpdatedAt,
 	}
