@@ -39,7 +39,6 @@ func NewGoChatApp(logger *log.Logger, cs *server.ChatServer, db database.GoChatR
 	mux.Handle("/api/account", app.authMiddleware(app.account))
 	mux.Handle("POST /api/rooms", app.authMiddleware(app.createRoom))
 	mux.Handle("DELETE /api/rooms", app.authMiddleware(app.deleteRoom))
-	mux.Handle("GET /api/rooms", app.authMiddleware(app.getRoom))
 	mux.Handle("GET /api/subscriptions", app.authMiddleware(app.getUsersSubscriptions))
 	mux.Handle("GET /api/messages", app.authMiddleware(app.getMessages))
 	mux.Handle("GET /ws", app.authMiddleware(app.serveWs))

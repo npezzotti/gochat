@@ -325,55 +325,6 @@ func (s *GoChatApp) createRoom(w http.ResponseWriter, r *http.Request) {
 	s.writeJson(w, http.StatusCreated, room)
 }
 
-func (s *GoChatApp) getRoom(w http.ResponseWriter, r *http.Request) {
-	externalId := r.URL.Query().Get("id")
-	if externalId == "" {
-		errResp := NewBadRequestError()
-		s.writeJson(w, errResp.StatusCode, errResp)
-		return
-	}
-
-	dbRoom, err := s.db.GetRoomByExternalId(externalId)
-	if err != nil {
-		var errResp *ApiError
-		if errors.Is(err, sql.ErrNoRows) {
-			errResp = NewNotFoundError()
-		} else {
-			errResp = NewInternalServerError(err)
-		}
-		s.writeJson(w, errResp.StatusCode, errResp)
-		return
-	}
-
-	dbSubs, err := s.db.GetSubscribersByRoomId(dbRoom.Id)
-	if err != nil {
-		s.log.Println("get subscribers for room:", err)
-		errResp := NewInternalServerError(err)
-		s.writeJson(w, errResp.StatusCode, errResp)
-		return
-	}
-	var subscribers []types.User
-	for _, dbSub := range dbSubs {
-		var u types.User
-		u.Id = dbSub.Id
-		u.Username = dbSub.Username
-
-		subscribers = append(subscribers, u)
-	}
-
-	room := &types.Room{
-		Id:          dbRoom.Id,
-		ExternalId:  dbRoom.ExternalId,
-		Name:        dbRoom.Name,
-		Description: dbRoom.Description,
-		Subscribers: subscribers,
-		CreatedAt:   dbRoom.CreatedAt,
-		UpdatedAt:   dbRoom.UpdatedAt,
-	}
-
-	s.writeJson(w, http.StatusOK, room)
-}
-
 func (s *GoChatApp) deleteRoom(w http.ResponseWriter, r *http.Request) {
 	userId, ok := UserId(r.Context())
 	if !ok {
