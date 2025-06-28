@@ -495,7 +495,12 @@ func (s *GoChatApp) serveWs(w http.ResponseWriter, r *http.Request) {
 
 	user, err := s.db.GetAccountById(id)
 	if err != nil {
-		errResp := NewNotFoundError()
+		var errResp *ApiError
+		if errors.Is(err, sql.ErrNoRows) {
+			errResp = NewNotFoundError()
+		} else {
+			errResp = NewInternalServerError(err)
+		}
 		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
