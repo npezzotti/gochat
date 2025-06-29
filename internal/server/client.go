@@ -19,7 +19,7 @@ const (
 
 type Client struct {
 	conn       *websocket.Conn
-	chatServer *ChatServer
+	chatServer GoChatServer
 	log        *log.Logger
 	user       types.User
 	send       chan *ServerMessage
@@ -29,7 +29,7 @@ type Client struct {
 	stop       chan struct{}
 }
 
-func NewClient(user types.User, conn *websocket.Conn, cs *ChatServer, l *log.Logger) *Client {
+func NewClient(user types.User, conn *websocket.Conn, cs GoChatServer, l *log.Logger) *Client {
 	return &Client{
 		conn:       conn,
 		chatServer: cs,
@@ -43,6 +43,7 @@ func NewClient(user types.User, conn *websocket.Conn, cs *ChatServer, l *log.Log
 }
 
 func (c *Client) Write() {
+	c.log.Println("write starting")
 	ticker := time.NewTicker(time.Duration(pingInterval))
 	defer func() {
 		ticker.Stop()
@@ -80,6 +81,7 @@ func (c *Client) Write() {
 }
 
 func (c *Client) Read() {
+	c.log.Println("read starting")
 	defer func() {
 		c.conn.Close()
 		c.cleanup()
@@ -181,7 +183,7 @@ func (c *Client) stopClient() {
 func (c *Client) cleanup() {
 	c.leaveAllRooms()
 	c.stopClient()
-	c.chatServer.deRegisterChan <- c
+	c.chatServer.DeRegisterClient(c)
 }
 
 func (c *Client) leaveAllRooms() {
@@ -198,10 +200,8 @@ func (c *Client) leaveAllRooms() {
 }
 
 func (c *Client) joinRoom(msg *ClientMessage) {
-	select {
-	case c.chatServer.joinChan <- msg:
-	default:
-		c.log.Printf("joinChan full")
+	if err := c.chatServer.JoinRoom(msg); err != nil {
+		c.log.Printf("failed to join room: %v", err)
 		c.queueMessage(ErrServiceUnavailable(msg.Id))
 		return
 	}

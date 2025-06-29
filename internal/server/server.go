@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -12,16 +13,25 @@ import (
 	"github.com/npezzotti/go-chatroom/internal/types"
 )
 
+type GoChatServer interface {
+	Run()
+	Shutdown(ctx context.Context) error
+	DeleteRoom(ctx context.Context, roomId string) error
+	RegisterClient(c *Client)
+	DeRegisterClient(c *Client)
+	JoinRoom(joinMsg *ClientMessage) error
+}
+
 type ChatServer struct {
 	log            *log.Logger
 	db             database.GoChatRepository
 	clients        map[*Client]struct{}
 	clientsLock    sync.Mutex
 	joinChan       chan *ClientMessage
-	RegisterChan   chan *Client
-	deRegisterChan chan *Client
+	registerChan   chan *registerRequest
+	deRegisterChan chan *registerRequest
 	unloadRoomChan chan string
-	DelRoomChan    chan string
+	delRoomChan    chan *deleteRoomRequest
 	broadcastChan  chan *ServerMessage
 	rooms          map[string]*Room
 	roomsLock      sync.RWMutex
@@ -36,10 +46,10 @@ func NewChatServer(logger *log.Logger, db database.GoChatRepository) (*ChatServe
 		db:             db,
 		joinChan:       make(chan *ClientMessage, 256),
 		clients:        make(map[*Client]struct{}),
-		RegisterChan:   make(chan *Client),
-		deRegisterChan: make(chan *Client),
+		registerChan:   make(chan *registerRequest),
+		deRegisterChan: make(chan *registerRequest),
 		unloadRoomChan: make(chan string),
-		DelRoomChan:    make(chan string),
+		delRoomChan:    make(chan *deleteRoomRequest, 256),
 		broadcastChan:  make(chan *ServerMessage, 256),
 		stop:           make(chan struct{}),
 		done:           make(chan struct{}),
@@ -53,11 +63,14 @@ func (cs *ChatServer) Run() {
 		select {
 		case joinMsg := <-cs.joinChan:
 			cs.handleJoinRoom(joinMsg)
-		case client := <-cs.RegisterChan:
-			cs.log.Printf("adding connection from %q", client.user.Username)
-			cs.addClient(client)
+		case req := <-cs.registerChan:
+			cs.log.Printf("adding connection from %q", req.client.user.Username)
+			cs.addClient(req.client)
+			close(req.done)
 
-			subs, err := cs.db.ListSubscriptions(client.user.Id)
+			fmt.Println("current clients:", len(cs.clients))
+
+			subs, err := cs.db.ListSubscriptions(req.client.user.Id)
 			if err != nil {
 				cs.log.Println("ListSubscriptions:", err)
 				continue
@@ -65,7 +78,7 @@ func (cs *ChatServer) Run() {
 			// notify the client of any active rooms to which they are subscribed
 			for _, sub := range subs {
 				if room, ok := cs.rooms[sub.Room.ExternalId]; ok {
-					client.queueMessage(&ServerMessage{
+					req.client.queueMessage(&ServerMessage{
 						BaseMessage: BaseMessage{
 							Timestamp: Now(),
 						},
@@ -78,15 +91,17 @@ func (cs *ChatServer) Run() {
 					})
 				}
 			}
-		case client := <-cs.deRegisterChan:
-			cs.log.Printf("removing connection from %q", client.user.Username)
-			cs.removeClient(client)
+		case req := <-cs.deRegisterChan:
+			cs.log.Printf("removing connection from %q", req.client.user.Username)
+			cs.removeClient(req.client)
+			close(req.done)
 		case msg := <-cs.broadcastChan:
 			cs.handleBroadcast(msg)
 		case id := <-cs.unloadRoomChan:
 			cs.unloadRoom(id, false)
-		case id := <-cs.DelRoomChan:
-			cs.unloadRoom(id, true)
+		case req := <-cs.delRoomChan:
+			cs.unloadRoom(req.roomId, true)
+			close(req.done)
 		case <-cs.stop:
 			cs.unloadAllRooms()
 			cs.done <- struct{}{}
@@ -242,6 +257,9 @@ func (cs *ChatServer) removeClient(c *Client) {
 	}
 }
 
+// unloadRoom unloads a room by its ID.
+// It signals the room to exit and waits for the exit to complete.
+// If the room is deleted, it will remove it from the server's list of active rooms.
 func (cs *ChatServer) unloadRoom(id string, deleted bool) {
 	if room, ok := cs.getRoom(id); ok {
 		// signal the room to exit
@@ -263,5 +281,74 @@ func (cs *ChatServer) Shutdown(ctx context.Context) error {
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
+	}
+}
+
+func (cs *ChatServer) RegisterClient(client *Client) {
+	cs.log.Printf("adding connection from %q", client.user.Username)
+	cs.addClient(client)
+
+	fmt.Println("current clients:", len(cs.clients))
+
+	subs, err := cs.db.ListSubscriptions(client.user.Id)
+	if err != nil {
+		cs.log.Println("ListSubscriptions:", err)
+	}
+	// notify the client of any active rooms to which they are subscribed
+	for _, sub := range subs {
+		if room, ok := cs.rooms[sub.Room.ExternalId]; ok {
+			client.queueMessage(&ServerMessage{
+				BaseMessage: BaseMessage{
+					Timestamp: Now(),
+				},
+				Notification: &Notification{
+					Presence: &Presence{
+						Present: true,
+						RoomId:  room.externalId,
+					},
+				},
+			})
+		}
+	}
+}
+
+type registerRequest struct {
+	client *Client
+	done   chan error
+}
+
+func (cs *ChatServer) DeRegisterClient(c *Client) {
+	cs.log.Printf("removing connection from %q", c.user.Username)
+	cs.removeClient(c)
+}
+
+type deleteRoomRequest struct {
+	roomId string
+	done   chan error
+}
+
+// DeleteRoom initiates unloading of a deleted room by its external ID and returns a channel
+// that will be closed when the operation is complete.
+func (cs *ChatServer) DeleteRoom(ctx context.Context, roomId string) error {
+	done := make(chan error, 1)
+	req := &deleteRoomRequest{
+		roomId: roomId,
+		done:   done,
+	}
+	cs.delRoomChan <- req
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (cs *ChatServer) JoinRoom(joinMsg *ClientMessage) error {
+	select {
+	case cs.joinChan <- joinMsg:
+		return nil
+	default:
+		return errors.New("join channel is full")
 	}
 }

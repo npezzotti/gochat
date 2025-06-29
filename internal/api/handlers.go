@@ -38,6 +38,10 @@ type CreateRoomRequest struct {
 func (s *GoChatApp) writeJson(w http.ResponseWriter, statusCode int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
+	if v == nil {
+		return
+	}
+
 	if err := json.NewEncoder(w).Encode(v); err != nil {
 		s.log.Printf("json encode: %v", err)
 	}
@@ -367,7 +371,12 @@ func (s *GoChatApp) deleteRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.cs.DelRoomChan <- room.ExternalId
+	if err := s.cs.DeleteRoom(r.Context(), room.ExternalId); err != nil {
+		s.log.Println("delete room from chat server:", err)
+		errResp := NewInternalServerError(err)
+		s.writeJson(w, errResp.StatusCode, errResp)
+		return
+	}
 	s.writeJson(w, http.StatusNoContent, nil)
 }
 
@@ -523,8 +532,8 @@ func (s *GoChatApp) serveWs(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:    user.CreatedAt,
 		UpdatedAt:    user.UpdatedAt,
 	}, conn, s.cs, s.log)
-	s.cs.RegisterChan <- client
 
+	s.cs.RegisterClient(client)
 	go client.Write()
 	go client.Read()
 }
