@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -28,8 +27,6 @@ type ChatServer struct {
 	clients        map[*Client]struct{}
 	clientsLock    sync.Mutex
 	joinChan       chan *ClientMessage
-	registerChan   chan *registerRequest
-	deRegisterChan chan *registerRequest
 	unloadRoomChan chan string
 	delRoomChan    chan *deleteRoomRequest
 	broadcastChan  chan *ServerMessage
@@ -46,8 +43,6 @@ func NewChatServer(logger *log.Logger, db database.GoChatRepository) (*ChatServe
 		db:             db,
 		joinChan:       make(chan *ClientMessage, 256),
 		clients:        make(map[*Client]struct{}),
-		registerChan:   make(chan *registerRequest),
-		deRegisterChan: make(chan *registerRequest),
 		unloadRoomChan: make(chan string),
 		delRoomChan:    make(chan *deleteRoomRequest, 256),
 		broadcastChan:  make(chan *ServerMessage, 256),
@@ -63,38 +58,6 @@ func (cs *ChatServer) Run() {
 		select {
 		case joinMsg := <-cs.joinChan:
 			cs.handleJoinRoom(joinMsg)
-		case req := <-cs.registerChan:
-			cs.log.Printf("adding connection from %q", req.client.user.Username)
-			cs.addClient(req.client)
-			close(req.done)
-
-			fmt.Println("current clients:", len(cs.clients))
-
-			subs, err := cs.db.ListSubscriptions(req.client.user.Id)
-			if err != nil {
-				cs.log.Println("ListSubscriptions:", err)
-				continue
-			}
-			// notify the client of any active rooms to which they are subscribed
-			for _, sub := range subs {
-				if room, ok := cs.rooms[sub.Room.ExternalId]; ok {
-					req.client.queueMessage(&ServerMessage{
-						BaseMessage: BaseMessage{
-							Timestamp: Now(),
-						},
-						Notification: &Notification{
-							Presence: &Presence{
-								Present: true,
-								RoomId:  room.externalId,
-							},
-						},
-					})
-				}
-			}
-		case req := <-cs.deRegisterChan:
-			cs.log.Printf("removing connection from %q", req.client.user.Username)
-			cs.removeClient(req.client)
-			close(req.done)
 		case msg := <-cs.broadcastChan:
 			cs.handleBroadcast(msg)
 		case id := <-cs.unloadRoomChan:
@@ -288,8 +251,6 @@ func (cs *ChatServer) RegisterClient(client *Client) {
 	cs.log.Printf("adding connection from %q", client.user.Username)
 	cs.addClient(client)
 
-	fmt.Println("current clients:", len(cs.clients))
-
 	subs, err := cs.db.ListSubscriptions(client.user.Id)
 	if err != nil {
 		cs.log.Println("ListSubscriptions:", err)
@@ -310,11 +271,6 @@ func (cs *ChatServer) RegisterClient(client *Client) {
 			})
 		}
 	}
-}
-
-type registerRequest struct {
-	client *Client
-	done   chan error
 }
 
 func (cs *ChatServer) DeRegisterClient(c *Client) {
