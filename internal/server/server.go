@@ -247,6 +247,7 @@ func (cs *ChatServer) Shutdown(ctx context.Context) error {
 	}
 }
 
+// RegisterClient adds a new client to the server's list of active clients.
 func (cs *ChatServer) RegisterClient(client *Client) {
 	cs.log.Printf("adding connection from %q", client.user.Username)
 	cs.addClient(client)
@@ -273,6 +274,7 @@ func (cs *ChatServer) RegisterClient(client *Client) {
 	}
 }
 
+// DeRegisterClient removes a client from the server's list of active clients.
 func (cs *ChatServer) DeRegisterClient(c *Client) {
 	cs.log.Printf("removing connection from %q", c.user.Username)
 	cs.removeClient(c)
@@ -300,6 +302,8 @@ func (cs *ChatServer) DeleteRoom(ctx context.Context, roomId string) error {
 	}
 }
 
+// JoinRoom sends a join room message from a client to the server's join channel.
+// It returns an error if the join channel is full.
 func (cs *ChatServer) JoinRoom(joinMsg *ClientMessage) error {
 	select {
 	case cs.joinChan <- joinMsg:
