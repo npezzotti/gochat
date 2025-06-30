@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"sync"
@@ -23,7 +24,8 @@ type Room struct {
 	id            int
 	externalId    string
 	subscribers   []types.User
-	cs            *ChatServer
+	cs            GoChatServer
+	db            database.GoChatRepository
 	joinChan      chan *ClientMessage
 	leaveChan     chan *ClientMessage
 	clientMsgChan chan *ClientMessage
@@ -66,7 +68,10 @@ func (r *Room) start() {
 
 func (r *Room) handleRoomTimeout() {
 	r.log.Printf("room %q timed out", r.externalId)
-	r.cs.unloadRoomChan <- r.externalId
+	if err := r.cs.UnloadRoom(context.Background(), r.externalId, false); err != nil {
+		r.log.Printf("UnloadRoom %q: %v", r.externalId, err)
+		return
+	}
 }
 
 func (r *Room) handleRoomExit(e exitReq) {
@@ -90,7 +95,7 @@ func (r *Room) handleRoomExit(e exitReq) {
 
 	// notify active subscribers that the room is offline
 	for _, sub := range r.subscribers {
-		r.cs.broadcastChan <- &ServerMessage{
+		r.cs.Broadcast(&ServerMessage{
 			BaseMessage: BaseMessage{
 				Timestamp: Now(),
 			},
@@ -101,7 +106,7 @@ func (r *Room) handleRoomExit(e exitReq) {
 				},
 			},
 			UserId: sub.Id,
-		}
+		})
 	}
 
 	// notify the chat server the room is done cleaning up
@@ -114,7 +119,7 @@ func (r *Room) handleLeave(leaveMsg *ClientMessage) {
 	if leaveMsg.Leave.Unsubscribe {
 		// the user is leaving and unsubscribing from the room
 		r.log.Printf("unsubscribing %q from room %q", leaveMsg.client.user.Username, r.externalId)
-		err := r.cs.db.DeleteSubscription(leaveMsg.UserId, r.id)
+		err := r.db.DeleteSubscription(leaveMsg.UserId, r.id)
 		if err != nil {
 			var errResp *ServerMessage
 			if err == sql.ErrNoRows {
@@ -192,7 +197,7 @@ func (r *Room) handleLeave(leaveMsg *ClientMessage) {
 
 func (r *Room) handleRead(msg *ClientMessage) {
 	// update the last read seq id for the user
-	if err := r.cs.db.UpdateLastReadSeqId(msg.UserId, r.id, msg.Read.SeqId); err != nil {
+	if err := r.db.UpdateLastReadSeqId(msg.UserId, r.id, msg.Read.SeqId); err != nil {
 		r.log.Println("UpdateLastReadSeqId:", err)
 		msg.client.queueMessage(ErrInternalError(msg.Id))
 		return
@@ -206,10 +211,10 @@ func (r *Room) handleJoin(join *ClientMessage) {
 	r.killTimer.Stop()
 
 	c := join.client
-	if !r.cs.db.SubscriptionExists(c.user.Id, r.id) {
+	if !r.db.SubscriptionExists(c.user.Id, r.id) {
 		// if the user is not subscribed, create a subscription
 		r.log.Printf("Creating subscription for user %q in room %q", c.user.Username, r.externalId)
-		sub, err := r.cs.db.CreateSubscription(c.user.Id, r.id)
+		sub, err := r.db.CreateSubscription(c.user.Id, r.id)
 		if err != nil {
 			// reset timer since client join failed
 			if len(r.clients) == 0 {
@@ -243,7 +248,7 @@ func (r *Room) handleJoin(join *ClientMessage) {
 		})
 	}
 
-	dbRoom, err := r.cs.db.GetRoomWithSubscribers(r.id)
+	dbRoom, err := r.db.GetRoomWithSubscribers(r.id)
 	if err != nil {
 		r.log.Println("GetRoomWithSubscribers:", err)
 		c.queueMessage(ErrInternalError(join.Id))
@@ -259,7 +264,10 @@ func (r *Room) handleJoin(join *ClientMessage) {
 	if len(r.clients) == 1 {
 		// if this is the first client in the room, notify all subscribers that the room is now active
 		for _, sub := range r.subscribers {
-			r.cs.broadcastChan <- &ServerMessage{
+			if err := r.cs.Broadcast(&ServerMessage{
+				BaseMessage: BaseMessage{
+					Timestamp: Now(),
+				},
 				Notification: &Notification{
 					Presence: &Presence{
 						Present: true,
@@ -268,6 +276,8 @@ func (r *Room) handleJoin(join *ClientMessage) {
 				},
 				UserId:     sub.Id,
 				SkipClient: c,
+			}); err != nil {
+				r.log.Println("Broadcast Presence notification:", err)
 			}
 		}
 	}
@@ -397,7 +407,7 @@ func (r *Room) removeSubscriber(userId int) {
 
 func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 	// save the message to the database
-	if err := r.cs.db.CreateMessage(database.Message{
+	if err := r.db.CreateMessage(database.Message{
 		SeqId:     r.seq_id + 1,
 		RoomId:    r.id,
 		UserId:    msg.client.user.Id,
@@ -435,7 +445,7 @@ func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 			continue
 		}
 
-		r.cs.broadcastChan <- &ServerMessage{
+		if err := r.cs.Broadcast(&ServerMessage{
 			Notification: &Notification{
 				Message: &MessageNotification{
 					RoomId: r.externalId,
@@ -443,6 +453,8 @@ func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 				},
 			},
 			UserId: sub.Id,
+		}); err != nil {
+			r.log.Println("Broadcast Message notification:", err)
 		}
 	}
 }

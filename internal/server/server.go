@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -15,10 +16,11 @@ import (
 type GoChatServer interface {
 	Run()
 	Shutdown(ctx context.Context) error
-	DeleteRoom(ctx context.Context, roomId string) error
 	RegisterClient(c *Client)
 	DeRegisterClient(c *Client)
 	JoinRoom(joinMsg *ClientMessage) error
+	Broadcast(msg *ServerMessage) error
+	UnloadRoom(ctx context.Context, roomId string, deleted bool) error
 }
 
 type ChatServer struct {
@@ -27,8 +29,7 @@ type ChatServer struct {
 	clients        map[*Client]struct{}
 	clientsLock    sync.Mutex
 	joinChan       chan *ClientMessage
-	unloadRoomChan chan string
-	delRoomChan    chan *deleteRoomRequest
+	unloadRoomChan chan *unloadRoomRequest
 	broadcastChan  chan *ServerMessage
 	rooms          map[string]*Room
 	roomsLock      sync.RWMutex
@@ -43,8 +44,7 @@ func NewChatServer(logger *log.Logger, db database.GoChatRepository) (*ChatServe
 		db:             db,
 		joinChan:       make(chan *ClientMessage, 256),
 		clients:        make(map[*Client]struct{}),
-		unloadRoomChan: make(chan string),
-		delRoomChan:    make(chan *deleteRoomRequest, 256),
+		unloadRoomChan: make(chan *unloadRoomRequest, 64),
 		broadcastChan:  make(chan *ServerMessage, 256),
 		stop:           make(chan struct{}),
 		done:           make(chan struct{}),
@@ -60,11 +60,8 @@ func (cs *ChatServer) Run() {
 			cs.handleJoinRoom(joinMsg)
 		case msg := <-cs.broadcastChan:
 			cs.handleBroadcast(msg)
-		case id := <-cs.unloadRoomChan:
-			cs.unloadRoom(id, false)
-		case req := <-cs.delRoomChan:
-			cs.unloadRoom(req.roomId, true)
-			close(req.done)
+		case req := <-cs.unloadRoomChan:
+			cs.unloadRoom(req.roomId, req.deleted)
 		case <-cs.stop:
 			cs.unloadAllRooms()
 			cs.done <- struct{}{}
@@ -121,6 +118,7 @@ func (cs *ChatServer) handleJoinRoom(joinMsg *ClientMessage) {
 			externalId:    dbRoom.ExternalId,
 			subscribers:   subs,
 			cs:            cs,
+			db:            cs.db,
 			joinChan:      make(chan *ClientMessage, 256),
 			leaveChan:     make(chan *ClientMessage, 256),
 			clientMsgChan: make(chan *ClientMessage, 256),
@@ -258,19 +256,25 @@ func (cs *ChatServer) RegisterClient(client *Client) {
 	}
 	// notify the client of any active rooms to which they are subscribed
 	for _, sub := range subs {
-		if room, ok := cs.rooms[sub.Room.ExternalId]; ok {
-			client.queueMessage(&ServerMessage{
-				BaseMessage: BaseMessage{
-					Timestamp: Now(),
-				},
-				Notification: &Notification{
-					Presence: &Presence{
-						Present: true,
-						RoomId:  room.externalId,
-					},
-				},
-			})
+		cs.roomsLock.RLock()
+		room, ok := cs.rooms[sub.Room.ExternalId]
+		cs.roomsLock.RUnlock()
+		if !ok {
+			// room not loaded, skip notification
+			continue
 		}
+
+		client.queueMessage(&ServerMessage{
+			BaseMessage: BaseMessage{
+				Timestamp: Now(),
+			},
+			Notification: &Notification{
+				Presence: &Presence{
+					Present: true,
+					RoomId:  room.externalId,
+				},
+			},
+		})
 	}
 }
 
@@ -280,35 +284,52 @@ func (cs *ChatServer) DeRegisterClient(c *Client) {
 	cs.removeClient(c)
 }
 
-type deleteRoomRequest struct {
-	roomId string
-	done   chan error
-}
-
-// DeleteRoom initiates unloading of a deleted room by its external ID and returns a channel
-// that will be closed when the operation is complete.
-func (cs *ChatServer) DeleteRoom(ctx context.Context, roomId string) error {
-	done := make(chan error, 1)
-	req := &deleteRoomRequest{
-		roomId: roomId,
-		done:   done,
-	}
-	cs.delRoomChan <- req
-	select {
-	case err := <-done:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
 // JoinRoom sends a join room message from a client to the server's join channel.
 // It returns an error if the join channel is full.
 func (cs *ChatServer) JoinRoom(joinMsg *ClientMessage) error {
 	select {
 	case cs.joinChan <- joinMsg:
-		return nil
+		return nil // join request accepted
 	default:
 		return errors.New("join channel is full")
+	}
+}
+
+// Broadcast sends a server message to all clients.
+func (cs *ChatServer) Broadcast(msg *ServerMessage) error {
+	select {
+	case cs.broadcastChan <- msg:
+		return nil // broadcast accepted
+	default:
+		return fmt.Errorf("broadcast channel is full, dropping message")
+	}
+}
+
+// unloadRoomRequest represents a request to unload a room by its external ID.
+type unloadRoomRequest struct {
+	roomId  string
+	deleted bool
+}
+
+// UnloadRoom sends a request to the chat server to unload a room by its external ID.
+func (cs *ChatServer) UnloadRoom(ctx context.Context, roomId string, deleted bool) error {
+	if roomId == "" {
+		return errors.New("roomId cannot be empty")
+	}
+
+	req := &unloadRoomRequest{
+		roomId:  roomId,
+		deleted: deleted,
+	}
+	// Attempt to send the unload request to the unloadRoomChan.
+	// If the channel is full, return an error.
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case cs.unloadRoomChan <- req:
+		return nil // unload request accepted
+	default:
+		return fmt.Errorf("unload room channel is full, unable to unload room %s", roomId)
 	}
 }

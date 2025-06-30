@@ -371,7 +371,7 @@ func (s *GoChatApp) deleteRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.cs.DeleteRoom(r.Context(), room.ExternalId); err != nil {
+	if err := s.cs.UnloadRoom(r.Context(), room.ExternalId, true); err != nil {
 		s.log.Println("delete room from chat server:", err)
 		errResp := NewInternalServerError(err)
 		s.writeJson(w, errResp.StatusCode, errResp)
