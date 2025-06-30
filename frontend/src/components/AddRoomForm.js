@@ -4,7 +4,7 @@ import { faArrowLeft } from '@fortawesome/free-solid-svg-icons'
 
 import goChatClient from '../gochat';
 
-export default function AddRoomForm({ setShowAddUser, rooms, setRooms, setCurrentRoom, wsClient, handleJoinRoomSuccess }) {
+export default function AddRoomForm({ setShowAddUser, rooms, setRooms, currentRoom, setCurrentRoom, wsClient, handleJoinRoomSuccess }) {
   const [error, setError] = useState(null);
 
   const handleAddRoom = e => {
@@ -20,6 +20,14 @@ export default function AddRoomForm({ setShowAddUser, rooms, setRooms, setCurren
     goChatClient.createRoom(name, description)
       .then(room => {
         setRooms([...rooms, room])
+        if (currentRoom) {
+          // If a room is currently selected, we need to leave it before joining the new one
+          wsClient.leaveRoom(currentRoom.external_id)
+            .catch(err => {
+              setShowAddUser(false);
+              throw new Error ("Failed to leave current room: " + err);
+            });
+        }
         wsClient.joinRoom(room.external_id)
           .then(joinedMsg => {
             handleJoinRoomSuccess(joinedMsg.response.data);

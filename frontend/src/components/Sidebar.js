@@ -26,7 +26,7 @@ export default function Sidebar({ currentUser, setCurrentUser, currentRoom, setC
   if (showAddUser) {
     return (
       <div className="sidebar">
-        <AddRoomForm setShowAddUser={setShowAddUser} rooms={rooms} setRooms={setRooms} setCurrentRoom={setCurrentRoom} wsClient={wsClient} handleJoinRoomSuccess={handleJoinRoomSuccess} />
+        <AddRoomForm setShowAddUser={setShowAddUser} rooms={rooms} setRooms={setRooms} currentRoom={currentRoom} setCurrentRoom={setCurrentRoom} wsClient={wsClient} handleJoinRoomSuccess={handleJoinRoomSuccess} />
       </div>
     )
   } else if (showEditAccount) {
