@@ -11,7 +11,6 @@ export default function JoinRoomForm({ rooms, setRooms, currentRoom, setCurrentR
 
     e.preventDefault();
     if (roomId === '') {
-      setError('Please enter a room ID');
       return;
     }
 
