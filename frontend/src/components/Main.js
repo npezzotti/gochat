@@ -36,9 +36,9 @@ export default function Main({ currentUser, setCurrentUser }) {
   }
 
   function addSubscriber(user) {
-    const updatedSubscribers = currentRoomRef.current.subscribers
+    var updatedSubscribers = currentRoomRef.current.subscribers
     updatedSubscribers.push({
-      user_id: user.id,
+      id: user.id,
       username: user.username,
     });
 
@@ -46,10 +46,13 @@ export default function Main({ currentUser, setCurrentUser }) {
   }
 
   function removeSubscriber(userId) {
-    currentRoomRef.current.subscribers = currentRoomRef.current.subscribers.filter(
-      subscriber => subscriber.user_id !== userId
+    var updatedSubscribers = currentRoomRef.current.subscribers;
+    console.log(updatedSubscribers);
+    updatedSubscribers = updatedSubscribers.filter(
+      subscriber => subscriber.id !== userId
     );
-    setCurrentRoom({ ...currentRoomRef.current });
+
+    setCurrentRoom({ ...currentRoomRef.current, subscribers: updatedSubscribers });
   }
 
   function handleDeleteRoom(roomId) {
