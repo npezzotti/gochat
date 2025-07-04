@@ -21,8 +21,8 @@ type ChatServer struct {
 	joinChan       chan *ClientMessage
 	unloadRoomChan chan unloadRoomRequest
 	broadcastChan  chan *ServerMessage
-	rooms          map[string]*Room
-	roomsLock      sync.RWMutex
+	numRooms       int
+	roomsMap       sync.Map
 	stop           chan struct{}
 	done           chan struct{}
 	userMap        map[int][]*Client
@@ -38,7 +38,6 @@ func NewChatServer(logger *log.Logger, db database.GoChatRepository) (*ChatServe
 		broadcastChan:  make(chan *ServerMessage, 256),
 		stop:           make(chan struct{}),
 		done:           make(chan struct{}),
-		rooms:          make(map[string]*Room),
 		userMap:        make(map[int][]*Client),
 	}, nil
 }
@@ -66,7 +65,7 @@ func (cs *ChatServer) Run() {
 // creates a new Room instance, and starts the room before forwarding the join request.
 func (cs *ChatServer) handleJoinRoom(joinMsg *ClientMessage) {
 	// check if the room is already loaded
-	if room, ok := cs.rooms[joinMsg.Join.RoomId]; ok {
+	if room, ok := cs.getRoom(joinMsg.Join.RoomId); ok {
 		select {
 		case room.joinChan <- joinMsg:
 		default:
@@ -129,38 +128,42 @@ func (cs *ChatServer) handleJoinRoom(joinMsg *ClientMessage) {
 
 // addRoom adds a room to the server's list of active rooms.
 func (cs *ChatServer) addRoom(id string, r *Room) {
-	cs.roomsLock.Lock()
-	defer cs.roomsLock.Unlock()
-	cs.rooms[id] = r
+	cs.roomsMap.Store(id, r)
+	cs.numRooms++
 }
 
 // removeRoom removes a room from the server's list of active rooms by its ID.
 // It is safe to call this method even if the room does not exist.
 func (cs *ChatServer) removeRoom(id string) {
-	cs.roomsLock.Lock()
-	defer cs.roomsLock.Unlock()
-	delete(cs.rooms, id)
+	_, loaded := cs.roomsMap.LoadAndDelete(id)
+	if loaded {
+		cs.numRooms--
+	}
 }
 
 // getRoom retrieves a room by its ID from the server's list of active rooms.
 // It returns the room and a boolean indicating whether the room was found.
 func (cs *ChatServer) getRoom(id string) (*Room, bool) {
-	cs.roomsLock.RLock()
-	defer cs.roomsLock.RUnlock()
-	room, ok := cs.rooms[id]
-	return room, ok
+	r, ok := cs.roomsMap.Load(id)
+	if !ok {
+		return nil, false
+	}
+
+	return r.(*Room), ok
 }
 
 func (cs *ChatServer) unloadAllRooms() {
 	cs.log.Println("shutting down all active rooms")
 	// signal all rooms to exit
 	roomDone := make(chan string)
-	for _, r := range cs.rooms {
-		cs.log.Println("shutting down room", r.externalId)
-		r.exit <- exitReq{deleted: false, done: roomDone}
-	}
+	cs.roomsMap.Range(func(key, value interface{}) bool {
+		room := value.(*Room)
+		cs.log.Println("shutting down room", room.externalId)
+		room.exit <- exitReq{deleted: false, done: roomDone}
+		return true
+	})
 
-	for range len(cs.rooms) {
+	for cs.numRooms > 0 {
 		id := <-roomDone
 		cs.log.Println("room shutdown complete", id)
 		cs.removeRoom(id)
@@ -248,9 +251,7 @@ func (cs *ChatServer) RegisterClient(client *Client) {
 
 	// notify the client of any active rooms to which they are subscribed
 	for _, sub := range subs {
-		cs.roomsLock.RLock()
-		room, ok := cs.rooms[sub.Room.ExternalId]
-		cs.roomsLock.RUnlock()
+		room, ok := cs.getRoom(sub.Room.ExternalId)
 		if !ok {
 			// room not loaded, skip notification
 			continue
