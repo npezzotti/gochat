@@ -66,7 +66,7 @@ func main() {
 		logger.Fatal("new chat server:", err)
 	}
 
-	srv := api.NewServer(logger, chatServer, dbConn, cfg)
+	srv := api.NewGoChatApp(logger, chatServer, dbConn, cfg)
 
 	go chatServer.Run()
 
