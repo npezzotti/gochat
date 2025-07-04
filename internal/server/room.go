@@ -221,6 +221,7 @@ func (r *Room) handleJoin(join *ClientMessage) {
 	// stop the kill timer since we have a new client
 	r.killTimer.Stop()
 
+	var subCreated bool
 	c := join.client
 	if !r.db.SubscriptionExists(c.user.Id, r.id) {
 		// if the user is not subscribed, create a subscription
@@ -236,7 +237,9 @@ func (r *Room) handleJoin(join *ClientMessage) {
 			return
 		}
 
-		// update the room's internal subscriber list
+		subCreated = true
+
+		// add the user to the in-memory subscriber list
 		r.subscribers = append(r.subscribers, types.User{
 			Id: sub.AccountId,
 		})
@@ -321,20 +324,22 @@ func (r *Room) handleJoin(join *ClientMessage) {
 	// send the room info to the client
 	c.queueMessage(NoErrOK(join.Id, roomInfo))
 
-	// notify clients that the user has joined
-	r.broadcast(&ServerMessage{
-		BaseMessage: BaseMessage{
-			Timestamp: Now(),
-		},
-		Notification: &Notification{
-			Presence: &Presence{
-				Present: true,
-				RoomId:  r.externalId,
-				UserId:  c.user.Id,
+	if !subCreated {
+		// notify clients that user is active in the room
+		r.broadcast(&ServerMessage{
+			BaseMessage: BaseMessage{
+				Timestamp: Now(),
 			},
-		},
-		SkipClient: c,
-	})
+			Notification: &Notification{
+				Presence: &Presence{
+					Present: true,
+					RoomId:  r.externalId,
+					UserId:  c.user.Id,
+				},
+			},
+			SkipClient: c,
+		})
+	}
 }
 
 func (r *Room) getClient(c *Client) (*Client, bool) {

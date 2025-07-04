@@ -152,6 +152,8 @@ func (cs *ChatServer) getRoom(id string) (*Room, bool) {
 	return r.(*Room), ok
 }
 
+// unloadAllRooms unloads all active rooms.
+// It signals each room to exit and waits for all rooms to complete their shutdown.
 func (cs *ChatServer) unloadAllRooms() {
 	cs.log.Println("shutting down all active rooms")
 	// signal all rooms to exit
