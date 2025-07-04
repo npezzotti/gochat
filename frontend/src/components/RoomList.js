@@ -46,7 +46,7 @@ export default function RoomList({ currentRoom, setCurrentRoom, rooms, wsClient,
   return (
     <div id="room-list">
       {error && <p className="error">{error}</p>}
-      <div class="rooms-title">Recent Rooms</div>
+      <div className="rooms-title">Recent Rooms</div>
       {rooms.length === 0 && <p>No rooms available</p>}
       {rooms.map(room => {
         return (
@@ -69,7 +69,7 @@ export default function RoomList({ currentRoom, setCurrentRoom, rooms, wsClient,
                 ''}
             </div>
             <div className='room-item-meta'>
-              <div class={`room-status ${room.is_online ? 'online' : 'offline'}`}></div>
+              <div className={`room-status ${room.is_online ? 'online' : 'offline'}`}></div>
             </div>
           </div>
         )

@@ -26,9 +26,11 @@ export default function Main({ currentUser, setCurrentUser }) {
   }
 
   function handleRoomPresenceEvent(room_id, present) {
-    setRooms(rooms =>
-      rooms.map(room =>
-        room.external_id === room_id ? { ...room, is_online: present } : room
+    setRooms(prevRooms =>
+      prevRooms.map(room =>
+        room.external_id === room_id
+          ? { ...room, is_online: present }
+          : room
       )
     );
   }
@@ -61,7 +63,6 @@ export default function Main({ currentUser, setCurrentUser }) {
   }
 
   useEffect(() => {
-    console.log("Initializing WebSocket client...");
     const wsConn = new GoChatWSClient("ws://localhost:8000/ws");
     setWsClient(wsConn);
 
@@ -123,7 +124,8 @@ export default function Main({ currentUser, setCurrentUser }) {
           return room;
         })
       );
-    }
+    };
+
     return () => {
       wsConn.close();
     };

@@ -15,18 +15,26 @@ class GoChatWSClient {
     this._pendingPromises = new Map();
     this.wsClient = new WSClient(url);
     this.wsClient.connect();
-
-    this.wsClient.onError((err) => {
-      console.error("WebSocket error: ", err.Error);
+    
+    this.wsClient.onOpen(() => {
+      console.log("WebSocket connection opened");
     });
 
     this.wsClient.onMessage((data) => {
       this.#processMessage(data);
     });
 
+    this.wsClient.onError((err) => {
+      console.error("WebSocket error: ", err.Error);
+    });
+
     this.wsClient.onClose(() => {
       console.log("WebSocket connection closed");
     });
+  }
+
+  connect() {
+    return this.wsClient.connect();
   }
 
   #processMessage(data) {
@@ -245,7 +253,6 @@ class WSClient {
   onOpen(callback) {
     if (this.#socket) {
       this.#socket.onopen = (event) => {
-        console.log("WebSocket connection opened");
         callback(event);
       };
     }
