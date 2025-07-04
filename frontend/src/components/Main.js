@@ -16,13 +16,12 @@ export default function Main({ currentUser, setCurrentUser }) {
   const currentRoomRef = useRef(null);
 
   function handleUserPresenceEvent(user_id, present) {
-    const updatedSubscribers = currentRoomRef.current?.subscribers.map(subscriber =>
-      subscriber.id === user_id ? { ...subscriber, is_present: present } : subscriber
-    );
-
-    if (updatedSubscribers) {
-      setCurrentRoom({ ...currentRoomRef.current, subscribers: updatedSubscribers });
-    }
+    setCurrentRoom(prevCurrentRoom => {
+      const updatedSubscribers = prevCurrentRoom.subscribers.map(subscriber =>
+        subscriber.id === user_id ? { ...subscriber, is_present: present } : subscriber
+      );
+      return { ...prevCurrentRoom, subscribers: updatedSubscribers };
+    });
   }
 
   function handleRoomPresenceEvent(room_id, present) {
@@ -36,23 +35,27 @@ export default function Main({ currentUser, setCurrentUser }) {
   }
 
   function addSubscriber(user) {
-    var updatedSubscribers = currentRoomRef.current.subscribers
-    updatedSubscribers.push({
-      id: user.id,
-      username: user.username,
+    setCurrentRoom(prevCurrentRoom => {
+      const updatedSubscribers = [...prevCurrentRoom.subscribers, {
+        id: user.id,
+        username: user.username,
+        is_present: true
+      }];
+      return {
+        ...prevCurrentRoom,
+        subscribers: updatedSubscribers
+      };
     });
-
-    setCurrentRoom({ ...currentRoomRef.current, subscribers: updatedSubscribers });
   }
 
   function removeSubscriber(userId) {
-    var updatedSubscribers = currentRoomRef.current.subscribers;
-    console.log(updatedSubscribers);
-    updatedSubscribers = updatedSubscribers.filter(
-      subscriber => subscriber.id !== userId
-    );
-
-    setCurrentRoom({ ...currentRoomRef.current, subscribers: updatedSubscribers });
+    setCurrentRoom(prevCurrentRoom => {
+      const newSubscribers = prevCurrentRoom.subscribers.filter(sub => sub.id !== userId);
+      return {
+        ...prevCurrentRoom,
+        subscribers: newSubscribers
+      };
+    });
   }
 
   function handleDeleteRoom(roomId) {
