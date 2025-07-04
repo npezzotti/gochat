@@ -17,12 +17,12 @@ type GoChatApp struct {
 	log             *log.Logger
 	db              database.GoChatRepository
 	mux             *http.Server
-	cs              server.GoChatServer
+	cs              *server.ChatServer
 	signingKey      []byte
 	generateShortId func() (string, error)
 }
 
-func NewGoChatApp(logger *log.Logger, cs server.GoChatServer, db database.GoChatRepository, cfg *config.Config) *GoChatApp {
+func NewGoChatApp(logger *log.Logger, cs *server.ChatServer, db database.GoChatRepository, cfg *config.Config) *GoChatApp {
 	app := &GoChatApp{
 		log:             logger,
 		db:              db,
