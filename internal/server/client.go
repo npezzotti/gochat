@@ -19,7 +19,7 @@ const (
 
 type Client struct {
 	conn       *websocket.Conn
-	chatServer GoChatServer
+	chatServer *ChatServer
 	log        *log.Logger
 	user       types.User
 	send       chan *ServerMessage
@@ -29,7 +29,7 @@ type Client struct {
 	stop       chan struct{}
 }
 
-func NewClient(user types.User, conn *websocket.Conn, cs GoChatServer, l *log.Logger) *Client {
+func NewClient(user types.User, conn *websocket.Conn, cs *ChatServer, l *log.Logger) *Client {
 	return &Client{
 		conn:       conn,
 		chatServer: cs,
@@ -200,10 +200,11 @@ func (c *Client) leaveAllRooms() {
 }
 
 func (c *Client) joinRoom(msg *ClientMessage) {
-	if err := c.chatServer.JoinRoom(msg); err != nil {
-		c.log.Printf("failed to join room: %v", err)
-		c.queueMessage(ErrServiceUnavailable(msg.Id))
-		return
+	select {
+	case c.chatServer.joinChan <- msg:
+	default:
+		msg.client.queueMessage(ErrServiceUnavailable(msg.Id))
+		c.log.Printf("server joinChan full")
 	}
 }
 
