@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"database/sql"
 	"log"
 	"sync"
@@ -24,7 +23,7 @@ type Room struct {
 	id            int
 	externalId    string
 	subscribers   []types.User
-	cs            GoChatServer
+	cs            *ChatServer
 	db            database.GoChatRepository
 	joinChan      chan *ClientMessage
 	leaveChan     chan *ClientMessage
@@ -68,8 +67,16 @@ func (r *Room) start() {
 
 func (r *Room) handleRoomTimeout() {
 	r.log.Printf("room %q timed out", r.externalId)
-	if err := r.cs.UnloadRoom(context.Background(), r.externalId, false); err != nil {
-		r.log.Printf("UnloadRoom %q: %v", r.externalId, err)
+	select {
+	case r.cs.unloadRoomChan <- unloadRoomRequest{
+		roomId:  r.externalId,
+		deleted: false,
+	}:
+	default:
+		r.log.Printf("unloadRoomChan full for room %q, skipping unload request", r.externalId)
+		// if the channel is full, we can't unload the room, so
+		// we just reset the timer to try again later
+		r.killTimer.Reset(idleRoomTimeout)
 		return
 	}
 }
@@ -95,7 +102,8 @@ func (r *Room) handleRoomExit(e exitReq) {
 
 	// notify active subscribers that the room is offline
 	for _, sub := range r.subscribers {
-		r.cs.Broadcast(&ServerMessage{
+		select {
+		case r.cs.broadcastChan <- &ServerMessage{
 			BaseMessage: BaseMessage{
 				Timestamp: Now(),
 			},
@@ -106,7 +114,10 @@ func (r *Room) handleRoomExit(e exitReq) {
 				},
 			},
 			UserId: sub.Id,
-		})
+		}:
+		default:
+			r.log.Printf("broadcast channel full, skipping room presence notification for user %d", sub.Id)
+		}
 	}
 
 	// notify the chat server the room is done cleaning up
@@ -264,7 +275,8 @@ func (r *Room) handleJoin(join *ClientMessage) {
 	if len(r.clients) == 1 {
 		// if this is the first client in the room, notify all subscribers that the room is now active
 		for _, sub := range r.subscribers {
-			if err := r.cs.Broadcast(&ServerMessage{
+			select {
+			case r.cs.broadcastChan <- &ServerMessage{
 				BaseMessage: BaseMessage{
 					Timestamp: Now(),
 				},
@@ -276,8 +288,10 @@ func (r *Room) handleJoin(join *ClientMessage) {
 				},
 				UserId:     sub.Id,
 				SkipClient: c,
-			}); err != nil {
-				r.log.Println("Broadcast Presence notification:", err)
+			}:
+			default:
+				// skip if the broadcast channel is full
+				r.log.Printf("Broadcast channel full for user %d, skipping presence notification", sub.Id)
 			}
 		}
 	}
@@ -445,7 +459,8 @@ func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 			continue
 		}
 
-		if err := r.cs.Broadcast(&ServerMessage{
+		select {
+		case r.cs.broadcastChan <- &ServerMessage{
 			Notification: &Notification{
 				Message: &MessageNotification{
 					RoomId: r.externalId,
@@ -453,8 +468,10 @@ func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 				},
 			},
 			UserId: sub.Id,
-		}); err != nil {
-			r.log.Println("Broadcast Message notification:", err)
+		}:
+		default:
+			// skip if the broadcast channel is full
+			r.log.Printf("broadcast channel full, skipping message notification for user %d", sub.Id)
 		}
 	}
 }
