@@ -7,24 +7,70 @@ import (
 )
 
 func TestNewConfig(t *testing.T) {
-	serverAddr := "localhost:8080"
-	databaseDSN := "host=localhost user=postgres password=postgres dbname=postgres sslmode=disable"
-	base64Secret := "c29tZV9zZWNyZXQ=" // "some_secret" in base64
-	allowedOrigins := []string{"http://localhost:3000"}
+	var (
+		addr = "localhost:8080"
+		dsn  = "host=localhost user=postgres password=postgres dbname=postgres sslmode=disable"
+		key  = "c29tZV9zZWNyZXQ="
+		orig = []string{"http://localhost:3000"}
+	)
 
-	config, err := NewConfig(serverAddr, databaseDSN, base64Secret, allowedOrigins)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
+	tcases := []struct {
+		name string
+		addr string
+		dsn  string
+		key  string
+		orig []string
+		err  bool
+	}{
+		{
+			name: "valid config",
+			addr: addr,
+			dsn:  dsn,
+			key:  key,
+			orig: orig,
+			err:  false,
+		},
+		{
+			name: "empty address",
+			addr: "",
+			dsn:  dsn,
+			key:  key,
+			orig: orig,
+			err:  true,
+		},
+		{
+			name: "empty DSN",
+			addr: addr,
+			dsn:  "",
+			key:  key,
+			orig: orig,
+			err:  true,
+		},
+		{
+			name: "empty signing key",
+			addr: addr,
+			dsn:  dsn,
+			key:  "",
+			orig: orig,
+			err:  true,
+		},
 	}
 
-	assert.Equal(t, serverAddr, config.ServerAddr, "expected server address to match")
-	assert.Equal(t, databaseDSN, config.DatabaseDSN, "expected database DSN to match")
-	assert.Equal(t, allowedOrigins, config.AllowedOrigins, "expected allowed origins to match")
-	assert.NotEmpty(t, config.SigningKey, "expected signing key to be decoded and not empty")
-	assert.Equal(t, "some_secret", string(config.SigningKey), "expected signing key to match")
-	assert.Equal(t, 1, len(config.AllowedOrigins), "expected allowed origins to have one entry")
-	assert.Equal(t, "http://localhost:3000", config.AllowedOrigins[0], "expected allowed origin to match")
-	assert.Equal(t, []string{"http://localhost:3000"}, config.AllowedOrigins, "expected allowed origins to match")
+	for _, tc := range tcases {
+		t.Run(tc.name, func(t *testing.T) {
+			config, err := NewConfig(tc.addr, tc.dsn, tc.key, tc.orig)
+			if tc.err {
+				assert.Error(t, err, "expected error for config: %s", tc.name)
+				return
+			}
+			assert.NoError(t, err, "expected no error for config: %s", tc.name)
+
+			assert.Equal(t, tc.addr, config.ServerAddr, "expected server address to match")
+			assert.Equal(t, tc.dsn, config.DatabaseDSN, "expected database DSN to match")
+			assert.Equal(t, tc.orig, config.AllowedOrigins, "expected allowed origins to match")
+			assert.NotEmpty(t, config.SigningKey, "expected signing key to be decoded and not empty")
+		})
+	}
 }
 
 func Test_decodeSigningKey(t *testing.T) {
