@@ -1,11 +1,11 @@
 package api
 
 import (
-	"slices"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"time"
 
@@ -519,6 +519,11 @@ func (s *GoChatApp) serveWs(w http.ResponseWriter, r *http.Request) {
 		CheckOrigin: func(r *http.Request) bool {
 			// only allow connections from allowed origins
 			origin := r.Header.Get("Origin")
+			if origin == "" {
+				// if no origin header, allow the request
+				return true
+			}
+
 			return slices.Contains(s.allowedOrigins, origin)
 		},
 	}
