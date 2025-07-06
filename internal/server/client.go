@@ -24,9 +24,11 @@ type Client struct {
 	user       types.User
 	send       chan *ServerMessage
 	rooms      map[string]*Room
-	roomsLock  sync.RWMutex
-	exitRoom   chan string
-	stop       chan struct{}
+	// roomsLock is a mutex for rooms. rooms is accessed 
+	// concurrently by both the client and the room.
+	roomsLock sync.RWMutex
+	exitRoom  chan string
+	stop      chan struct{}
 }
 
 func NewClient(user types.User, conn *websocket.Conn, cs *ChatServer, l *log.Logger) *Client {
@@ -43,12 +45,10 @@ func NewClient(user types.User, conn *websocket.Conn, cs *ChatServer, l *log.Log
 }
 
 func (c *Client) Write() {
-	c.log.Println("write starting")
 	ticker := time.NewTicker(time.Duration(pingInterval))
 	defer func() {
 		ticker.Stop()
 		c.conn.Close()
-		c.log.Println("write exiting")
 	}()
 
 	for {
@@ -81,11 +81,9 @@ func (c *Client) Write() {
 }
 
 func (c *Client) Read() {
-	c.log.Println("read starting")
 	defer func() {
 		c.conn.Close()
 		c.cleanup()
-		c.log.Println("read exiting")
 	}()
 
 	c.conn.SetReadLimit(maxMessageSize)
@@ -101,7 +99,6 @@ func (c *Client) Read() {
 			break
 		}
 
-		c.log.Println("Received message:", string(raw))
 		var msg ClientMessage
 		if err := json.Unmarshal(raw, &msg); err != nil {
 			c.log.Println("error parsing message:", err)
