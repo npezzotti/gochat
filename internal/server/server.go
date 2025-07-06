@@ -17,28 +17,26 @@ type ChatServer struct {
 	log            *log.Logger
 	db             database.GoChatRepository
 	clients        map[*Client]struct{}
-	clientsLock    sync.Mutex
+	userMap        map[int][]*Client
+	clientsMu      sync.RWMutex // mutex to protect access to clients and userMap
 	joinChan       chan *ClientMessage
 	unloadRoomChan chan unloadRoomRequest
 	broadcastChan  chan *ServerMessage
 	numRooms       int
 	roomsMap       sync.Map
-	stop           chan struct{}
-	done           chan struct{}
-	userMap        map[int][]*Client
+	stop           chan stopReq
 }
 
 func NewChatServer(logger *log.Logger, db database.GoChatRepository) (*ChatServer, error) {
 	return &ChatServer{
 		log:            logger,
 		db:             db,
-		joinChan:       make(chan *ClientMessage, 256),
 		clients:        make(map[*Client]struct{}),
+		userMap:        make(map[int][]*Client),
+		joinChan:       make(chan *ClientMessage, 256),
 		unloadRoomChan: make(chan unloadRoomRequest, 64),
 		broadcastChan:  make(chan *ServerMessage, 256),
-		stop:           make(chan struct{}),
-		done:           make(chan struct{}),
-		userMap:        make(map[int][]*Client),
+		stop:           make(chan stopReq),
 	}, nil
 }
 
@@ -51,9 +49,9 @@ func (cs *ChatServer) Run() {
 			cs.handleBroadcast(msg)
 		case req := <-cs.unloadRoomChan:
 			cs.unloadRoom(req.roomId, req.deleted)
-		case <-cs.stop:
+		case req := <-cs.stop:
 			cs.unloadAllRooms()
-			cs.done <- struct{}{}
+			close(req.done)
 			return
 		}
 	}
@@ -155,25 +153,22 @@ func (cs *ChatServer) getRoom(id string) (*Room, bool) {
 // unloadAllRooms unloads all active rooms.
 // It signals each room to exit and waits for all rooms to complete their shutdown.
 func (cs *ChatServer) unloadAllRooms() {
-	cs.log.Println("shutting down all active rooms")
 	// signal all rooms to exit
 	roomDone := make(chan string)
 	cs.roomsMap.Range(func(key, value interface{}) bool {
 		room := value.(*Room)
-		cs.log.Println("shutting down room", room.externalId)
 		room.exit <- exitReq{deleted: false, done: roomDone}
 		return true
 	})
 
 	for cs.numRooms > 0 {
 		id := <-roomDone
-		cs.log.Println("room shutdown complete", id)
 		cs.removeRoom(id)
 	}
 }
 
 func (cs *ChatServer) handleBroadcast(msg *ServerMessage) {
-	userClients := cs.userMap[msg.UserId]
+	userClients := cs.getClients(msg.UserId)
 	// if there are no clients for this user, skip broadcasting
 	if userClients == nil {
 		return
@@ -187,17 +182,21 @@ func (cs *ChatServer) handleBroadcast(msg *ServerMessage) {
 	}
 }
 
+// addClient adds a new client to the server's list of active clients.
+// It also adds the client to the userMap, which maps user IDs to their associated clients
 func (cs *ChatServer) addClient(c *Client) {
-	cs.clientsLock.Lock()
-	defer cs.clientsLock.Unlock()
+	cs.clientsMu.Lock()
+	defer cs.clientsMu.Unlock()
 
 	cs.clients[c] = struct{}{}
 	cs.userMap[c.user.Id] = append(cs.userMap[c.user.Id], c)
 }
 
+// removeClient removes a client from the server's list of active clients.
+// It also removes the client from the userMap if it exists.
 func (cs *ChatServer) removeClient(c *Client) {
-	cs.clientsLock.Lock()
-	defer cs.clientsLock.Unlock()
+	cs.clientsMu.Lock()
+	defer cs.clientsMu.Unlock()
 
 	delete(cs.clients, c)
 	if userClients, ok := cs.userMap[c.user.Id]; ok {
@@ -211,6 +210,21 @@ func (cs *ChatServer) removeClient(c *Client) {
 			delete(cs.userMap, c.user.Id)
 		}
 	}
+}
+
+// getClients retrieves all clients associated with a specific user ID.
+func (cs *ChatServer) getClients(userId int) []*Client {
+	cs.clientsMu.RLock()
+	defer cs.clientsMu.RUnlock()
+
+	clients := cs.userMap[userId]
+	if clients == nil {
+		return nil
+	}
+
+	result := make([]*Client, len(clients))
+	copy(result, clients)
+	return result
 }
 
 // unloadRoom unloads a room by its ID.
@@ -227,13 +241,16 @@ func (cs *ChatServer) unloadRoom(id string, deleted bool) {
 	cs.removeRoom(id)
 }
 
+type stopReq struct {
+	done chan struct{}
+}
+
 func (cs *ChatServer) Shutdown(ctx context.Context) error {
-	cs.log.Println("shutting down chat server...")
-	cs.stop <- struct{}{}
+	done := make(chan struct{})
+	cs.stop <- stopReq{done: done}
 
 	select {
-	case <-cs.done:
-		cs.log.Println("chat server shutdown complete")
+	case <-done:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -242,7 +259,6 @@ func (cs *ChatServer) Shutdown(ctx context.Context) error {
 
 // RegisterClient adds a new client to the server's list of active clients.
 func (cs *ChatServer) RegisterClient(client *Client) {
-	cs.log.Printf("adding connection from %q", client.user.Username)
 	cs.addClient(client)
 
 	subs, err := cs.db.ListSubscriptions(client.user.Id)
