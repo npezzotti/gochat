@@ -58,7 +58,7 @@ func (cs *ChatServer) Run() {
 }
 
 // handleJoinRoom processes a join request from a client.
-// It checks if the room is already loaded and, if so, forwards the join request to the room.
+// It checks if the room is already loaded and forwards the join request to the room.
 // If the room is not loaded, it retrieves the room from the database,
 // creates a new Room instance, and starts the room before forwarding the join request.
 func (cs *ChatServer) handleJoinRoom(joinMsg *ClientMessage) {
@@ -131,7 +131,6 @@ func (cs *ChatServer) addRoom(id string, r *Room) {
 }
 
 // removeRoom removes a room from the server's list of active rooms by its ID.
-// It is safe to call this method even if the room does not exist.
 func (cs *ChatServer) removeRoom(id string) {
 	_, loaded := cs.roomsMap.LoadAndDelete(id)
 	if loaded {
@@ -167,6 +166,9 @@ func (cs *ChatServer) unloadAllRooms() {
 	}
 }
 
+// handleBroadcast processes a broadcast message.
+// It queues a message to all clients associated with the user ID in the message,
+// except for any client specified in SkipClient.
 func (cs *ChatServer) handleBroadcast(msg *ServerMessage) {
 	userClients := cs.getClients(msg.UserId)
 	// if there are no clients for this user, skip broadcasting
@@ -245,6 +247,8 @@ type stopReq struct {
 	done chan struct{}
 }
 
+// Shutdown gracefully stops the chat server.
+// It signals the server to stop processing messages and waits for all active rooms to be unloaded.
 func (cs *ChatServer) Shutdown(ctx context.Context) error {
 	done := make(chan struct{})
 	cs.stop <- stopReq{done: done}
