@@ -20,6 +20,7 @@ type GoChatApp struct {
 	cs              *server.ChatServer
 	signingKey      []byte
 	generateShortId func() (string, error)
+	allowedOrigins  []string
 }
 
 func NewGoChatApp(logger *log.Logger, cs *server.ChatServer, db database.GoChatRepository, cfg *config.Config) *GoChatApp {
@@ -29,9 +30,14 @@ func NewGoChatApp(logger *log.Logger, cs *server.ChatServer, db database.GoChatR
 		cs:              cs,
 		signingKey:      cfg.SigningKey,
 		generateShortId: defaultGenerateShortId,
+		allowedOrigins:  cfg.AllowedOrigins,
 	}
 
 	mux := http.NewServeMux()
+
+	fs := http.FileServer(http.Dir("./frontend/build"))
+	mux.Handle("/", fs)
+
 	mux.HandleFunc("POST /api/auth/register", app.createAccount)
 	mux.HandleFunc("POST /api/auth/login", app.login)
 	mux.HandleFunc("GET /api/auth/session", app.authMiddleware(app.session))
@@ -45,7 +51,7 @@ func NewGoChatApp(logger *log.Logger, cs *server.ChatServer, db database.GoChatR
 
 	h := handlers.CORS(
 		handlers.MaxAge(3600),
-		handlers.AllowedOrigins(cfg.AllowedOrigins),
+		handlers.AllowedOrigins(app.allowedOrigins),
 		handlers.AllowedMethods([]string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions}),
 		handlers.AllowedHeaders([]string{"Origin", "Content-Type", "Accept"}),
 		handlers.AllowCredentials(),

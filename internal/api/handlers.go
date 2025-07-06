@@ -1,6 +1,7 @@
 package api
 
 import (
+	"slices"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -516,7 +517,9 @@ func (s *GoChatApp) serveWs(w http.ResponseWriter, r *http.Request) {
 
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
-			return true
+			// only allow connections from allowed origins
+			origin := r.Header.Get("Origin")
+			return slices.Contains(s.allowedOrigins, origin)
 		},
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)
