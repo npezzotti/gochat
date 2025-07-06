@@ -32,7 +32,6 @@ func (s *GoChatApp) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokenCookie, err := r.Cookie(tokenCookieKey)
 		if err != nil {
-			s.log.Printf("missing or invalid token cookie: %v", err)
 			errResp := NewUnauthorizedError()
 			s.writeJson(w, errResp.StatusCode, errResp)
 			return
