@@ -68,7 +68,7 @@ func (s *GoChatApp) Start() error {
 }
 
 func (s *GoChatApp) Shutdown(ctx context.Context) error {
-	s.log.Println("shutting down HTTP server...")
+	s.log.Println("shutting down api server...")
 	if err := s.mux.Shutdown(ctx); err != nil {
 		return fmt.Errorf("server shutdown: %w", err)
 	}
