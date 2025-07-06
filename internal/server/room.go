@@ -3,7 +3,6 @@ package server
 import (
 	"database/sql"
 	"log"
-	"sync"
 	"time"
 
 	"slices"
@@ -31,7 +30,6 @@ type Room struct {
 	seq_id        int
 	clients       map[*Client]struct{}
 	userMap       map[int]map[*Client]struct{}
-	clientLock    sync.RWMutex
 	log           *log.Logger
 	// killTimer is used to automatically unload the room when it is no longer active
 	killTimer *time.Timer
@@ -66,7 +64,6 @@ func (r *Room) start() {
 }
 
 func (r *Room) handleRoomTimeout() {
-	r.log.Printf("room %q timed out", r.externalId)
 	select {
 	case r.cs.unloadRoomChan <- unloadRoomRequest{
 		roomId:  r.externalId,
@@ -129,7 +126,6 @@ func (r *Room) handleRoomExit(e exitReq) {
 func (r *Room) handleLeave(leaveMsg *ClientMessage) {
 	if leaveMsg.Leave.Unsubscribe {
 		// the user is leaving and unsubscribing from the room
-		r.log.Printf("unsubscribing %q from room %q", leaveMsg.client.user.Username, r.externalId)
 		err := r.db.DeleteSubscription(leaveMsg.UserId, r.id)
 		if err != nil {
 			var errResp *ServerMessage
@@ -158,6 +154,9 @@ func (r *Room) handleLeave(leaveMsg *ClientMessage) {
 
 		// broadcast that the user unsubscribed
 		r.broadcast(&ServerMessage{
+			BaseMessage: BaseMessage{
+				Timestamp: Now(),
+			},
 			Notification: &Notification{
 				SubscriptionChange: &SubscriptionChange{
 					RoomId:     r.externalId,
@@ -193,6 +192,9 @@ func (r *Room) handleLeave(leaveMsg *ClientMessage) {
 		// if no more sessions for user in the room
 		if r.userMap[client.user.Id] == nil {
 			r.broadcast(&ServerMessage{
+				BaseMessage: BaseMessage{
+					Timestamp: Now(),
+				},
 				Notification: &Notification{
 					Presence: &Presence{
 						Present: false,
@@ -225,7 +227,6 @@ func (r *Room) handleJoin(join *ClientMessage) {
 	c := join.client
 	if !r.db.SubscriptionExists(c.user.Id, r.id) {
 		// if the user is not subscribed, create a subscription
-		r.log.Printf("Creating subscription for user %q in room %q", c.user.Username, r.externalId)
 		sub, err := r.db.CreateSubscription(c.user.Id, r.id)
 		if err != nil {
 			// reset timer since client join failed
@@ -343,9 +344,6 @@ func (r *Room) handleJoin(join *ClientMessage) {
 }
 
 func (r *Room) getClient(c *Client) (*Client, bool) {
-	r.clientLock.RLock()
-	defer r.clientLock.RUnlock()
-
 	if _, ok := r.clients[c]; !ok {
 		return nil, false
 	}
@@ -354,13 +352,8 @@ func (r *Room) getClient(c *Client) (*Client, bool) {
 }
 
 func (r *Room) deleteClient(client *Client) {
-	r.clientLock.Lock()
-	defer r.clientLock.Unlock()
-
-	// remove the client from the room
 	delete(r.clients, client)
 
-	// remove the client from the user map
 	if userClients, ok := r.userMap[client.user.Id]; ok {
 		delete(userClients, client)
 		// if there are no more clients for this user, remove the user from the user map
@@ -371,10 +364,9 @@ func (r *Room) deleteClient(client *Client) {
 }
 
 func (r *Room) addClient(c *Client) {
-	r.clientLock.Lock()
-	defer r.clientLock.Unlock()
-
 	r.clients[c] = struct{}{}
+
+	// if the user is not in the user map, add them
 	if r.userMap[c.user.Id] == nil {
 		r.userMap[c.user.Id] = make(map[*Client]struct{})
 	}
@@ -388,11 +380,8 @@ func (r *Room) removeSession(client *Client) {
 	r.deleteClient(client)
 	client.delRoom(r.externalId)
 
-	r.log.Printf("removed client %q from room %q", client.user.Username, r.externalId)
-
 	// if the client is the last one in the room, start the kill timer
 	if len(r.clients) == 0 {
-		r.log.Printf("no clients in %q, starting kill timer", r.externalId)
 		r.killTimer.Reset(idleRoomTimeout)
 	}
 }
@@ -405,11 +394,8 @@ func (r *Room) removeAllSessionsForUser(userId int) {
 		}
 	}
 
-	r.log.Printf("removed all sessions for user %d from room %q", userId, r.externalId)
-
 	// if the user was the last one in the room, start the kill timer
 	if len(r.clients) == 0 {
-		r.log.Printf("no clients in %q, starting kill timer", r.externalId)
 		r.killTimer.Reset(idleRoomTimeout)
 	}
 }
@@ -417,7 +403,6 @@ func (r *Room) removeAllSessionsForUser(userId int) {
 func (r *Room) removeSubscriber(userId int) {
 	for i, sub := range r.subscribers {
 		if sub.Id == userId {
-			r.log.Printf("removing subscriber %q from room %q", sub.Username, r.externalId)
 			r.subscribers = slices.Delete(r.subscribers, i, i+1)
 			return
 		}
@@ -484,7 +469,6 @@ func (r *Room) saveAndBroadcast(msg *ClientMessage) {
 func (r *Room) broadcast(msg *ServerMessage) {
 	msg.Timestamp = time.Now()
 
-	r.log.Printf("broadcast message to room %q: %v\n", r.externalId, msg)
 	for client := range r.clients {
 		if client == msg.SkipClient {
 			continue
