@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"runtime/debug"
 )
 
 func (s *GoChatApp) errorHandler(next http.Handler) http.Handler {
@@ -17,9 +18,8 @@ func (s *GoChatApp) errorHandler(next http.Handler) http.Handler {
 					panicError = fmt.Errorf("%v", e)
 				}
 				s.log.Printf("panic: %v", panicError)
-				errResp := NewInternalServerError(panicError)
+				debug.PrintStack()
 				w.Header().Set("Connection", "close")
-				s.writeJson(w, errResp.StatusCode, errResp)
 				return
 			}
 		}()
