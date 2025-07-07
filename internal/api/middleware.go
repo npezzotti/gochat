@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"runtime/debug"
 )
@@ -10,14 +9,7 @@ func (s *GoChatApp) errorHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				var panicError error
-				switch e := err.(type) {
-				case error:
-					panicError = e
-				default:
-					panicError = fmt.Errorf("%v", e)
-				}
-				s.log.Printf("panic: %v", panicError)
+				s.log.Printf("panic: %v", err)
 				debug.PrintStack()
 				w.Header().Set("Connection", "close")
 				return
