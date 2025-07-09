@@ -124,7 +124,7 @@ func (cs *ChatServer) handleJoinRoom(joinMsg *ClientMessage) {
 			userMap:       make(map[int]map[*Client]struct{}),
 			log:           cs.log,
 			killTimer:     time.NewTimer(time.Second * 10),
-			exit:          make(chan exitReq),
+			exit:          make(chan exitReq, 1),
 		}
 
 		cs.addRoom(room.externalId, room)
@@ -252,7 +252,7 @@ func (cs *ChatServer) getClients(userId int) []*Client {
 func (cs *ChatServer) unloadRoom(id string, deleted bool) {
 	room, ok := cs.getRoom(id)
 	if !ok {
-		cs.log.Printf("Attempted to unload non-existent room: %s", id)
+		cs.log.Printf("attempted to unload non-existent room: %s", id)
 		return
 	}
 
@@ -264,10 +264,10 @@ func (cs *ChatServer) unloadRoom(id string, deleted bool) {
 		case <-done:
 			cs.removeRoom(id)
 		case <-time.After(5 * time.Second):
-			cs.log.Printf("Timeout waiting for room %s to unload", id)
+			cs.log.Printf("timeout waiting for room %s to unload", id)
 		}
 	default:
-		cs.log.Printf("Room exit channel full for room: %s", id)
+		cs.log.Printf("room exit channel full for room %s", id)
 	}
 }
 
