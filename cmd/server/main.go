@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/npezzotti/go-chatroom/internal/config"
 	"github.com/npezzotti/go-chatroom/internal/database"
 	"github.com/npezzotti/go-chatroom/internal/server"
+	"github.com/npezzotti/go-chatroom/internal/stats"
 )
 
 const defaultSigningKey = "wT0phFUusHZIrDhL9bUKPUhwaxKhpi/SaI6PtgB+MgU="
@@ -44,7 +46,7 @@ func main() {
 	flag.Var(&allowedOrigins, "allowed-origins", "comma-separated list of allowed origins for CORS")
 	flag.Parse()
 
-	logger := log.New(os.Stderr, "", log.LstdFlags)
+	logger := log.New(os.Stderr, "[go-chat] ", log.LstdFlags)
 
 	cfg, err := config.NewConfig(addr, dsn, signingKey, allowedOrigins)
 	if err != nil {
@@ -61,12 +63,19 @@ func main() {
 		}
 	}()
 
-	chatServer, err := server.NewChatServer(logger, dbConn)
+	mux := http.NewServeMux()
+
+	statsUpdater := stats.NewStatsUpdater(mux)
+
+	chatServer, err := server.NewChatServer(logger, dbConn, statsUpdater)
 	if err != nil {
 		logger.Fatal("new chat server:", err)
 	}
 
-	srv := api.NewGoChatApp(logger, chatServer, dbConn, cfg)
+	srv := api.NewGoChatApp(mux, logger, chatServer, dbConn, statsUpdater, cfg)
+
+	statsUpdater.Run()
+	defer statsUpdater.Stop()
 
 	go chatServer.Run()
 
@@ -95,7 +104,10 @@ func main() {
 		logger.Fatalln("HTTP server shutdown:", err)
 	}
 
+	logger.Println("shutting down chat server...")
 	if err := chatServer.Shutdown(shutDownCtx); err != nil {
 		logger.Fatalln("chat server shutdown:", err)
 	}
+
+	logger.Println("shutdown complete")
 }
