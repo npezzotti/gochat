@@ -49,6 +49,17 @@ func (s *GoChatApp) writeJson(w http.ResponseWriter, statusCode int, v interface
 	}
 }
 
+func (s *GoChatApp) healthCheck(w http.ResponseWriter, r *http.Request) {
+	if err := s.db.Ping(); err != nil {
+		resp := NewInternalServerError(err)
+		s.writeJson(w, resp.StatusCode, resp)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte("OK"))
+}
+
 func (s *GoChatApp) createAccount(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -300,7 +311,7 @@ func (s *GoChatApp) createRoom(w http.ResponseWriter, r *http.Request) {
 
 	createRoomReq.Name = strings.TrimSpace(createRoomReq.Name)
 	createRoomReq.Description = strings.TrimSpace(createRoomReq.Description)
-	
+
 	if createRoomReq.Name == "" || createRoomReq.Description == "" {
 		errResp := NewBadRequestError()
 		s.writeJson(w, errResp.StatusCode, errResp)

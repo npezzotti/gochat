@@ -1,6 +1,7 @@
 package database
 
 type GoChatRepository interface {
+	Ping() error
 	CreateAccount(accountParams CreateAccountParams) (User, error)
 	UpdateAccount(params UpdateAccountParams) (User, error)
 	GetAccountById(accountId int) (User, error)

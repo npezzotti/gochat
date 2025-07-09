@@ -39,6 +39,7 @@ func NewGoChatApp(mux *http.ServeMux, logger *log.Logger, cs *server.ChatServer,
 	fs := http.FileServer(http.Dir("./frontend/build"))
 	mux.Handle("/", fs)
 
+	mux.HandleFunc("GET /healthz", app.healthCheck)
 	mux.HandleFunc("POST /api/auth/register", app.createAccount)
 	mux.HandleFunc("POST /api/auth/login", app.login)
 	mux.HandleFunc("GET /api/auth/session", app.authMiddleware(app.session))

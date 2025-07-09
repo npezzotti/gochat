@@ -8,6 +8,10 @@ type MockGoChatRepository struct {
 	mock.Mock
 }
 
+func (m *MockGoChatRepository) Ping() error {
+	args := m.Called()
+	return args.Error(0)
+}
 func (m *MockGoChatRepository) CreateAccount(accountParams CreateAccountParams) (User, error) {
 	args := m.Called(accountParams)
 	return args.Get(0).(User), args.Error(1)

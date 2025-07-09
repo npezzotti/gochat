@@ -23,6 +23,16 @@ func NewPgGoChatRepository(dsn string) (*PgGoChatRepository, error) {
 	return &PgGoChatRepository{conn: db}, nil
 }
 
+func (db *PgGoChatRepository) Ping() error {
+	if db.conn == nil {
+		return fmt.Errorf("database connection is nil")
+	}
+	if err := db.conn.Ping(); err != nil {
+		return fmt.Errorf("failed to ping database: %w", err)
+	}
+	return nil
+}
+
 func (db *PgGoChatRepository) Close() error {
 	if db.conn != nil {
 		return db.conn.Close()
