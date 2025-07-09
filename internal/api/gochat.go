@@ -10,6 +10,7 @@ import (
 	"github.com/npezzotti/go-chatroom/internal/config"
 	"github.com/npezzotti/go-chatroom/internal/database"
 	"github.com/npezzotti/go-chatroom/internal/server"
+	"github.com/npezzotti/go-chatroom/internal/stats"
 	"github.com/teris-io/shortid"
 )
 
@@ -21,9 +22,10 @@ type GoChatApp struct {
 	signingKey      []byte
 	generateShortId func() (string, error)
 	allowedOrigins  []string
+	stats           stats.StatsProvider
 }
 
-func NewGoChatApp(logger *log.Logger, cs *server.ChatServer, db database.GoChatRepository, cfg *config.Config) *GoChatApp {
+func NewGoChatApp(mux *http.ServeMux, logger *log.Logger, cs *server.ChatServer, db database.GoChatRepository, stats stats.StatsProvider, cfg *config.Config) *GoChatApp {
 	app := &GoChatApp{
 		log:             logger,
 		db:              db,
@@ -31,9 +33,8 @@ func NewGoChatApp(logger *log.Logger, cs *server.ChatServer, db database.GoChatR
 		signingKey:      cfg.SigningKey,
 		generateShortId: defaultGenerateShortId,
 		allowedOrigins:  cfg.AllowedOrigins,
+		stats:           stats,
 	}
-
-	mux := http.NewServeMux()
 
 	fs := http.FileServer(http.Dir("./frontend/build"))
 	mux.Handle("/", fs)
@@ -63,13 +64,13 @@ func NewGoChatApp(logger *log.Logger, cs *server.ChatServer, db database.GoChatR
 		Addr:    cfg.ServerAddr,
 		Handler: h,
 	}
-
 	app.mux = srv
+
 	return app
 }
 
 func (s *GoChatApp) Start() error {
-	s.log.Printf("starting server on %s\n", s.mux.Addr)
+	s.log.Printf("server running at %s\n", "http://"+s.mux.Addr)
 	return s.mux.ListenAndServe()
 }
 

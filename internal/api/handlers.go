@@ -539,7 +539,7 @@ func (s *GoChatApp) serveWs(w http.ResponseWriter, r *http.Request) {
 		EmailAddress: user.EmailAddress,
 		CreatedAt:    user.CreatedAt,
 		UpdatedAt:    user.UpdatedAt,
-	}, conn, s.cs, s.log)
+	}, conn, s.cs, s.log, s.stats)
 
 	s.cs.RegisterClient(client)
 	go client.Write()

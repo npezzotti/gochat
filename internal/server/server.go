@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/npezzotti/go-chatroom/internal/database"
+	"github.com/npezzotti/go-chatroom/internal/stats"
 	"github.com/npezzotti/go-chatroom/internal/types"
 )
 
@@ -25,10 +26,11 @@ type ChatServer struct {
 	numRooms       int
 	roomsMap       sync.Map
 	stop           chan stopReq
+	stats          stats.StatsProvider
 }
 
-func NewChatServer(logger *log.Logger, db database.GoChatRepository) (*ChatServer, error) {
-	return &ChatServer{
+func NewChatServer(logger *log.Logger, db database.GoChatRepository, statsUpdater stats.StatsProvider) (*ChatServer, error) {
+	cs := &ChatServer{
 		log:            logger,
 		db:             db,
 		clients:        make(map[*Client]struct{}),
@@ -37,7 +39,15 @@ func NewChatServer(logger *log.Logger, db database.GoChatRepository) (*ChatServe
 		unloadRoomChan: make(chan unloadRoomRequest, 64),
 		broadcastChan:  make(chan *ServerMessage, 256),
 		stop:           make(chan stopReq),
-	}, nil
+		stats:          statsUpdater,
+	}
+
+	cs.stats.RegisterMetric("NumActiveRooms")
+	cs.stats.RegisterMetric("NumActiveClients")
+	cs.stats.RegisterMetric("TotalIncomingMessages")
+	cs.stats.RegisterMetric("TotalOutgoingMessages")
+
+	return cs, nil
 }
 
 func (cs *ChatServer) Run() {
@@ -128,6 +138,8 @@ func (cs *ChatServer) handleJoinRoom(joinMsg *ClientMessage) {
 func (cs *ChatServer) addRoom(id string, r *Room) {
 	cs.roomsMap.Store(id, r)
 	cs.numRooms++
+
+	cs.stats.Incr("NumActiveRooms")
 }
 
 // removeRoom removes a room from the server's list of active rooms by its ID.
@@ -136,6 +148,8 @@ func (cs *ChatServer) removeRoom(id string) {
 	if loaded {
 		cs.numRooms--
 	}
+
+	cs.stats.Decr("NumActiveRooms")
 }
 
 // getRoom retrieves a room by its ID from the server's list of active rooms.
@@ -192,6 +206,8 @@ func (cs *ChatServer) addClient(c *Client) {
 
 	cs.clients[c] = struct{}{}
 	cs.userMap[c.user.Id] = append(cs.userMap[c.user.Id], c)
+
+	cs.stats.Incr("NumActiveClients")
 }
 
 // removeClient removes a client from the server's list of active clients.
@@ -212,6 +228,7 @@ func (cs *ChatServer) removeClient(c *Client) {
 			delete(cs.userMap, c.user.Id)
 		}
 	}
+	cs.stats.Decr("NumActiveClients")
 }
 
 // getClients retrieves all clients associated with a specific user ID.
@@ -233,14 +250,25 @@ func (cs *ChatServer) getClients(userId int) []*Client {
 // It signals the room to exit and waits for the exit to complete.
 // If the room is deleted, it will remove it from the server's list of active rooms.
 func (cs *ChatServer) unloadRoom(id string, deleted bool) {
-	if room, ok := cs.getRoom(id); ok {
-		// signal the room to exit
-		done := make(chan string)
-		room.exit <- exitReq{deleted: deleted, done: done}
-		<-done
+	room, ok := cs.getRoom(id)
+	if !ok {
+		cs.log.Printf("Attempted to unload non-existent room: %s", id)
+		return
 	}
 
-	cs.removeRoom(id)
+	done := make(chan string, 1)
+	select {
+	case room.exit <- exitReq{deleted: deleted, done: done}:
+		// Wait for the room to signal it has exited, but don't block forever
+		select {
+		case <-done:
+			cs.removeRoom(id)
+		case <-time.After(5 * time.Second):
+			cs.log.Printf("Timeout waiting for room %s to unload", id)
+		}
+	default:
+		cs.log.Printf("Room exit channel full for room: %s", id)
+	}
 }
 
 type stopReq struct {

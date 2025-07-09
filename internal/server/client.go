@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/npezzotti/go-chatroom/internal/stats"
 	"github.com/npezzotti/go-chatroom/internal/types"
 )
 
@@ -24,23 +25,25 @@ type Client struct {
 	user       types.User
 	send       chan *ServerMessage
 	rooms      map[string]*Room
-	// roomsLock is a mutex for rooms. rooms is accessed 
+	// roomsLock is a mutex for rooms. rooms is accessed
 	// concurrently by both the client and the room.
 	roomsLock sync.RWMutex
 	exitRoom  chan string
 	stop      chan struct{}
+	stats     stats.StatsProvider
 }
 
-func NewClient(user types.User, conn *websocket.Conn, cs *ChatServer, l *log.Logger) *Client {
+func NewClient(user types.User, conn *websocket.Conn, cs *ChatServer, l *log.Logger, statsUpdater stats.StatsProvider) *Client {
 	return &Client{
 		conn:       conn,
 		chatServer: cs,
 		log:        l,
 		user:       user,
-		send:       make(chan *ServerMessage, 256),
+		send:       make(chan *ServerMessage, 128),
 		rooms:      make(map[string]*Room),
 		exitRoom:   make(chan string, 64),
 		stop:       make(chan struct{}),
+		stats:      statsUpdater,
 	}
 }
 
@@ -64,7 +67,7 @@ func (c *Client) Write() {
 				continue
 			}
 
-			if !c.sendMessage(websocket.TextMessage, bytes) {
+			if !c.sendMessage(bytes) {
 				return
 			}
 		case roomId := <-c.exitRoom:
@@ -73,7 +76,7 @@ func (c *Client) Write() {
 			return
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if !c.sendMessage(websocket.PingMessage, nil) {
+			if err := c.writeWS(websocket.PingMessage, nil); err != nil {
 				return
 			}
 		}
@@ -98,6 +101,8 @@ func (c *Client) Read() {
 			}
 			break
 		}
+
+		c.stats.Incr("TotalIncomingMessages")
 
 		var msg ClientMessage
 		if err := json.Unmarshal(raw, &msg); err != nil {
@@ -159,18 +164,25 @@ func serializeMessage(msg *ServerMessage) ([]byte, error) {
 	return json.Marshal(msg)
 }
 
-func (c *Client) sendMessage(msgType int, msg []byte) bool {
-	c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+func (c *Client) sendMessage(msg []byte) bool {
+	if err := c.writeWS(websocket.TextMessage, msg); err != nil {
+		return false
+	}
+	c.stats.Incr("TotalOutgoingMessages")
 
+	return true
+}
+
+func (c *Client) writeWS(msgType int, msg []byte) error {
+	c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 	if err := c.conn.WriteMessage(msgType, msg); err != nil {
 		if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure,
 			websocket.CloseNormalClosure) {
-			c.log.Printf("write message: %s", err)
+			c.log.Printf("writeWS: %s", err)
 		}
-		return false
+		return err
 	}
-
-	return true
+	return nil
 }
 
 func (c *Client) stopClient() {
