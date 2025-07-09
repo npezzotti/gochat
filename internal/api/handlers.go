@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -55,6 +56,10 @@ func (s *GoChatApp) createAccount(w http.ResponseWriter, r *http.Request) {
 		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
+
+	req.Email = strings.TrimSpace(req.Email)
+	req.Username = strings.TrimSpace(req.Username)
+	req.Password = strings.TrimSpace(req.Password)
 
 	if req.Username == "" || req.Email == "" || req.Password == "" {
 		errResp := NewBadRequestError()
@@ -150,6 +155,9 @@ func (s *GoChatApp) account(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		updateAccountReq.Username = strings.TrimSpace(updateAccountReq.Username)
+		updateAccountReq.Password = strings.TrimSpace(updateAccountReq.Password)
+
 		if updateAccountReq.Username == "" || updateAccountReq.Password == "" {
 			errResp := NewBadRequestError()
 			s.writeJson(w, errResp.StatusCode, errResp)
@@ -229,6 +237,8 @@ func (s *GoChatApp) login(w http.ResponseWriter, r *http.Request) {
 		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
+	lr.Email = strings.TrimSpace(lr.Email)
+	lr.Password = strings.TrimSpace(lr.Password)
 
 	if lr.Email == "" || lr.Password == "" {
 		errResp := NewBadRequestError()
@@ -283,6 +293,15 @@ func (s *GoChatApp) logout(w http.ResponseWriter, _ *http.Request) {
 func (s *GoChatApp) createRoom(w http.ResponseWriter, r *http.Request) {
 	var createRoomReq CreateRoomRequest
 	if err := json.NewDecoder(r.Body).Decode(&createRoomReq); err != nil {
+		errResp := NewBadRequestError()
+		s.writeJson(w, errResp.StatusCode, errResp)
+		return
+	}
+
+	createRoomReq.Name = strings.TrimSpace(createRoomReq.Name)
+	createRoomReq.Description = strings.TrimSpace(createRoomReq.Description)
+	
+	if createRoomReq.Name == "" || createRoomReq.Description == "" {
 		errResp := NewBadRequestError()
 		s.writeJson(w, errResp.StatusCode, errResp)
 		return
