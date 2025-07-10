@@ -37,6 +37,7 @@ var (
 	dsn            string
 	signingKey     string
 	allowedOrigins stringSliceFlag
+	devMode        bool
 )
 
 func main() {
@@ -44,11 +45,12 @@ func main() {
 	flag.StringVar(&dsn, "dsn", "host=localhost user=postgres password=postgres dbname=postgres sslmode=disable", "database connection string")
 	flag.StringVar(&signingKey, "signing-key", defaultSigningKey, "base64 encoded signing key")
 	flag.Var(&allowedOrigins, "allowed-origins", "comma-separated list of allowed origins for CORS")
+	flag.BoolVar(&devMode, "dev", false, "run in development mode (serves frontend files)")
 	flag.Parse()
 
 	logger := log.New(os.Stderr, "[go-chat] ", log.LstdFlags)
 
-	cfg, err := config.NewConfig(addr, dsn, signingKey, allowedOrigins)
+	cfg, err := config.NewConfig(addr, dsn, signingKey, allowedOrigins, devMode)
 	if err != nil {
 		logger.Fatal("config:", err)
 	}

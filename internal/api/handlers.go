@@ -87,7 +87,7 @@ func (s *GoChatApp) createAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	params := database.CreateAccountParams{
-		Username:     req.Username,
+		Username:     req.Username	,
 		EmailAddress: req.Email,
 		PasswordHash: pwdHash,
 	}

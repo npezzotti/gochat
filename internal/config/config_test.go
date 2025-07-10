@@ -15,12 +15,13 @@ func TestNewConfig(t *testing.T) {
 	)
 
 	tcases := []struct {
-		name string
-		addr string
-		dsn  string
-		key  string
-		orig []string
-		err  bool
+		name    string
+		addr    string
+		dsn     string
+		key     string
+		orig    []string
+		devMode bool
+		err     bool
 	}{
 		{
 			name: "valid config",
@@ -58,7 +59,7 @@ func TestNewConfig(t *testing.T) {
 
 	for _, tc := range tcases {
 		t.Run(tc.name, func(t *testing.T) {
-			config, err := NewConfig(tc.addr, tc.dsn, tc.key, tc.orig)
+			config, err := NewConfig(tc.addr, tc.dsn, tc.key, tc.orig, tc.devMode)
 			if tc.err {
 				assert.Error(t, err, "expected error for config: %s", tc.name)
 				return
@@ -68,6 +69,7 @@ func TestNewConfig(t *testing.T) {
 			assert.Equal(t, tc.addr, config.ServerAddr, "expected server address to match")
 			assert.Equal(t, tc.dsn, config.DatabaseDSN, "expected database DSN to match")
 			assert.Equal(t, tc.orig, config.AllowedOrigins, "expected allowed origins to match")
+			assert.Equal(t, tc.devMode, config.DevMode, "expected dev mode to match")
 			assert.NotEmpty(t, config.SigningKey, "expected signing key to be decoded and not empty")
 		})
 	}

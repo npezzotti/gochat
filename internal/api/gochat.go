@@ -36,9 +36,6 @@ func NewGoChatApp(mux *http.ServeMux, logger *log.Logger, cs *server.ChatServer,
 		stats:           stats,
 	}
 
-	fs := http.FileServer(http.Dir("./frontend/build"))
-	mux.Handle("/", fs)
-
 	mux.HandleFunc("GET /healthz", app.healthCheck)
 	mux.HandleFunc("POST /api/auth/register", app.createAccount)
 	mux.HandleFunc("POST /api/auth/login", app.login)
@@ -50,6 +47,11 @@ func NewGoChatApp(mux *http.ServeMux, logger *log.Logger, cs *server.ChatServer,
 	mux.Handle("GET /api/subscriptions", app.authMiddleware(app.getUsersSubscriptions))
 	mux.Handle("GET /api/messages", app.authMiddleware(app.getMessages))
 	mux.Handle("GET /ws", app.authMiddleware(app.serveWs))
+
+	if cfg.DevMode {
+		fs := http.FileServer(http.Dir("./frontend/build"))
+		mux.Handle("/", fs)
+	}
 
 	h := handlers.CORS(
 		handlers.MaxAge(3600),

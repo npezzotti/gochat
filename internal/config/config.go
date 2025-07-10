@@ -10,6 +10,7 @@ type Config struct {
 	ServerAddr     string
 	SigningKey     []byte
 	AllowedOrigins []string
+	DevMode        bool
 }
 
 func decodeSigningSecret(base64Secret string) ([]byte, error) {
@@ -19,7 +20,7 @@ func decodeSigningSecret(base64Secret string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(base64Secret)
 }
 
-func NewConfig(serverAddr, databaseDSN, base64Secret string, allowedOrigins []string) (*Config, error) {
+func NewConfig(serverAddr, databaseDSN, base64Secret string, allowedOrigins []string, devMode bool) (*Config, error) {
 	if serverAddr == "" {
 		return nil, fmt.Errorf("server address cannot be empty")
 	}
@@ -41,5 +42,6 @@ func NewConfig(serverAddr, databaseDSN, base64Secret string, allowedOrigins []st
 		ServerAddr:     serverAddr,
 		SigningKey:     signingKey,
 		AllowedOrigins: allowedOrigins,
+		DevMode:        devMode,
 	}, nil
 }
