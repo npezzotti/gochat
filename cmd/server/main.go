@@ -63,6 +63,12 @@ func main() {
 		}
 	}()
 
+	if err := dbConn.Migrate(); err != nil {
+		logger.Fatal("db migrate:", err)
+	}
+
+	logger.Println("database migrations applied successfully")
+
 	mux := http.NewServeMux()
 
 	statsUpdater := stats.NewStatsUpdater(mux)

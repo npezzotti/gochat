@@ -2,8 +2,13 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
+
+	"github.com/golang-migrate/migrate"
+	"github.com/golang-migrate/migrate/database/postgres"
+	_ "github.com/golang-migrate/migrate/source/file"
 )
 
 type PgGoChatRepository struct {
@@ -33,6 +38,27 @@ func (db *PgGoChatRepository) Ping() error {
 	return nil
 }
 
+func (db *PgGoChatRepository) Migrate() error {
+	driver, err := postgres.WithInstance(db.conn, &postgres.Config{})
+	if err != nil {
+		return fmt.Errorf("failed to create postgres driver: %w", err)
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://internal/database/migrations",
+		"postgres", driver)
+	if err != nil {
+		return fmt.Errorf("failed to create migration instance: %w", err)
+	}
+
+	if err := m.Up(); err != nil {
+		if !errors.Is(err, migrate.ErrNoChange) {
+			return fmt.Errorf("failed to apply migrations: %w", err)
+		}
+	}
+	return nil
+}
+
 func (db *PgGoChatRepository) Close() error {
 	if db.conn != nil {
 		return db.conn.Close()
@@ -41,17 +67,16 @@ func (db *PgGoChatRepository) Close() error {
 }
 
 const (
-	createSubQuery = "INSERT INTO subscriptions (account_id, room_id, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING id, account_id, room_id"
+	createSubQuery = "INSERT INTO subscriptions (account_id, room_id) VALUES ($1, $2) RETURNING id, account_id, room_id"
 )
 
 func (db *PgGoChatRepository) CreateAccount(accountParams CreateAccountParams) (User, error) {
 	res := db.conn.QueryRow(
-		"INSERT INTO accounts (username, email, password_hash, created_at) "+
-			"VALUES ($1, $2, $3, $4) RETURNING id, username, email, password_hash, created_at, updated_at",
+		"INSERT INTO accounts (username, email, password_hash) "+
+			"VALUES ($1, $2, $3) RETURNING id, username, email, password_hash, created_at, updated_at",
 		accountParams.Username,
 		accountParams.EmailAddress,
 		accountParams.PasswordHash,
-		time.Now().UTC(),
 	)
 
 	var u User
@@ -255,14 +280,12 @@ func (db *PgGoChatRepository) CreateRoom(params CreateRoomParams) (Room, error) 
 		}
 	}()
 	res := tx.QueryRow(
-		"INSERT INTO rooms (name, external_id, description, owner_id, created_at, updated_at) "+
-			"VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, external_id, description, owner_id, created_at, updated_at",
+		"INSERT INTO rooms (name, external_id, description, owner_id) "+
+			"VALUES ($1, $2, $3, $4) RETURNING id, name, external_id, description, owner_id, created_at, updated_at",
 		params.Name,
 		params.ExternalId,
 		params.Description,
 		params.OwnerId,
-		time.Now().UTC(),
-		time.Now().UTC(),
 	)
 
 	var room Room
@@ -283,8 +306,6 @@ func (db *PgGoChatRepository) CreateRoom(params CreateRoomParams) (Room, error) 
 		createSubQuery,
 		params.OwnerId,
 		room.Id,
-		time.Now().UTC(),
-		time.Now().UTC(),
 	)
 	if err != nil {
 		return Room{}, err
@@ -331,8 +352,6 @@ func (db *PgGoChatRepository) CreateSubscription(userId, roomId int) (Subscripti
 		createSubQuery,
 		userId,
 		roomId,
-		time.Now().UTC(),
-		time.Now().UTC(),
 	)
 
 	var sub Subscription
