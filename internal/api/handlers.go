@@ -80,19 +80,21 @@ func (s *GoChatApp) createAccount(w http.ResponseWriter, r *http.Request) {
 
 	pwdHash, err := hashPassword(req.Password)
 	if err != nil {
+		s.log.Printf("hashPassword: %v", err)
 		errResp := NewInternalServerError(err)
 		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
 
 	params := database.CreateAccountParams{
-		Username:     r.Form.Get("username"),
-		EmailAddress: r.Form.Get("email"),
+		Username:     req.Username,
+		EmailAddress: req.Email,
 		PasswordHash: pwdHash,
 	}
 
 	newUser, err := s.db.CreateAccount(params)
 	if err != nil {
+		s.log.Printf("createAccount: %v", err)
 		errResp := NewInternalServerError(err)
 		s.writeJson(w, errResp.StatusCode, errResp)
 		return
@@ -342,7 +344,8 @@ func (s *GoChatApp) createRoom(w http.ResponseWriter, r *http.Request) {
 
 	newRoom, err := s.db.CreateRoom(params)
 	if err != nil {
-		errResp := NewBadRequestError()
+		s.log.Printf("createRoom: %v", err)
+		errResp := NewInternalServerError(err)
 		s.writeJson(w, errResp.StatusCode, errResp)
 		return
 	}
