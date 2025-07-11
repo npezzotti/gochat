@@ -824,7 +824,7 @@ func Test_createRoom(t *testing.T) {
 			mockRoom:    mockRoom,
 			mockErr:     errors.New("db error"),
 			shortIdErr:  nil,
-			expectedErr: NewBadRequestError(),
+			expectedErr: NewInternalServerError(nil),
 		},
 	}
 	for _, tc := range tcases {
