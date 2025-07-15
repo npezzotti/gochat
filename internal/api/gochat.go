@@ -46,7 +46,7 @@ func NewGoChatApp(mux *http.ServeMux, logger *log.Logger, cs *server.ChatServer,
 	mux.Handle("DELETE /api/rooms", app.authMiddleware(app.deleteRoom))
 	mux.Handle("GET /api/subscriptions", app.authMiddleware(app.getUsersSubscriptions))
 	mux.Handle("GET /api/messages", app.authMiddleware(app.getMessages))
-	mux.Handle("GET /ws", app.authMiddleware(app.serveWs))
+	mux.Handle("GET /api/ws", app.authMiddleware(app.serveWs))
 
 	if cfg.DevMode {
 		fs := http.FileServer(http.Dir("./frontend/build"))

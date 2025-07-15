@@ -69,7 +69,7 @@ export default function Main({ currentUser, setCurrentUser }) {
   }
 
   useEffect(() => {
-    const wsConn = new GoChatWSClient("ws://localhost:8000/ws");
+    const wsConn = new GoChatWSClient("/api/ws");
     setWsClient(wsConn);
 
     wsConn.onServerMessageMessage = (msg) => {
