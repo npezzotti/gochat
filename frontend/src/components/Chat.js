@@ -1,4 +1,4 @@
-import { use, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEllipsisVertical } from '@fortawesome/free-solid-svg-icons'
 
@@ -6,7 +6,6 @@ import '../App.css';
 import ChatMessage from './ChatMessage';
 import RoomInfoPanel from './RoomInfoPanel';
 import goChatClient from '../gochat';
-import GoChatWSClient from '../gochatws';
 
 export default function Chat({ currentUser, currentRoom, setCurrentRoom, rooms, setRooms, messages, setMessages, wsClient }) {
   const [roomInfoPanelVisible, setRoomInfoPanelVisible] = useState(false);
