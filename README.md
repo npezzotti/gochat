@@ -1,34 +1,77 @@
-# Todo
+# Go Chatroom
 
-* Websocket client
-* Chat client (w/Rest APIs and Websocket connectionse)
-** isAuthenticated
-* Frontend notifications
-* Delete user
+A simple real-time chatroom application built with Go and React.
 
-## Nice to have
+## Features
 
-* Re-establish connection
-* Upload files- will require separate API endpoint, local storage, and updating structure of chat message type
+- Real-time messaging using WebSockets
+- Support for multiple chatrooms
+- User accounts with JWT authentication
+- RESTful API
+- Server events/notifications via WebSocket
+- Data persistence (rooms, chat history, etc.)
+- User-friendly web interface
+- Metrics
 
+## Technologies Used
 
-## WS client message types
+- Golang
+- Gorilla WebSocket
+- React, React Router
+- CSS
+- Javascript
+- testify (testing framework)
+- Docker (development)
+- Terraform
+- AWS
+- Nginx
 
-* Join room
-* Leave room
-* Publish message
+## Development Installation
 
+**Clone the repository:**
+```bash
+git clone https://github.com/npezzotti/gochat.git
+cd gochat
+```
 
-## WS server message types
+**Install dependencies:**
+```bash
+go get ./...
+```
 
-* Presence
-* * User is present in a room the user is active in
-* * User no longer present in a room the user is active in
-* Subscription
-* * User subscribed to a room (sent to all users active in room)
-* * User unsubscribed from a room (sent to all users active in room)
-* Publish
-* * Message published to a room (sent to all users active in room)
-* * Message published to room user to which user is subscribed to, but not active in (sent to all subscribed users)
-* Notification
-* * A room which a user is active in was deleted. (sent to all active users)
+**Build and run the application:**
+```bash
+make run
+```
+
+**Open your browser:**
+Visit `http://localhost:8080`
+
+## Screenshots
+
+![Chatroom Screenshot](assets/gochat.png)
+
+## Project Structure
+
+```
+gochat/
+├── cmd/
+├── frontend/
+├── internal/
+└── terraform/
+```
+
+* `cmd/server`: Main entrypoint of the server
+* `frontend/`: React applicaiton and other JS comprising the UI
+* `internal/api`: REST API, HTTP handlers, middleware, and authentication
+* `internal/config`: Configuration
+* `internal/database/`: Database interfaces and migrations
+* `internal/server/`: Chat server
+* `internal/stats/`: Metrics system
+* `internal/testutil/`: Test utils
+* `internal/types/`: Types used by both the chat server and API
+* `terraform/`: Terraform code and scripts used to provision infrastucture in AWS and deploy application
+
+## Why I Built This
+
+I created this project to deepen my understanding of real-time web applications and Go's concurrency model. It also serves as a showcase of my ability to design and implement scalable backend systems.
