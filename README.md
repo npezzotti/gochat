@@ -17,10 +17,12 @@ A simple real-time chatroom application built with Go and React.
 
 - Golang
 - Gorilla WebSocket
+- JWT (JSON Web Tokens)
+- PostgreSQL
+- Testify (testing framework)
 - React, React Router
 - CSS
 - Javascript
-- testify (testing framework)
 - Docker (development)
 - Terraform
 - AWS
