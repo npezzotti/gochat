@@ -2,14 +2,18 @@ package database
 
 import (
 	"database/sql"
+	"embed"
 	"errors"
 	"fmt"
 	"time"
 
-	"github.com/golang-migrate/migrate"
-	"github.com/golang-migrate/migrate/database/postgres"
-	_ "github.com/golang-migrate/migrate/source/file"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
+
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
 type PgGoChatRepository struct {
 	conn *sql.DB
@@ -44,9 +48,12 @@ func (db *PgGoChatRepository) Migrate() error {
 		return fmt.Errorf("failed to create postgres driver: %w", err)
 	}
 
-	m, err := migrate.NewWithDatabaseInstance(
-		"file://internal/database/migrations",
-		"postgres", driver)
+	d, err := iofs.New(migrationsFS, "migrations")
+	if err != nil {
+		return fmt.Errorf("failed to create migrations filesystem: %w", err)
+	}
+
+	m, err := migrate.NewWithInstance("iofs", d, "postgres", driver)
 	if err != nil {
 		return fmt.Errorf("failed to create migration instance: %w", err)
 	}
