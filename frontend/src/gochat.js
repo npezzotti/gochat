@@ -3,7 +3,7 @@ class GoChatClient {
 
   constructor(host) {
     this.host = host;
-    this.baseUrl = "http://" + this.host;
+    this.baseUrl = "https://" + this.host;
   }
 
   async _request(method, endpoint, data, params = {}) {
