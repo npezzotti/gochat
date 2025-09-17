@@ -1,9 +1,8 @@
 class GoChatClient {
   static MESSAGES_PAGE_LIMIT = 10
 
-  constructor(host) {
-    this.host = host;
-    this.baseUrl = "https://" + this.host;
+  constructor(baseUrl) {
+    this.baseUrl = baseUrl;
   }
 
   async _request(method, endpoint, data, params = {}) {
@@ -102,7 +101,7 @@ class GoChatClient {
   }
 }
 
-const goChatClient = new GoChatClient(document.location.host);
-// const goChatWSClient = new GoChatWSClient("ws://" + document.location.host + "/ws");
+const baseUrl = document.location.protocol + "//" + document.location.host
+const goChatClient = new GoChatClient(document.location.protocol + "//" + document.location.host);
 
 export default goChatClient;
