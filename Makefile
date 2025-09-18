@@ -46,6 +46,10 @@ run: db/stop db
 go/fmt:
 	@echo "Formatting Go code..."
 	@go fmt ./...
+go/build: go/fmt
+	@echo "Building Go application..."
+	@GOOS=linux GOARCH=amd64 go build -o ${BIN_PATH} ${MAIN_PACKAGE_PATH}
+	@echo "Build complete. Executable is located in ${BIN_PATH}"
 .PHONY: packer/fmt
 packer/fmt: packer/init
 	@echo "Formatting Packer configuration..."
@@ -57,15 +61,12 @@ terraform/fmt: terraform/init
 .PHONY: fmt
 fmt: go/fmt packer/fmt terraform/fmt
 .PHONY: build/app
-build/app: go/fmt fmt
-	@echo "Building the server..."
-	@GOOS=linux GOARCH=amd64 go build -o ${BIN_PATH} ${MAIN_PACKAGE_PATH}
-	@echo "Build complete. Executable is located in ${BIN_PATH}"
+frontend/build: 
 	@echo "Building the frontend..."
 	@cd frontend && npm install && npm run build
 	@echo "Frontend build complete."
 .PHONY: build
-build: fmt build/app
+build: go/build frontend/build
 	@echo "Building AMI with Packer..."
 	@pushd ${PACKER_DIR}; packer build gochat.pkr.hcl; popd
 	@echo "AMI build complete."
