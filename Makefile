@@ -8,6 +8,7 @@ TERRAFORM_DIR = ./terraform
 DEV_BACKEND_ADDR = localhost:8000
 
 all: run
+.PHONY: db
 db:
 	@echo "Starting the database container..."
 	@docker run --rm -d \
@@ -38,7 +39,6 @@ run/server:
 run/frontend:
 	@echo "Starting the frontend..."
 	@cd ${FRONTEND_DIR} && npm install && DANGEROUSLY_DISABLE_HOST_CHECK=true REACT_APP_WS_DEV_HOST=${DEV_BACKEND_ADDR} npm start
-.PHONY: db
 .PHONY: run
 run: db/stop db
 	@$(MAKE) -j2 run/server run/frontend
@@ -46,57 +46,64 @@ run: db/stop db
 go/fmt:
 	@echo "Formatting Go code..."
 	@go fmt ./...
-.PHONY: packer/fmt
-packer/fmt: packer/init
-	@echo "Formatting Packer configuration..."
-	@pushd ${PACKER_DIR}; packer fmt gochat.pkr.hcl; popd
-.PHONY: terraform/fmt
-terraform/fmt: terraform/init
-	@echo "Formatting Terraform configuration..."
-	@pushd ${TERRAFORM_DIR}; terraform fmt; popd
-.PHONY: fmt
-fmt: go/fmt packer/fmt terraform/fmt
-.PHONY: build/app
-build/app: go/fmt fmt
-	@echo "Building the server..."
+.PHONY: go/build
+go/build: go/fmt
+	@echo "Building Go application..."
 	@GOOS=linux GOARCH=amd64 go build -o ${BIN_PATH} ${MAIN_PACKAGE_PATH}
 	@echo "Build complete. Executable is located in ${BIN_PATH}"
+.PHONY: frontend/build
+frontend/build: 
 	@echo "Building the frontend..."
-	@cd frontend && npm install && npm run build
+	@cd ${FRONTEND_DIR} && npm install && npm run build
 	@echo "Frontend build complete."
-.PHONY: build
-build: fmt build/app
-	@echo "Building AMI with Packer..."
-	@pushd ${PACKER_DIR}; packer build gochat.pkr.hcl; popd
-	@echo "AMI build complete."
 .PHONY: packer/init
 packer/init:
 	@echo "Initializing Packer..."
 	@pushd ${PACKER_DIR}; packer init .; popd
 	@echo "Packer initialized."
+.PHONY: packer/fmt
+packer/fmt: packer/init
+	@echo "Formatting Packer configuration..."
+	@pushd ${PACKER_DIR}; packer fmt gochat.pkr.hcl; popd
 .PHONY: packer/validate
 packer/validate: packer/init
 	@echo "Validating Packer configuration..."
 	@pushd ${PACKER_DIR}; packer init . && packer validate gochat.pkr.hcl; popd
 	@echo "Packer configuration is valid."
+.PHONY: packer/build
+packer/build:
+	@echo "Building AMI with Packer..."
+	@pushd ${PACKER_DIR}; packer build gochat.pkr.hcl; popd
+	@echo "AMI build complete."
 .PHONY: terraform/init
 terraform/init:
 	@echo "Initializing Terraform..."
 	@pushd ${TERRAFORM_DIR}; terraform init -input=false; popd
 	@echo "Terraform initialized."
+.PHONY: terraform/fmt
+terraform/fmt: terraform/init
+	@echo "Formatting Terraform configuration..."
+	@pushd ${TERRAFORM_DIR}; terraform fmt; popd
 .PHONY: terraform/validate
 terraform/validate: terraform/init
 	@echo "Initializing Terraform configuration..."
 	@pushd ${TERRAFORM_DIR}; terraform init && terraform validate; popd
 	@echo "Terraform configuration is valid."
+.PHONY: fmt
+fmt: go/fmt packer/fmt terraform/fmt
 .PHONY: validate
 validate: packer/validate terraform/validate
+.PHONY: build
+build: go/build frontend/build
+	@echo "Building AMI with Packer..."
+	@pushd ${PACKER_DIR}; packer build gochat.pkr.hcl; popd
+	@echo "AMI build complete."
 .PHONY: deploy
-deploy: packer/init terraform/init build
+deploy: build packer/init terraform/init
 	@echo "Deploying the application..."
-	@pusdh terraform
+	@pushd ${TERRAFORM_DIR}
 	terraform plan -out=tfplan -input=false
-	terraform apply -input=false tfplan
+	terraform apply -auto-approve -input=false tfplan
 	@popd
 	@echo "Deployment complete."
 .PHONY: clean
