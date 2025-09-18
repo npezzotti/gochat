@@ -47,11 +47,11 @@ go/fmt:
 	@echo "Formatting Go code..."
 	@go fmt ./...
 .PHONY: packer/fmt
-packer/fmt:
+packer/fmt: packer/init
 	@echo "Formatting Packer configuration..."
 	@pushd ${PACKER_DIR}; packer fmt gochat.pkr.hcl; popd
 .PHONY: terraform/fmt
-terraform/fmt:
+terraform/fmt: terraform/init
 	@echo "Formatting Terraform configuration..."
 	@pushd ${TERRAFORM_DIR}; terraform fmt; popd
 .PHONY: fmt
