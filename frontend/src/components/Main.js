@@ -69,7 +69,9 @@ export default function Main({ currentUser, setCurrentUser }) {
   }
 
   useEffect(() => {
-    const wsConn = new GoChatWSClient(document.location.protocol + "//" + document.location.host + "/api/ws");
+    const host = process.env.REACT_APP_WS_DEV_HOST || document.location.host;
+    console.log("Using WebSocket host: " + host);
+    const wsConn = new GoChatWSClient(document.location.protocol + "//" + host + "/api/ws");
     setWsClient(wsConn);
 
     wsConn.onServerMessageMessage = (msg) => {
