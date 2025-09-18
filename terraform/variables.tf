@@ -67,5 +67,5 @@ variable "signing_key" {
 variable "app_addr" {
   description = "The address the app will run on"
   type        = string
-  default     = "localhost:8000" 
+  default     = "localhost:8000"
 }

@@ -88,11 +88,11 @@ resource "aws_launch_template" "app" {
   name          = "${local.app_name}-lt"
   image_id      = data.aws_ami.app.id
   instance_type = var.instance_type
-  
+
   iam_instance_profile {
     name = aws_iam_instance_profile.ssm.name
   }
-  
+
   user_data = base64encode(templatefile("${path.module}/templates/user_data.sh.tpl", {
     addr            = var.app_addr,
     db_dsn          = "host=${aws_db_instance.app.address} port=${aws_db_instance.app.port} user=${var.db_user} password=${var.db_password} dbname=${var.db_name} sslmode=require",
