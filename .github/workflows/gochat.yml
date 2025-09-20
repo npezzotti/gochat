@@ -2,9 +2,9 @@ name: 'GoChat CI/CD'
 
 on:
   push:
-    branches: [ $default-branch ]
+    branches: [ main ]
   pull_request:
-    branches: [ $default-branch ]
+    branches: [ main ]
 
 permissions:
   contents: read
@@ -23,7 +23,7 @@ jobs:
       run: make test
       
   build:
-    if: github.event_name == 'push' && github.base_ref == 'refs/heads/$default-branch'
+    if: github.event_name == 'push' && github.base_ref == 'refs/heads/main'
     name: Build
     runs-on: ubuntu-latest
     steps:
@@ -69,7 +69,7 @@ jobs:
       run: "packer build -color=false -on-error=abort packer/gochat.pkr.hcl"
 
   terraform:
-    if: github.event_name == 'push' && github.base_ref == 'refs/heads/$default-branch'
+    if: github.event_name == 'push' && github.base_ref == 'refs/heads/main'
     name: Terraform
     runs-on: ubuntu-latest
     environment: production
@@ -100,5 +100,5 @@ jobs:
       run: terraform plan -input=false -out=tfplan
 
     - name: Terraform Apply
-      if: github.ref == 'refs/heads/$default-branch' && github.event_name == 'push'
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       run: terraform apply -auto-approve -input=false tfplan
