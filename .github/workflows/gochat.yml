@@ -26,7 +26,7 @@ jobs:
       run: make test
       
   build:
-    if: github.event_name == 'push' && github.base_ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     name: Build
     runs-on: ubuntu-latest
     steps:
@@ -69,10 +69,10 @@ jobs:
 
     - name: Run `packer build`
       id: build
-      run: "packer build -color=false -on-error=abort packer/gochat.pkr.hcl"
+      run: "packer build -color=false -on-error=abort -var=domain_name=${{ vars.DOMAIN_NAME }} packer/gochat.pkr.hcl"
 
   terraform:
-    if: github.event_name == 'push' && github.base_ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     name: Terraform
     runs-on: ubuntu-latest
     environment: production
