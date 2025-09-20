@@ -1,4 +1,4 @@
-name: 'Deploy Infrastructure'
+name: 'GoChat CI/CD'
 
 on:
   push:
