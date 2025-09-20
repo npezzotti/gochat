@@ -1146,7 +1146,7 @@ func Test_getUsersSubscriptions(t *testing.T) {
 }
 
 func Test_getMessages(t *testing.T) {
-	fixedTime := time.Date(2025, time.June, 28, 11, 17, 54, 692262000, time.Local)
+	fixedTime := time.Date(2025, time.June, 28, 11, 17, 54, 692262000, time.UTC)
 	mockMessages := []database.Message{
 		{
 			Id:        3,
