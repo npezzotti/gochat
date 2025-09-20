@@ -44,7 +44,6 @@ run: db/stop db
 fmt:
 	@echo "Formatting Go code..."
 	@go fmt ./...
-.PHONY: go/build
 .PHONY: test
 test:
 	go test -v -race ./...
