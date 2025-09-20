@@ -1,0 +1,104 @@
+name: 'Deploy Infrastructure'
+
+on:
+  push:
+    branches: [ $default-branch ]
+  pull_request:
+    branches: [ $default-branch ]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.24'
+
+    - name: Run tests with Make
+      run: make test
+      
+  build:
+    if: github.event_name == 'push' && github.base_ref == 'refs/heads/$default-branch'
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.24'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '24'
+
+    - name: Build with Make
+      run: make build
+
+    - name:  Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v5.0.0
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        role-session-name: GitHubActions
+        aws-region: us-east-1
+      
+    - name: Setup `packer`
+      uses: hashicorp/setup-packer@main
+      id: setup
+      with:
+        version: "latest"
+
+    - name: Run `packer init`
+      id: init
+      run: "packer init packer/gochat.pkr.hcl"
+
+    - name: Run `packer validate`
+      id: validate
+      run: "packer validate packer/gochat.pkr.hcl"
+
+    - name: Run `packer build`
+      id: build
+      run: "packer build -color=false -on-error=abort packer/gochat.pkr.hcl"
+
+  terraform:
+    if: github.event_name == 'push' && github.base_ref == 'refs/heads/$default-branch'
+    name: Terraform
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name:  Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v5.0.0
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        role-session-name: GitHubActions
+        aws-region: us-east-1
+      
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v1
+      with:
+        terraform_version: latest
+
+    - name: Terraform Init
+      run: terraform init
+
+    - name: Terraform Format
+      run: terraform fmt -check
+
+    - name: Terraform Plan
+      run: terraform plan -input=false -out=tfplan
+
+    - name: Terraform Apply
+      if: github.ref == 'refs/heads/$default-branch' && github.event_name == 'push'
+      run: terraform apply -auto-approve -input=false tfplan
