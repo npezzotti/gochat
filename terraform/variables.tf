@@ -69,3 +69,4 @@ variable "app_addr" {
   type        = string
   default     = "localhost:8000"
 }
+
