@@ -102,6 +102,6 @@ class GoChatClient {
 }
 
 const baseUrl = document.location.protocol + "//" + document.location.host
-const goChatClient = new GoChatClient(document.location.protocol + "//" + document.location.host);
+const goChatClient = new GoChatClient(baseUrl);
 
 export default goChatClient;

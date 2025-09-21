@@ -76,7 +76,7 @@ export default function Chat({ currentUser, currentRoom, setCurrentRoom, rooms, 
             });
         });
     }
-  }, [currentRoom]);
+  }, [currentRoom, setMessages, setRooms, wsClient]);
 
   useEffect(() => {
     if (!loadingMsgs) {
@@ -167,10 +167,10 @@ export default function Chat({ currentUser, currentRoom, setCurrentRoom, rooms, 
               <FontAwesomeIcon icon={faEllipsisVertical} style={{ display: roomInfoPanelVisible ? 'none' : 'block' }} />
             </button>
             <div id="room-opts-dropdown-content" className="dropdown-content" style={{ display: showDropdownContent ? 'block' : 'none' }}>
-              <a id="room-details-btn" onClick={toggleRoomInfoPanel}>Room Details</a>
-              <a id="leave-rm-btn" onClick={handleLeaveRoom}>Leave Room</a>
+              <button id="room-details-btn" onClick={toggleRoomInfoPanel}>Room Details</button>
+              <button id="leave-rm-btn" onClick={handleLeaveRoom}>Leave Room</button>
               {currentRoom?.owner_id === currentUser.id ?
-                <a id="delete-rm-btn" onClick={handleDeleteRoom}>Delete Room</a> :
+                <button id="delete-rm-btn" onClick={handleDeleteRoom}>Delete Room</button> :
                 ''
               }
             </div>

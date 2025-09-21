@@ -35,8 +35,8 @@ export default function RoomListHeader({ currentUser, setShowAddUser, setShowEdi
             <FontAwesomeIcon icon={faGear} />
           </button>
           <div className="dropdown-content" style={{ display: showDropdownContent ? 'block' : 'none' }}>
-            <a id="account" onClick={() => { setShowEditAccount(true) }}>Account</a>
-            <a id="logout-btn" onClick={handleLogout}>Logout</a>
+            <button id="account" onClick={() => { setShowEditAccount(true) }}>Account</button>
+            <button id="logout-btn" onClick={handleLogout}>Logout</button>
           </div>
         </div>
       </div>

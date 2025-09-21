@@ -98,14 +98,23 @@ body {
   z-index: 1;
 }
 
-.dropdown-content a {
+.dropdown-content button {
   padding: 12px 16px;
   text-decoration: none;
-  cursor: pointer;
   display: block;
+  outline: none;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  width: 100%;
+  box-shadow: none;
+  text-align: inherit;
+  appearance: none;
+  cursor: pointer;
 }
 
-.dropdown-content a:hover {
+.dropdown-content button:hover {
   background-color: #62b3f8;
 }
 
