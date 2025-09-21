@@ -49,9 +49,7 @@ jobs:
 
     - name: Build with Make
       run: make build
-      env:
-        CI: false # temporarily false to allow frontend build with warnings
-
+    
     - name:  Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v5.0.0
       with:
@@ -110,6 +108,7 @@ jobs:
 
     - name: Terraform Plan
       if: github.event_name == 'pull_request'
+      id: plan
       run: terraform -chdir=terraform plan -no-color -input=false
       continue-on-error: true
       env:
@@ -117,6 +116,20 @@ jobs:
         TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
         TF_VAR_acm_certificate_domain: ${{ secrets.ACM_CERTIFICATE_DOMAIN }}
         TF_VAR_route53_zone_id: ${{ secrets.ROUTE53_ZONE_ID }}
+
+    - name: Write TF Plan to PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const plan_output = ${steps.plan.outputs.stdout} || ${steps.plan.outputs.stderr};
+          const comment = `## Terraform Plan\n\`\`\`\n${plan_output}\n\`\`\``;
+          const prNumber = context.payload.pull_request.number;
+          await github.issues.createComment({
+            ...context.repo,
+            issue_number: prNumber,
+            body: comment
+          });
 
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
