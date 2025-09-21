@@ -117,6 +117,11 @@ resource "aws_autoscaling_group" "app" {
   vpc_zone_identifier = aws_subnet.private[*].id
   target_group_arns   = [aws_lb_target_group.app.arn]
 
+  instance_maintenance_policy {
+    max_healthy_percentage = 100
+    min_healthy_percentage = 90
+  }
+  
   tag {
     key                 = "Name"
     value               = "${local.app_name}-instance"
