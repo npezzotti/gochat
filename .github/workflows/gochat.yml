@@ -122,4 +122,4 @@ jobs:
     - name: Instance Refresh
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       run: |
-        aws autoscaling start-instance-refresh --auto-scaling-group-name $(terraform output -raw asg_name) --preferences '{"MinHealthyPercentage":90,"InstanceWarmup":300}'
+        aws autoscaling start-instance-refresh --auto-scaling-group-name $(terraform -chdir=terraform output -raw asg_name) --preferences '{"MinHealthyPercentage":90,"InstanceWarmup":300}'
