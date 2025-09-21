@@ -65,7 +65,7 @@ build {
   sources = ["sources.amazon-ebs.ubuntu"]
 
   provisioner "file" {
-    content = templatefile("${path.root}/templates/nginx.conf.tpl", {
+    content = templatefile("templates/nginx.conf.tpl", {
       domain   = var.domain_name,
       app_addr = var.app_addr
     })
@@ -85,17 +85,17 @@ build {
   }
 
   provisioner "file" {
-    source      = "${path.root}/${var.bin_path}"
+    source      = "${var.bin_path}"
     destination = "/tmp/gochat"
   }
 
   provisioner "file" {
-    source      = "${path.root}/${var.frontend_dir}"
+    source      = "${var.frontend_dir}"
     destination = "/tmp/frontend"
   }
 
   provisioner "file" {
-    content     = templatefile("${path.root}/templates/gochat.service.tpl", {})
+    content     = templatefile("templates/gochat.service.tpl", {})
     destination = "/tmp/gochat.service"
   }
 
