@@ -28,7 +28,6 @@ jobs:
       run: make test
       
   build:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     name: Build
     needs: test
     runs-on: ubuntu-latest
