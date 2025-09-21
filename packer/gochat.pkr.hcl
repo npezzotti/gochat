@@ -85,12 +85,12 @@ build {
   }
 
   provisioner "file" {
-    source      = "${var.bin_path}"
+    source      = "${path.root}/${var.bin_path}"
     destination = "/tmp/gochat"
   }
 
   provisioner "file" {
-    source      = "${var.frontend_dir}"
+    source      = "${path.root}/${var.frontend_dir}"
     destination = "/tmp/frontend"
   }
 
