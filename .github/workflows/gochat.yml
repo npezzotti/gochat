@@ -121,3 +121,8 @@ jobs:
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       run: terraform -chdir=terraform apply -no-color -input=false -auto-approve
+      env:
+        TF_VAR_signing_key: ${{ secrets.SIGNING_KEY }}
+        TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+        TF_VAR_acm_certificate_domain: ${{ secrets.ACM_CERTIFICATE_DOMAIN }}
+        TF_VAR_route53_zone_id: ${{ secrets.ROUTE53_ZONE_ID }}
