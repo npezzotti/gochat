@@ -28,6 +28,7 @@ jobs:
       
   build:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
     name: Build
     runs-on: ubuntu-latest
     steps:
@@ -69,10 +70,14 @@ jobs:
     - name: Run `packer validate`
       id: validate
       run: "packer validate packer/gochat.pkr.hcl"
+      env:
+        PKR_VAR_domain_name: ${{ vars.DOMAIN_NAME }}
 
     - name: Run `packer build`
       id: build
-      run: "packer build -color=false -on-error=abort -var=domain_name=${{ vars.DOMAIN_NAME }} packer/gochat.pkr.hcl"
+      run: "packer build -color=false -on-error=abort packer/gochat.pkr.hcl"
+      env:
+        PKR_VAR_domain_name: ${{ vars.DOMAIN_NAME }}
 
   terraform:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
