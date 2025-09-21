@@ -121,7 +121,7 @@ resource "aws_autoscaling_group" "app" {
     max_healthy_percentage = 100
     min_healthy_percentage = 90
   }
-  
+
   tag {
     key                 = "Name"
     value               = "${local.app_name}-instance"
