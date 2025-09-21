@@ -84,7 +84,6 @@ jobs:
     name: Terraform
     runs-on: ubuntu-latest
     needs: build
-    environment: production
     
     steps:
     - name: Checkout
