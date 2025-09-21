@@ -80,7 +80,6 @@ jobs:
         PKR_VAR_domain_name: ${{ vars.DOMAIN_NAME }}
 
   terraform:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     name: Terraform
     runs-on: ubuntu-latest
     needs: build
@@ -122,5 +121,5 @@ jobs:
     - name: Instance Refresh
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       run: |
-        ASG_NAME=$(terraform output -raw asg_name)
+        ASG_NAME=$(terraform -chdir=terraform output -raw asg_name)
         aws autoscaling start-instance-refresh --auto-scaling-group-name "$ASG_NAME" --preferences '{"MinHealthyPercentage":90,"InstanceWarmup":300}'
