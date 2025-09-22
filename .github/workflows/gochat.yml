@@ -30,7 +30,6 @@ jobs:
       run: make test
       
   build:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     name: Build
     needs: test
     runs-on: ubuntu-latest
@@ -111,7 +110,7 @@ jobs:
     - name: Terraform Plan
       if: github.event_name == 'pull_request'
       id: plan
-      run: terraform -chdir=terraform plan -no-color -input=false
+      run: terraform -chdir=terraform plan -no-color -input=false 2>&1
       continue-on-error: true
       env:
         TF_VAR_signing_key: ${{ secrets.SIGNING_KEY }}
@@ -122,16 +121,22 @@ jobs:
     - name: Write TF Plan to PR
       if: github.event_name == 'pull_request'
       uses: actions/github-script@v6
+      env:
+        PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
       with:
         script: |
-          const plan_output = ${steps.plan.outputs.stdout} || ${steps.plan.outputs.stderr};
-          const comment = `## Terraform Plan\n\`\`\`\n${plan_output}\n\`\`\``;
+          const planOutput = process.env.PLAN_OUTPUT;
+          const comment = `## Terraform Plan\n\`\`\`\n${planOutput}\n\`\`\``;
           const prNumber = context.payload.pull_request.number;
-          await github.issues.createComment({
+          await github.rest.issues.createComment({
             ...context.repo,
             issue_number: prNumber,
             body: comment
           });
+
+    - name: Check For Plan Error
+      if: github.event_name == 'pull_request' && steps.plan.outcome == 'failure'
+      run: exit 1
 
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
