@@ -123,6 +123,22 @@ jobs:
         PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
       with:
         script: |
+          const {data: comments} = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number
+          });
+
+          // Remove old Terraform comments
+          const oldComments = comments.filter(comment => comment.body.startsWith('## Terraform Plan'));
+          for (const comment of oldComments) {
+            await github.rest.issues.deleteComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: comment.id
+            });
+          }
+
           const planOutput = process.env.PLAN_OUTPUT;
           const comment = `## Terraform Plan\n\`\`\`\n${planOutput}\n\`\`\``;
           const prNumber = context.payload.pull_request.number;
