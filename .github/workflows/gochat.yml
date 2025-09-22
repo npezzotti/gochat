@@ -121,7 +121,7 @@ jobs:
       uses: actions/github-script@v6
       with:
         script: |
-          const planOutput = steps.plan.outputs.stdout || steps.plan.outputs.stderr;
+          const planOutput = github.steps.plan.outputs.stdout || github.steps.plan.outputs.stderr;
           const comment = `## Terraform Plan\n\`\`\`\n${planOutput}\n\`\`\``;
           const prNumber = context.payload.pull_request.number;
           await github.issues.createComment({
