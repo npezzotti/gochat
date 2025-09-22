@@ -5,6 +5,8 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+    paths:
+      - '!.github/**' # Ignore changes to workflow files
 
 permissions:
   contents: read
