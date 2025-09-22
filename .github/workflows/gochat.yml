@@ -126,7 +126,7 @@ jobs:
           const planOutput = process.env.PLAN_OUTPUT;
           const comment = `## Terraform Plan\n\`\`\`\n${planOutput}\n\`\`\``;
           const prNumber = context.payload.pull_request.number;
-          await github.issues.createComment({
+          await github.rest.issues.createComment({
             ...context.repo,
             issue_number: prNumber,
             body: comment
