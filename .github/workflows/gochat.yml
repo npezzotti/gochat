@@ -33,6 +33,22 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: false
     steps:
+    - name: Check if build-relevant files changed
+      id: changes
+      uses: dorny/paths-filter@v3
+      with:
+        filters: |
+          build:
+            - 'go.mod'
+            - 'go.sum'
+            - '**/*.go'
+            - 'Makefile'
+            - 'frontend/**'
+            - 'packer/**'
+    - name: Skip build if no relevant files changed
+      if: steps.changes.outputs.build == 'false'
+      run: echo "No relevant changes, skipping build"; exit 0
+    
     - name: Checkout
       uses: actions/checkout@v4
 
