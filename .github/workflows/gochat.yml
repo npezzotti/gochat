@@ -33,31 +33,33 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: false
     steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
     - name: Check if build-relevant files changed
       id: changes
       uses: dorny/paths-filter@v3
       with:
         filters: |
-          build:
+          go:
             - 'go.mod'
             - 'go.sum'
             - '**/*.go'
             - 'Makefile'
+          frontend:
             - 'frontend/**'
+            - 'Makefile'
+          packer:
             - 'packer/**'
-    - name: Skip build if no relevant files changed
-      if: steps.changes.outputs.build == 'false'
-      run: echo "No relevant changes, skipping build"; exit 0
-    
-    - name: Checkout
-      uses: actions/checkout@v4
 
     - name: Set up Go
+      if: steps.changes.outputs.go == 'true'
       uses: actions/setup-go@v4
       with:
         go-version: '1.24'
 
     - name: Set up Node.js
+      if: steps.changes.outputs.frontend == 'true'
       uses: actions/setup-node@v3
       with:
         node-version: '24'
@@ -66,6 +68,7 @@ jobs:
       run: make build
     
     - name:  Configure AWS Credentials
+      if: steps.changes.outputs.packer == 'true'
       uses: aws-actions/configure-aws-credentials@v5.0.0
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
@@ -73,22 +76,26 @@ jobs:
         aws-region: us-east-1
       
     - name: Setup `packer`
+      if: steps.changes.outputs.packer == 'true'
       uses: hashicorp/setup-packer@main
       id: setup
       with:
         version: "latest"
 
     - name: Run `packer init`
+      if: steps.changes.outputs.packer == 'true'
       id: init
       run: "packer init packer/gochat.pkr.hcl"
 
     - name: Run `packer validate`
+      if: steps.changes.outputs.packer == 'true'
       id: validate
       run: "packer validate packer/gochat.pkr.hcl"
       env:
         PKR_VAR_domain_name: ${{ vars.DOMAIN_NAME }}
 
     - name: Run `packer build`
+      if: steps.changes.outputs.packer == 'true'
       id: build
       run: "packer build -color=false -on-error=abort packer/gochat.pkr.hcl"
       env:
