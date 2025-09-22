@@ -60,13 +60,13 @@ jobs:
       if: steps.changes.outputs.app == 'true'
       uses: actions/setup-node@v3
       with:
-        node-version: '24'
+        node-version: '24.x'
 
     - name: Build with Make
       if: steps.changes.outputs.app == 'true'
       run: make build
     
-    - name:  Configure AWS Credentials
+    - name: Configure AWS Credentials
       if: steps.changes.outputs.packer == 'true' || steps.changes.outputs.app == 'true'
       uses: aws-actions/configure-aws-credentials@v5.0.0
       with:
@@ -76,25 +76,25 @@ jobs:
       
     - name: Setup `packer`
       if: steps.changes.outputs.packer == 'true' || steps.changes.outputs.app == 'true'
-      uses: hashicorp/setup-packer@main
+      uses: hashicorp/setup-packer@v3
       id: setup
       with:
-        version: "latest"
+        version: '1.14.2'
 
     - name: Run `packer init`
-      if: steps.changes.outputs.packer == 'true'
+      if: steps.changes.outputs.packer == 'true' || steps.changes.outputs.app == 'true'
       id: init
       run: "packer init packer/gochat.pkr.hcl"
 
     - name: Run `packer validate`
-      if: steps.changes.outputs.packer == 'true'
+      if: steps.changes.outputs.packer == 'true' || steps.changes.outputs.app == 'true'
       id: validate
       run: "packer validate packer/gochat.pkr.hcl"
       env:
         PKR_VAR_domain_name: ${{ vars.DOMAIN_NAME }}
 
     - name: Run `packer build`
-      if: steps.changes.outputs.packer == 'true'
+      if: steps.changes.outputs.packer == 'true' || steps.changes.outputs.app == 'true'
       id: build
       run: "packer build -color=false -on-error=abort packer/gochat.pkr.hcl"
       env:
