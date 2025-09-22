@@ -119,9 +119,11 @@ jobs:
     - name: Write TF Plan to PR
       if: github.event_name == 'pull_request'
       uses: actions/github-script@v6
+      env:
+        PLAN_OUTPUT: ${{ steps.plan.outputs.stdout || steps.plan.outputs.stderr }}
       with:
         script: |
-          const planOutput = ${{ steps.plan.outputs.stdout }} || ${{ steps.plan.outputs.stderr }};
+          const planOutput = process.env.PLAN_OUTPUT;
           const comment = `## Terraform Plan\n\`\`\`\n${planOutput}\n\`\`\``;
           const prNumber = context.payload.pull_request.number;
           await github.issues.createComment({
